@@ -6,7 +6,7 @@ STACK
 ===========================================================================
 Frontend : HTML + CSS + JavaScript (app.js, index.html, style.css)
 Backend  : Windows Forms (.NET) + WebView2 (Chromium)
-Dados    : Planilhas Excel via bridge C# <-> JS
+Dados    : SQLite (%LOCALAPPDATA%\SistemaVendas_UNIQ\sistema_vendas.db) via bridge C# <-> JS
 URL      : https://app.local/index.html (Virtual Host, NÃO file://)
 Bridge   : window.chrome.webview.hostObjects.bridge
 
@@ -63,20 +63,20 @@ const app = {
 }
 
 ===========================================================================
-BRIDGE C# — PLANILHAS MAPEADAS
+BRIDGE C# — TABELAS SQLITE (Database.cs)
 ===========================================================================
-'products'    → aba 'produtos'       cols: id,name,code,cost,price,stock,image,obs,category
-'customers'   → aba 'clientes'       cols: id,name,whatsapp,email,obs,date,image
-'sales'       → aba 'Planilha1'      cols: id,date,cliente,valor_total,desconto,valor_final,cost,lucro,pagamento,items
-'settings'    → aba 'configuracoes'  cols: razao_social,responsavel,whatsapp,email,endereco,foto
-'reversals'   → aba 'extornos'       cols: id,sale_id,product_id,product_name,qty,date
-'users'       → aba 'usuarios'       cols: id,username,fullname,password,role,isDefaultCredential
-'entradas'    → aba 'entradas'       cols: id,date,fornecedor,nota,obs,items,totalCusto
-'fechamentos' → aba 'fechamentos'    cols: id,dataAbertura,dataFechamento,operador,valorAbertura,
+'products'    → tabela 'products'       cols: id,name,code,cost,price,stock,image,obs,category
+'customers'   → tabela 'customers'       cols: id,name,whatsapp,email,obs,date,image
+'sales'       → tabela 'sales'      cols: id,date,cliente,valor_total,desconto,valor_final,cost,lucro,pagamento,items
+'settings'    → tabela 'settings'  cols: companyName,ownerName,whatsapp,email,address,logoUrl
+'reversals'   → tabela 'reversals'       cols: id,sale_id,product_id,product_name,qty,date
+'users'       → tabela 'users'       cols: id,username,fullname,password,role,isDefaultCredential
+'entradas'    → tabela 'entradas'       cols: id,date,fornecedor,nota,obs,items,totalCusto
+'fechamentos' → tabela 'fechamentos'    cols: id,dataAbertura,dataFechamento,operador,valorAbertura,
                                           valorFechamento,totalVendasDinheiro,totalVendasCartao,
                                           totalVendasPix,totalGeral,diferenca,sangrias,suprimentos
-'categories'  → aba 'categorias'     cols: id,name
-'caixa'       → localStorage 'sv_caixa' (bridge não suporta — objeto complexo)
+'categories'  → tabela 'categories'     cols: id,name
+'caixa'       → tabela 'caixa' (documento JSON, persistido pelo bridge)
 
 ===========================================================================
 PERSISTÊNCIA — PADRÃO salvarDados() / carregarDados()

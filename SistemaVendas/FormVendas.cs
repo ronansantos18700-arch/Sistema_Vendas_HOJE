@@ -16,6 +16,16 @@ namespace SistemaVendas
         {
             InitializeComponent();
 
+            try
+            {
+                Database.Initialize();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Erro ao abrir o banco de dados:\n" + ex.Message, "Erro",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
             // Criar WebView2 via código (NÃO usar no Designer)
             webView21 = new WebView2();
             webView21.Dock = DockStyle.Fill;
@@ -125,12 +135,7 @@ namespace SistemaVendas
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
-                if (result == DialogResult.Yes)
-                {
-                    Globals.ThisWorkbook.Save();
-                    Globals.ThisWorkbook.Application.Quit();
-                }
-                else if (result == DialogResult.No)
+                if (result == DialogResult.No)
                 {
                     e.Cancel = true;
                 }
