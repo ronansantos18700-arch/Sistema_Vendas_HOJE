@@ -223,3 +223,18 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
   - `python3 tests/db/test_ordem_sql.py` — sequência SQL de ordem/upsert/exclusão, incluindo 200 rodadas aleatórias.
 - Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/frontend/app.js`, `SistemaVendas/PROJECT_CONTEXT.md`, `tests/`
 
+### 2026-11-14 (Fase 2 — estoque e custo)
+
+- Decisão: custo médio ponderado (confirmado pelo usuário). Cada entrada recalcula o custo médio; venda usa o custo do momento e não altera o custo médio.
+- Histórico de movimentações (`movimentacoes`, tabela nova, esquema versão 2):
+  - Tipos: `saldo_inicial` (cadastro ou produto antigo), `entrada`, `venda`, `estorno` (exclusão de venda), `ajuste` (manual, ±), `ajuste_custo` (troca manual do custo), `exclusao_entrada` (auditoria).
+  - Saldo e custo são recalculados a partir das movimentações ativas (`frontend/estoque.js`, função `calcular`).
+  - Exclusão de entrada: as movimentações da entrada ficam `ignorada: true` e não contam mais, então estoque e custo voltam ao que seriam sem ela. Entradas anteriores ao histórico só revertem a quantidade (custo não é recalculado).
+  - Saldo nunca fica negativo.
+- Produtos antigos ganham um `saldo_inicial` na primeira carga, a partir do estoque e custo atuais.
+- Backup agora inclui `movimentacoes`. Backups antigos recriam o saldo inicial.
+- Pendente: tela de histórico de movimentações (os dados já são gravados).
+- Testes: `node tests/js/test_estoque.js` (regras de custo e estoque, inclusive invariantes aleatórios) e `node tests/js/test_fluxos_estoque.js` (fluxos do app.js com DOM simulado).
+- Não compilado no Windows nem executado no WebView2: validar cadastro, entrada, venda, exclusão de venda e de entrada, e reinício.
+- Arquivos: `SistemaVendas/frontend/estoque.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/Database.cs`, `tests/js/`.
+

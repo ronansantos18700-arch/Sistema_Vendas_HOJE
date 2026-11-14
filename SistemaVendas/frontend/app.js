@@ -24,6 +24,7 @@ const app = {
         customers: [],
         sales: [],
         reversals: [],
+        movimentacoes: [],
         users: [],
         currentUser: null,
         cart: [],
@@ -2250,6 +2251,7 @@ const app = {
                     sales: this.state.sales,
                     reversals: this.state.reversals,
                     entradas: this.state.entradas,
+                    movimentacoes: this.state.movimentacoes,
                     settings: this.state.settings,
                     categories: this.state.categories
                 },
@@ -2335,7 +2337,7 @@ const app = {
                         }
                     }
 
-                    const { products, customers, sales, reversals, entradas, settings, categories } = backupData.state;
+                    const { products, customers, sales, reversals, entradas, movimentacoes, settings, categories } = backupData.state;
                     const media = backupData.media || {};
 
                     this.logAudit('BACKUP_IMPORT', { file: file.name });
@@ -2362,6 +2364,9 @@ const app = {
                     this.state.entradas = entradas || [];
                     this.state.settings = settings || this.state.settings;
                     this.state.categories = categories || [];
+                    // Backups antigos não têm movimentações: o saldo inicial é recriado a partir do estoque
+                    this.state.movimentacoes = movimentacoes || [];
+                    this.iniciarHistoricoEstoque();
 
                     this.state.dataLoaded = true;
                     await this.salvarDados();
@@ -2418,6 +2423,51 @@ const app = {
     },
 
     // --- Storage Logic ---
+    // --- Estoque e custo (movimentações) ---
+
+    // Acrescenta movimentações e recalcula saldo e custo médio dos produtos afetados.
+    registrarMovimentacoes(novas) {
+        if (!novas || novas.length === 0) return;
+        this.state.movimentacoes.push(...novas);
+        const ids = new Set(novas.map(m => m.produtoId));
+        ids.forEach(id => {
+            const produto = this.state.products.find(p => String(p.id) === id);
+            if (produto) Estoque.sincronizar(produto, this.state.movimentacoes);
+        });
+    },
+
+    // Ajuste manual de quantidade. Só registra se o estoque mudar (não cai abaixo de zero).
+    registrarAjusteEstoque(produto, delta, obs) {
+        const efetivo = Math.max(0, produto.stock + delta) - produto.stock;
+        if (efetivo === 0) return false;
+        this.registrarMovimentacoes([Estoque.movimentoAjuste(produto.id, efetivo, obs)]);
+        return true;
+    },
+
+    // Edição de produto: diferença de estoque vira ajuste; diferença de custo vira ajuste de custo.
+    registrarAlteracaoProduto(anterior, novo) {
+        const delta = novo.stock - anterior.stock;
+        const novas = [];
+        if (delta !== 0) novas.push(Estoque.movimentoAjuste(novo.id, delta, 'Edição de produto'));
+        if (Number(novo.cost) !== Number(anterior.cost)) {
+            novas.push(Estoque.movimentoAjusteCusto(novo.id, novo.cost));
+        }
+        if (novas.length === 0) {
+            novo.stock = anterior.stock;
+            novo.cost = anterior.cost;
+            return;
+        }
+        // Mantém o produto anterior e aplica as movimentações (o recálculo define stock e cost)
+        this.state.movimentacoes.push(...novas);
+        Estoque.sincronizar(novo, this.state.movimentacoes);
+    },
+
+    // Produtos sem histórico (dados anteriores a esta versão) ganham saldo inicial a partir do estoque atual.
+    iniciarHistoricoEstoque() {
+        const novas = Estoque.garantirSaldoInicial(this.state.products, this.state.movimentacoes);
+        if (novas.length > 0) this.state.movimentacoes.push(...novas);
+    },
+
     colecoesParaSalvar() {
         return {
             products: this.state.products,
@@ -2425,6 +2475,7 @@ const app = {
             sales: this.state.sales,
             reversals: this.state.reversals,
             entradas: this.state.entradas,
+            movimentacoes: this.state.movimentacoes,
             fechamentos: this.state.historicoFechamentos,
             categories: this.state.categories,
             users: this.state.users
@@ -2524,6 +2575,7 @@ const app = {
                 localStorage.setItem('sv_caixa', JSON.stringify(this.state.caixaAtual ? [this.state.caixaAtual] : []));
                 localStorage.setItem('sv_fechamentos', JSON.stringify(this.state.historicoFechamentos));
                 localStorage.setItem('sv_entradas', JSON.stringify(this.state.entradas));
+                localStorage.setItem('sv_movimentacoes', JSON.stringify(this.state.movimentacoes));
                 localStorage.setItem('sv_categories', JSON.stringify(this.state.categories));
             }
             this.updateNotifications();
@@ -2543,7 +2595,7 @@ const app = {
                 const bridge = window.chrome.webview.hostObjects.bridge;
 
                 // Carregar dados principais
-                const [productsData, customersData, salesData, settingsData, reversalsData, entradasData, fechamentosData, categoriesData] = await Promise.all([
+                const [productsData, customersData, salesData, settingsData, reversalsData, entradasData, fechamentosData, categoriesData, movimentacoesData] = await Promise.all([
                     bridge.GetData('products'),
                     bridge.GetData('customers'),
                     bridge.GetData('sales'),
@@ -2551,7 +2603,8 @@ const app = {
                     bridge.GetData('reversals'),
                     bridge.GetData('entradas'),
                     bridge.GetData('fechamentos'),
-                    bridge.GetData('categories')
+                    bridge.GetData('categories'),
+                    bridge.GetData('movimentacoes')
                 ]);
 
                 // Carregar caixa com fallback individual
@@ -2670,6 +2723,18 @@ const app = {
                     totalCusto: parseFloat(e.totalCusto || 0) || 0
                 }));
 
+                this.state.movimentacoes = JSON.parse(movimentacoesData || '[]').map(m => ({
+                    id: String(m.id || ''),
+                    date: String(m.date || ''),
+                    produtoId: String(m.produtoId || ''),
+                    tipo: String(m.tipo || ''),
+                    qtd: Number(m.qtd) || 0,
+                    custoUnit: m.custoUnit == null ? null : (Number(m.custoUnit) || 0),
+                    refId: m.refId ? String(m.refId) : null,
+                    obs: String(m.obs || ''),
+                    ignorada: m.ignorada === true || m.ignorada === 'true'
+                }));
+
                 this.state.categories = JSON.parse(categoriesData || '[]').map(c => ({
                     id: String(c.id || ''),
                     name: String(c.name || '')
@@ -2726,6 +2791,7 @@ const app = {
                 this.state.historicoFechamentos = JSON.parse(localStorage.getItem('sv_fechamentos') || '[]');
                 this.state.entradas = JSON.parse(localStorage.getItem('sv_entradas') || '[]');
                 this.state.categories = JSON.parse(localStorage.getItem('sv_categories') || '[]');
+                this.state.movimentacoes = JSON.parse(localStorage.getItem('sv_movimentacoes') || '[]');
 
                 // Criar usuário admin padrão se não houver usuários (fallback)
                 if (this.state.users.length === 0) {
@@ -2751,6 +2817,8 @@ const app = {
             this.setLoading(false);
         }
 
+        this.iniciarHistoricoEstoque();
+
         if (this.state.products.length === 0 && !window.chrome?.webview) {
             this.state.products = [
                 { id: '1', name: 'MacBook Pro M3', code: '1001', cost: 8000, price: 14500, stock: 5, image: '' },
@@ -2759,6 +2827,7 @@ const app = {
             this.state.customers = [
                 { id: 'c1', name: 'João Silva', whatsapp: '(11) 98888-7777', date: new Date().toISOString(), image: '' }
             ];
+            this.iniciarHistoricoEstoque();
             this.salvarDados();
         }
     },
@@ -3929,10 +3998,7 @@ const app = {
         // Se a venda ainda não está no histórico (é uma venda nova do PDV)
         if (!this.state.sales.find(s => (s.id || s.ID) === sale.id)) {
             // Atualiza o estoque
-            sale.items.forEach(item => {
-                const p = this.state.products.find(prod => prod.id === item.id);
-                if (p) p.stock -= item.qty;
-            });
+            this.registrarMovimentacoes(Estoque.movimentosDaVenda(sale));
 
             // Adiciona a venda ao histórico
             this.state.sales.push(sale);
@@ -4114,7 +4180,7 @@ const app = {
         if (p) {
             // Se o amount for +/- 1, faz o ajuste direto (botões da lista)
             if (Math.abs(amount) === 1) {
-                p.stock = Math.max(0, p.stock + amount);
+                this.registrarAjusteEstoque(p, amount, 'Ajuste rápido');
                 await this.salvarDados();
                 // BUG 2: Preservar filtros ativos ao re-renderizar após ajuste de estoque
                 const queryAtiva = document.getElementById('filter-products')?.value || '';
@@ -4150,11 +4216,7 @@ const app = {
         const p = this.state.products.find(prod => prod.id === this.state.editingId);
 
         if (p) {
-            if (this.state.stockAdjustmentType === 'add') {
-                p.stock += qty;
-            } else {
-                p.stock = Math.max(0, p.stock - qty);
-            }
+            this.registrarAjusteEstoque(p, this.state.stockAdjustmentType === 'add' ? qty : -qty, 'Ajuste manual');
 
             await this.salvarDados();
             this.showNotification('success', `Ajuste manual aplicado: ${this.state.stockAdjustmentType === 'add' ? '+' : '-'}${qty} un.`);
@@ -4195,9 +4257,14 @@ const app = {
 
             if (this.state.editingId) {
                 const index = this.state.products.findIndex(p => p.id === this.state.editingId);
-                if (index !== -1) this.state.products[index] = product;
+                if (index !== -1) {
+                    const anterior = this.state.products[index];
+                    this.state.products[index] = product;
+                    this.registrarAlteracaoProduto(anterior, product);
+                }
             } else {
                 this.state.products.push(product);
+                this.registrarMovimentacoes([Estoque.movimentoCadastro(product.id, product.stock, product.cost)]);
             }
 
             await this.salvarDados();
@@ -4426,8 +4493,6 @@ const app = {
                     saleToDelete.items.forEach(item => {
                         const product = this.state.products.find(p => p.id === item.id);
                         if (product) {
-                            product.stock += item.qty;
-
                             // Registra o estorno
                             this.state.reversals.push({
                                 id: 'E' + Date.now() + Math.floor(Math.random() * 1000),
@@ -4441,6 +4506,7 @@ const app = {
                     });
                 }
 
+                if (saleToDelete) this.registrarMovimentacoes(Estoque.movimentosDoEstorno(saleToDelete));
                 this.state.sales = this.state.sales.filter(s => (s.ID || s.id) !== id);
                 await this.salvarDados();
                 this.showNotification('success', 'Registro de saída excluído e estoque estornado com sucesso!');
@@ -5366,13 +5432,8 @@ const app = {
         };
 
         // Atualizar estoque e custo dos produtos
-        this.entradaItemsTemp.forEach(item => {
-            const product = this.state.products.find(p => p.id === item.productId);
-            if (product) {
-                product.stock += item.qty;
-                product.cost = item.unitCost;
-            }
-        });
+        // Estoque e custo médio ponderado são recalculados pelas movimentações
+        this.registrarMovimentacoes(Estoque.movimentosDaEntrada(novaEntrada));
 
         this.state.entradas.unshift(novaEntrada);
         await this.salvarDados();
@@ -5465,13 +5526,10 @@ const app = {
 
                 const entrada = this.state.entradas[index];
 
-                // Reverter estoque
-                entrada.items.forEach(item => {
-                    const product = this.state.products.find(p => p.id === item.productId);
-                    if (product) {
-                        product.stock = Math.max(0, product.stock - item.qty);
-                    }
-                });
+                // Reverte estoque e custo médio: as movimentações da entrada deixam de contar
+                const plano = Estoque.planejarExclusaoEntrada(this.state.movimentacoes, entrada);
+                this.state.movimentacoes.forEach(m => { if (plano.ignorar.includes(m.id)) m.ignorada = true; });
+                this.registrarMovimentacoes(plano.novas);
 
                 this.state.entradas.splice(index, 1);
                 await this.salvarDados();
