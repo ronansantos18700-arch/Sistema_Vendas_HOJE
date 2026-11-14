@@ -101,6 +101,26 @@ namespace SistemaVendas
             }
         }
 
+        /// <summary>
+        /// Grava todas as coleções em uma única transação (tudo ou nada).
+        /// JSON: objeto com chaves de tipo, ex.: {"products": [...], "sales": [...]}.
+        /// </summary>
+        public bool SaveAll(string jsonData)
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    return Database.ReplaceAll(jsonData);
+                }
+                catch (Exception ex)
+                {
+                    NotifyError("Erro ao salvar dados: " + ex.Message);
+                    return false;
+                }
+            }
+        }
+
         private void NotifyError(string message)
         {
             string traduzido = message.Replace("products", "Produtos")

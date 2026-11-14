@@ -198,3 +198,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
   - Sem importação dos dados antigos de `vendas.xlsx` (começa do zero). O arquivo foi mantido no repositório, sem uso pelo sistema.
   - Caixa agora é persistido no banco (antes o bridge recusava o tipo `caixa`).
   - Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/FormVendas.cs`, `SistemaVendas/Program.cs`, `SistemaVendas/SistemaVendas.csproj`, `SistemaVendas/PROJECT_CONTEXT.md`
+
+### 2026-11-14 (Fase 1 — camada de dados)
+
+- Gravação em uma única transação:
+  - Novo `Bridge.SaveAll(json)` e `Database.ReplaceAll(json)`: grava todas as coleções (produtos, clientes, vendas, configurações, estornos, entradas, fechamentos, categorias, caixa e usuários) em uma transação. Se algo falhar, nada é gravado.
+  - `salvarDados()` no frontend passa a fazer uma única chamada a `SaveAll`, no lugar de 9 chamadas separadas.
+  - `SaveData` continua disponível (usado no reset de usuários).
+- Versão do esquema: `PRAGMA user_version` (versão 1). `Initialize()` aplica migrações pendentes e recusa bancos de versão mais nova.
+- Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/frontend/app.js`, `SistemaVendas/PROJECT_CONTEXT.md`
+- Pendente: gravação incremental por registro (inserir/atualizar/excluir), prevista para a próxima etapa.
+

@@ -10,14 +10,18 @@ using Newtonsoft.Json.Linq;
 namespace SistemaVendas
 {
     /// <summary>
-    /// Persistência em SQLite (substitui as abas do Excel).
+    /// Persistência em SQLite.
     /// Cada tipo enviado pelo frontend (products, sales, ...) corresponde a uma tabela
-    /// com o mesmo nome. SaveData substitui todo o conteúdo da tabela, como antes.
+    /// com o mesmo nome. A gravação substitui o conteúdo da tabela, dentro de transação.
     /// Propriedades que não existem nas colunas são guardadas em "_extra" (JSON),
     /// para não perder dados se o frontend ganhar novos campos.
+    /// A versão do esquema fica em PRAGMA user_version; migrações futuras entram em Initialize.
     /// </summary>
     public static class Database
     {
+        /// <summary>Versão atual do esquema do banco.</summary>
+        public const int VersaoEsquema = 1;
+
         private enum Tipo { Texto, Real, Inteiro, Booleano, Json }
 
         private sealed class Coluna
@@ -98,7 +102,7 @@ namespace SistemaVendas
             "SistemaVendas_UNIQ",
             "sistema_vendas.db");
 
-        /// <summary>Cria o arquivo e as tabelas, se ainda não existirem.</summary>
+        /// <summary>Cria o arquivo, as tabelas e aplica migrações pendentes.</summary>
         public static void Initialize()
         {
             SQLitePCL.Batteries_V2.Init();
@@ -107,15 +111,32 @@ namespace SistemaVendas
             using (var conn = Abrir())
             using (var tx = conn.BeginTransaction())
             {
-                foreach (Tabela t in Tabelas)
+                int versao = LerVersaoEsquema(conn, tx);
+
+                if (versao > VersaoEsquema)
                 {
-                    using (var cmd = conn.CreateCommand())
+                    throw new InvalidOperationException(
+                        "O banco foi criado por uma versão mais nova do sistema (esquema " + versao + ").");
+                }
+
+                // Migrações futuras entram aqui, por exemplo:
+                // if (versao < 2) { ... }
+
+                if (versao < 1)
+                {
+                    // CREATE TABLE IF NOT EXISTS: também cobre bancos criados antes do versionamento.
+                    foreach (Tabela t in Tabelas)
                     {
-                        cmd.Transaction = tx;
-                        cmd.CommandText = SqlCriarTabela(t);
-                        cmd.ExecuteNonQuery();
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.Transaction = tx;
+                            cmd.CommandText = SqlCriarTabela(t);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
                 }
+
+                DefinirVersaoEsquema(conn, tx, VersaoEsquema);
                 tx.Commit();
             }
         }
@@ -175,14 +196,62 @@ namespace SistemaVendas
             return JsonConvert.SerializeObject(resultado, Formatting.None);
         }
 
-        /// <summary>Substitui todo o conteúdo do tipo informado pelos itens do JSON recebido.</summary>
+        /// <summary>Substitui o conteúdo de um tipo (transação própria).</summary>
         public static bool Replace(string type, string json)
         {
             Tabela t = ObterTabela(type);
             if (t == null) return false;
 
-            JToken raiz = string.IsNullOrWhiteSpace(json) ? new JArray() : Parse(json);
+            using (var conn = Abrir())
+            using (var tx = conn.BeginTransaction())
+            {
+                GravarTabela(conn, tx, t, Parse(string.IsNullOrWhiteSpace(json) ? "[]" : json));
+                tx.Commit();
+            }
 
+            return true;
+        }
+
+        /// <summary>
+        /// Grava todas as coleções recebidas em UMA transação: ou tudo é gravado, ou nada.
+        /// O JSON é um objeto cujas chaves são tipos (products, sales, caixa, ...).
+        /// Se algum tipo for desconhecido, nada é gravado.
+        /// </summary>
+        public static bool ReplaceAll(string json)
+        {
+            JToken raiz = Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+            var colecoes = raiz as JObject;
+            if (colecoes == null) return false;
+
+            // Valida tudo antes de abrir a transação.
+            var pendentes = new List<KeyValuePair<Tabela, JToken>>();
+            foreach (JProperty prop in colecoes.Properties())
+            {
+                Tabela t = ObterTabela(prop.Name);
+                if (t == null) return false;
+                pendentes.Add(new KeyValuePair<Tabela, JToken>(t, prop.Value));
+            }
+
+            using (var conn = Abrir())
+            using (var tx = conn.BeginTransaction())
+            {
+                foreach (KeyValuePair<Tabela, JToken> par in pendentes)
+                {
+                    GravarTabela(conn, tx, par.Key, par.Value);
+                }
+                tx.Commit();
+            }
+
+            return true;
+        }
+
+        // ---------------------------------------------------------------
+        // Gravação
+        // ---------------------------------------------------------------
+
+        /// <summary>Apaga o conteúdo da tabela e insere os itens. Usa a transação recebida.</summary>
+        private static void GravarTabela(SqliteConnection conn, SqliteTransaction tx, Tabela t, JToken raiz)
+        {
             var itens = new List<JObject>();
             if (raiz is JArray lista)
             {
@@ -196,67 +265,86 @@ namespace SistemaVendas
                 itens.Add(unico);
             }
 
-            using (var conn = Abrir())
-            using (var tx = conn.BeginTransaction())
+            using (var del = conn.CreateCommand())
             {
-                using (var del = conn.CreateCommand())
-                {
-                    del.Transaction = tx;
-                    del.CommandText = "DELETE FROM " + Q(t.Nome);
-                    del.ExecuteNonQuery();
-                }
-
-                foreach (JObject item in itens)
-                {
-                    using (var ins = conn.CreateCommand())
-                    {
-                        ins.Transaction = tx;
-
-                        if (t.Documento)
-                        {
-                            ins.CommandText = "INSERT INTO " + Q(t.Nome) + " (\"dados\") VALUES (@p0)";
-                            ins.Parameters.AddWithValue("@p0", JsonConvert.SerializeObject(item, Formatting.None));
-                        }
-                        else
-                        {
-                            var nomes = new List<string>();
-                            var params_ = new List<string>();
-                            var nomesColunas = new HashSet<string>();
-
-                            for (int i = 0; i < t.Colunas.Length; i++)
-                            {
-                                Coluna col = t.Colunas[i];
-                                nomesColunas.Add(col.Nome);
-                                nomes.Add(Q(col.Nome));
-                                params_.Add("@p" + i);
-                                ins.Parameters.AddWithValue("@p" + i, ParaBanco(item[col.Nome], col.Tipo));
-                            }
-
-                            var extra = new JObject();
-                            foreach (JProperty p in item.Properties())
-                            {
-                                if (!nomesColunas.Contains(p.Name))
-                                    extra[p.Name] = p.Value.DeepClone();
-                            }
-
-                            nomes.Add(Q(ColunaExtra));
-                            params_.Add("@extra");
-                            ins.Parameters.AddWithValue("@extra",
-                                extra.Count > 0 ? (object)JsonConvert.SerializeObject(extra, Formatting.None) : DBNull.Value);
-
-                            ins.CommandText = "INSERT INTO " + Q(t.Nome) +
-                                              " (" + string.Join(", ", nomes) + ")" +
-                                              " VALUES (" + string.Join(", ", params_) + ")";
-                        }
-
-                        ins.ExecuteNonQuery();
-                    }
-                }
-
-                tx.Commit();
+                del.Transaction = tx;
+                del.CommandText = "DELETE FROM " + Q(t.Nome);
+                del.ExecuteNonQuery();
             }
 
-            return true;
+            foreach (JObject item in itens)
+            {
+                using (var ins = conn.CreateCommand())
+                {
+                    ins.Transaction = tx;
+
+                    if (t.Documento)
+                    {
+                        ins.CommandText = "INSERT INTO " + Q(t.Nome) + " (\"dados\") VALUES (@p0)";
+                        ins.Parameters.AddWithValue("@p0", JsonConvert.SerializeObject(item, Formatting.None));
+                    }
+                    else
+                    {
+                        var nomes = new List<string>();
+                        var parametros = new List<string>();
+                        var nomesColunas = new HashSet<string>();
+
+                        for (int i = 0; i < t.Colunas.Length; i++)
+                        {
+                            Coluna col = t.Colunas[i];
+                            nomesColunas.Add(col.Nome);
+                            nomes.Add(Q(col.Nome));
+                            parametros.Add("@p" + i);
+                            ins.Parameters.AddWithValue("@p" + i, ParaBanco(item[col.Nome], col.Tipo));
+                        }
+
+                        var extra = new JObject();
+                        foreach (JProperty p in item.Properties())
+                        {
+                            if (!nomesColunas.Contains(p.Name))
+                                extra[p.Name] = p.Value.DeepClone();
+                        }
+
+                        nomes.Add(Q(ColunaExtra));
+                        parametros.Add("@extra");
+                        ins.Parameters.AddWithValue("@extra",
+                            extra.Count > 0
+                                ? (object)JsonConvert.SerializeObject(extra, Formatting.None)
+                                : DBNull.Value);
+
+                        ins.CommandText = "INSERT INTO " + Q(t.Nome) +
+                                          " (" + string.Join(", ", nomes) + ")" +
+                                          " VALUES (" + string.Join(", ", parametros) + ")";
+                    }
+
+                    ins.ExecuteNonQuery();
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Versão do esquema
+        // ---------------------------------------------------------------
+
+        private static int LerVersaoEsquema(SqliteConnection conn, SqliteTransaction tx)
+        {
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = "PRAGMA user_version";
+                return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+            }
+        }
+
+        private static void DefinirVersaoEsquema(SqliteConnection conn, SqliteTransaction tx, int versao)
+        {
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                // Valor interno (constante), não vem do usuário; PRAGMA não aceita parâmetros.
+                cmd.CommandText = "PRAGMA user_version = " + versao.ToString(CultureInfo.InvariantCulture);
+                cmd.ExecuteNonQuery();
+            }
         }
 
         // ---------------------------------------------------------------

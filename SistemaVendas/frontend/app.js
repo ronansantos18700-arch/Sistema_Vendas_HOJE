@@ -2432,40 +2432,23 @@ const app = {
             if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
                 const bridge = window.chrome.webview.hostObjects.bridge;
 
-                // Salvar dados principais (Produtos, Clientes, Vendas, Settings, Reversals, Entradas, Fechamentos)
-                const coreResults = await Promise.all([
-                    bridge.SaveData('products', JSON.stringify(this.state.products)),
-                    bridge.SaveData('customers', JSON.stringify(this.state.customers)),
-                    bridge.SaveData('sales', JSON.stringify(this.state.sales)),
-                    bridge.SaveData('settings', JSON.stringify([this.state.settings])),
-                    bridge.SaveData('reversals', JSON.stringify(this.state.reversals)),
-                    bridge.SaveData('entradas', JSON.stringify(this.state.entradas)),
-                    bridge.SaveData('fechamentos', JSON.stringify(this.state.historicoFechamentos)),
-                    bridge.SaveData('categories', JSON.stringify(this.state.categories))
-                ]);
+                // Grava todas as coleções em UMA transação no banco: ou tudo é salvo, ou nada.
+                const payload = {
+                    products: this.state.products,
+                    customers: this.state.customers,
+                    sales: this.state.sales,
+                    settings: [this.state.settings],
+                    reversals: this.state.reversals,
+                    entradas: this.state.entradas,
+                    fechamentos: this.state.historicoFechamentos,
+                    categories: this.state.categories,
+                    caixa: this.state.caixaAtual ? [this.state.caixaAtual] : [],
+                    users: this.state.users
+                };
 
-                if (coreResults.some(r => r === false)) {
-                    throw new Error("Uma ou mais planilhas principais não puderam ser salvas.");
-                }
-
-                // Tenta salvar caixa via bridge, com fallback resiliente
-                try {
-                    await bridge.SaveData('caixa', JSON.stringify(this.state.caixaAtual ? [this.state.caixaAtual] : []));
-                } catch (e) {
-                    localStorage.setItem('sv_caixa', JSON.stringify(this.state.caixaAtual ? [this.state.caixaAtual] : []));
-                    console.warn('Bridge caixa não disponível. Salvo no localStorage.');
-                }
-
-                // Tenta salvar usuários via bridge, se falhar usa localStorage (mais resiliente)
-                try {
-                    const usersSaved = await bridge.SaveData('users', JSON.stringify(this.state.users));
-                    if (!usersSaved) {
-                        localStorage.setItem('sv_users', JSON.stringify(this.state.users));
-                        console.warn("Bridge 'users' não disponível ou falhou. Salvo no localStorage.");
-                    }
-                } catch (e) {
-                    localStorage.setItem('sv_users', JSON.stringify(this.state.users));
-                    console.error("Erro ao salvar usuários no bridge:", e);
+                const saved = await bridge.SaveAll(JSON.stringify(payload));
+                if (!saved) {
+                    throw new Error("Não foi possível salvar os dados. Nenhuma alteração foi gravada.");
                 }
             } else {
                 localStorage.setItem('sv_products', JSON.stringify(this.state.products));
