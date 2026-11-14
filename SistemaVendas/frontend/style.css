@@ -159,10 +159,6 @@
     background: rgba(0, 0, 0, 0.03);
 }
 
-.light-theme .zoom-panel-sidebar {
-    background: rgba(0, 0, 0, 0.03);
-}
-
 .light-theme .btn-icon-toggle {
     background: rgba(0, 0, 0, 0.04);
 }
@@ -303,56 +299,6 @@ html {
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
-/* Sidebar Zoom Panel */
-.zoom-panel-sidebar {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.5rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    margin-top: 0.75rem;
-}
-
-.zoom-info-sidebar {
-    flex: 1;
-    text-align: center;
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--text-dim);
-}
-
-.btn-zoom-sidebar {
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: var(--transition);
-    font-size: var(--fs-xs);
-}
-
-.btn-zoom-sidebar:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-}
-
-.btn-zoom-sidebar i {
-    width: 10px;
-    height: 10px;
-}
-
-#floating-zoom-reset {
-    width: auto;
-    padding: 0 0.4rem;
-}
-
 .app-container {
     display: flex;
     flex-direction: column; /* Mobile first: Sidebar will be fixed overlay */
@@ -438,8 +384,7 @@ body {
 
 .sidebar.collapsed .brand h1,
 .sidebar.collapsed .nav-btn span,
-.sidebar.collapsed .user-info,
-.sidebar.collapsed .zoom-panel-sidebar {
+.sidebar.collapsed .user-info {
     display: none;
 }
 
@@ -1348,7 +1293,7 @@ body {
     border: 1px solid rgba(249, 115, 22, 0.2);
 }
 
-/* BUG 3 — Scrollbar do Modal de Entradas */
+/* Scrollbar do Modal de Entradas */
 #entrada-items-list::-webkit-scrollbar { 
     width: 4px; 
 } 
@@ -2965,11 +2910,11 @@ body.sem-login .requer-login { display: none !important; }
 .item-avatar {
     width: 40px;
     height: 40px;
-    min-width: 40px;       /* BUG 1: impedir encolhimento */
-    min-height: 40px;      /* BUG 1: forçar altura mínima */
+    min-width: 40px;       /* impedir encolhimento */
+    min-height: 40px;      /* forçar altura mínima */
     border-radius: 50%;
-    aspect-ratio: 1 / 1;  /* BUG 1: garantir proporção quadrada */
-    flex-shrink: 0;        /* BUG 1: não encolher em flex containers */
+    aspect-ratio: 1 / 1;  /* garantir proporção quadrada */
+    flex-shrink: 0;        /* não encolher em flex containers */
     object-fit: cover;
     background: var(--glass-inner);
 }
@@ -2977,11 +2922,11 @@ body.sem-login .requer-login { display: none !important; }
 .item-avatar-letter {
     width: 40px;
     height: 40px;
-    min-width: 40px;       /* BUG 1: impedir encolhimento */
-    min-height: 40px;      /* BUG 1: forçar altura mínima */
+    min-width: 40px;       /* impedir encolhimento */
+    min-height: 40px;      /* forçar altura mínima */
     border-radius: 50%;
-    aspect-ratio: 1 / 1;  /* BUG 1: garantir proporção quadrada */
-    flex-shrink: 0;        /* BUG 1: não encolher em flex containers */
+    aspect-ratio: 1 / 1;  /* garantir proporção quadrada */
+    flex-shrink: 0;        /* não encolher em flex containers */
     background: rgba(var(--accent-rgb), 0.2);
     color: var(--accent);
     display: flex;
@@ -3733,65 +3678,6 @@ body.sem-login .requer-login { display: none !important; }
 #settings-view .sv-toggle input:checked + .sv-toggle-track:before {
     transform: translateX(24px);
 }
-
-#settings-view .sv-zoom-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 1rem 0;
-}
-
-#settings-view .sv-zoom-display {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    justify-content: center;
-    font-size: var(--fs-xl);
-    font-weight: 600;
-    color: var(--accent);
-    background: rgba(var(--accent-rgb), 0.05);
-    padding: 1.5rem;
-    border-radius: var(--radius-md);
-}
-
-#settings-view .sv-zoom-display i {
-    width: 32px;
-    height: 32px;
-}
-
-#settings-view .sv-zoom-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 6px;
-    background: var(--glass-border);
-    border-radius: 3px;
-    outline: none;
-    cursor: pointer;
-}
-
-#settings-view .sv-zoom-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    background: var(--accent);
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
-    transition: var(--transition);
-}
-
-#settings-view .sv-zoom-slider::-webkit-slider-thumb:hover {
-}
-
-#settings-view .sv-zoom-labels {
-    display: flex;
-    justify-content: space-between;
-    color: var(--text-dim);
-    font-size: var(--fs-sm);
-}
-
 
 /* ==========================================================================
    DESIGN SYSTEM v2 - componentes base (fica no fim para vencer regras antigas)
