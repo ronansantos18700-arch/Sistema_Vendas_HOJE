@@ -775,46 +775,39 @@ const app = {
             });
         }
 
-        // POS Elements
+        // PDV: busca/leitor, categorias, pagamento e atalhos
         const barcodeInput = document.getElementById('pos-barcode');
-        const productSelect = document.getElementById('pos-product-manual');
-        const addBtn = document.getElementById('btn-add-item');
         const paidInput = document.getElementById('pos-paid');
         const paymentSelect = document.getElementById('pos-payment');
         const finishBtn = document.getElementById('btn-finish-sale');
 
-        const qtyInput = document.getElementById('pos-qty');
         if (barcodeInput) {
-            barcodeInput.addEventListener('keypress', (e) => {
+            barcodeInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault();
                     this.handleBarcodeEntry(barcodeInput.value);
                 }
             });
+            barcodeInput.addEventListener('input', () => this.renderPosCatalog());
         }
 
-        if (qtyInput) {
-            qtyInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    addBtn?.click();
-                }
+        const chips = document.getElementById('pos-chips');
+        if (chips) {
+            chips.onclick = (e) => {
+                const botao = e.target.closest('.pos-chip');
+                if (!botao) return;
+                this.state.posCatalog = { categoria: botao.dataset.cat || '' };
+                this.renderPosCatalog();
+            };
+        }
+
+        document.querySelectorAll('.pos-pay-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!paymentSelect) return;
+                paymentSelect.value = btn.dataset.pay;
+                paymentSelect.dispatchEvent(new Event('change'));
             });
-        }
-
-        if (addBtn) {
-            addBtn.addEventListener('click', () => {
-                const barcode = barcodeInput?.value;
-                const productId = productSelect.value;
-                const qty = parseInt(document.getElementById('pos-qty').value) || 1;
-
-                if (barcode) {
-                    this.handleBarcodeEntry(barcode);
-                } else if (productId) {
-                    this.addToCart(productId, qty);
-                    productSelect.value = '';
-                    document.getElementById('pos-qty').value = 1;
-                }
-            });
-        }
+        });
 
         if (paymentSelect) {
             paymentSelect.addEventListener('change', () => {
@@ -844,13 +837,19 @@ const app = {
         }
         if (finishBtn) finishBtn.addEventListener('click', () => this.finishSale());
 
-        const btnDirectSale = document.getElementById('btn-direct-sale');
-        if (btnDirectSale) {
-            btnDirectSale.onclick = () => {
-                this.state.posState.isDirectSale = !this.state.posState.isDirectSale;
-                this.updateDirectSaleUI();
-            };
-        }
+        // F2: foca a busca. F4: finaliza a venda. Só com o PDV aberto e sem modal.
+        document.addEventListener('keydown', (e) => {
+            if (this.state.currentView !== 'pos') return;
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay && !overlay.classList.contains('hidden')) return;
+            if (e.key === 'F2') {
+                e.preventDefault();
+                barcodeInput?.focus();
+            } else if (e.key === 'F4') {
+                e.preventDefault();
+                this.finishSale();
+            }
+        });
 
         const exitBtn = document.getElementById('btn-exit-app');
         if (exitBtn) {
@@ -1108,7 +1107,7 @@ const app = {
 
             this.updatePaidVisibility();
             this.calculateTotals();
-            this.updateDirectSaleUI();
+            this.updatePaidVisibility();
 
             const barcodeInput = document.getElementById('pos-barcode');
             if (barcodeInput) barcodeInput.focus();
@@ -1630,35 +1629,67 @@ const app = {
         this.initLucide();
     },
 
-    async addCategory() {
-        const input = document.getElementById('new-category-name');
-        if (!input) return;
+    async criarCategoria(nome) {
+        const name = (nome || '').trim();
+        if (!name) return { erro: 'Informe o nome da categoria.' };
 
-        const name = input.value.trim();
-        if (!name) {
-            this.showNotification('error', 'Informe o nome da categoria.');
-            return;
-        }
+        const existente = this.state.categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+        if (existente) return { erro: 'Já existe uma categoria com este nome.', existente: existente };
 
-        const nameLower = name.toLowerCase();
-        if (this.state.categories.some(c => c.name.toLowerCase() === nameLower)) {
-            this.showNotification('error', 'Já existe uma categoria com este nome.');
-            return;
-        }
-
-        const newCat = {
-            id: 'CAT' + Date.now(),
-            name: name
-        };
-
-        this.state.categories.push(newCat);
+        const cat = { id: 'CAT' + Date.now(), name: name };
+        this.state.categories.push(cat);
         await this.salvarDados();
+        return { cat: cat };
+    },
 
-        input.value = '';
+    atualizarCategorias() {
         this.renderCategories();
         this.populateCategorySelect();
         this.updateCategoryFilter();
+        this.renderPosCatalog();
+    },
+
+    openCategoriesModal() {
+        this.renderCategories();
+        this.openModal('categories');
+    },
+
+    async addCategory() {
+        const input = document.getElementById('new-category-name');
+        if (!input) return;
+        const r = await this.criarCategoria(input.value);
+        if (r.erro) {
+            this.showNotification('error', r.erro);
+            return;
+        }
+        input.value = '';
+        this.atualizarCategorias();
         this.showNotification('success', 'Categoria adicionada com sucesso!');
+    },
+
+    toggleQuickCategory() {
+        const linha = document.getElementById('prod-quick-category');
+        const input = document.getElementById('prod-new-category-name');
+        if (!linha) return;
+        linha.classList.toggle('hidden');
+        if (!linha.classList.contains('hidden') && input) input.focus();
+    },
+
+    async addCategoryFromProduct() {
+        const input = document.getElementById('prod-new-category-name');
+        const r = await this.criarCategoria(input ? input.value : '');
+        if (r.erro && !r.existente) {
+            this.showNotification('error', r.erro);
+            return;
+        }
+        const cat = r.cat || r.existente;
+        if (input) input.value = '';
+        document.getElementById('prod-quick-category')?.classList.add('hidden');
+        this.atualizarCategorias();
+        const select = document.getElementById('prod-category');
+        if (select) select.value = cat.id;
+        if (r.cat) this.showNotification('success', 'Categoria criada e selecionada.');
+        else this.showNotification('info', 'Essa categoria já existia e foi selecionada.');
     },
 
     async deleteCategory(id) {
@@ -3306,6 +3337,7 @@ const app = {
     // --- POS Logic ---
     updatePaidVisibility() {
         const payment = document.getElementById('pos-payment') ? document.getElementById('pos-payment').value : '';
+        document.querySelectorAll('.pos-pay-btn').forEach(b => b.classList.toggle('active', b.dataset.pay === payment));
         const paidInput = document.getElementById('pos-paid');
         const changeRow = document.getElementById('pos-change-row');
         if (!paidInput || !changeRow) return;
@@ -3327,21 +3359,28 @@ const app = {
     },
 
     handleBarcodeEntry(code) {
-        if (!code) return;
-        const qtyEl = document.getElementById('pos-qty');
-        const qty = parseInt(qtyEl?.value) || 1;
-        const product = this.state.products.find(p => p.code === code);
+        const termo = (code || '').trim();
+        if (!termo) return;
 
-        if (product) {
-            const added = this.addToCart(product.id, qty);
-            if (added) {
-                // Limpa os campos APENAS se o produto foi adicionado com sucesso ao carrinho
-                const barcodeInput = document.getElementById('pos-barcode');
-                if (barcodeInput) barcodeInput.value = '';
-                if (qtyEl) qtyEl.value = 1;
+        let produto = this.state.products.find(p => String(p.code) === termo);
+        if (!produto && !/^\d+$/.test(termo)) {
+            // Não é código de barras: procura pelo nome. Só aceita se for um único produto.
+            const achados = this.state.products.filter(p => (p.name || '').toLowerCase().includes(termo.toLowerCase()));
+            if (achados.length > 1) {
+                this.showNotification('error', `${achados.length} produtos encontrados. Digite o nome completo ou clique no produto.`);
+                return;
             }
-        } else {
-            this.showNotification('error', 'Produto não encontrado pelo código informado.');
+            produto = achados[0];
+        }
+        if (!produto) {
+            this.showNotification('error', 'Produto não encontrado pelo código ou nome informado.');
+            return;
+        }
+
+        if (this.addToCart(produto.id, 1)) {
+            const barcodeInput = document.getElementById('pos-barcode');
+            if (barcodeInput) barcodeInput.value = '';
+            this.renderPosCatalog();
         }
     },
 
@@ -3364,35 +3403,91 @@ const app = {
 
     renderCart() {
         const container = document.getElementById('pos-cart-items');
+        const countEl = document.getElementById('pos-cart-count');
+        const totalItens = this.state.cart.reduce((acc, item) => acc + item.qty, 0);
+        if (countEl) countEl.textContent = totalItens;
         if (!container) return;
 
         if (this.state.cart.length === 0) {
             container.innerHTML = '<div class="empty-cart-msg">Carrinho vazio</div>';
-            this.calculateTotals();
+        } else {
+            container.innerHTML = this.state.cart.map(item => `
+                <div class="pos-cart-item">
+                    <div class="pos-ci-thumb">${item.image
+                        ? `<img src="${item.image}" alt="">`
+                        : `<span>${this.esc((item.name || '?').charAt(0).toUpperCase())}</span>`}</div>
+                    <div class="pos-ci-info">
+                        <span class="pos-ci-name">${this.esc(item.name)}</span>
+                        <span class="pos-ci-unit">${this.formatCurrency(item.price)} cada</span>
+                    </div>
+                    <div class="pos-ci-qty">
+                        <button type="button" onclick="app.changeCartQty('${item.id}', -1)">-</button>
+                        <span>${item.qty}</span>
+                        <button type="button" onclick="app.changeCartQty('${item.id}', 1)">+</button>
+                    </div>
+                    <span class="pos-ci-total">${this.formatCurrency(item.price * item.qty)}</span>
+                    <button type="button" class="pos-ci-remove" title="Remover item" onclick="app.removeFromCart('${item.id}')"><i data-lucide="trash-2"></i></button>
+                </div>`).join('');
+            this.initLucide();
+        }
+        this.renderPosCatalog(); // atualiza o estoque exibido nos cards
+        this.calculateTotals();
+    },
+
+    renderPosCatalog() {
+        const grid = document.getElementById('pos-product-grid');
+        const chips = document.getElementById('pos-chips');
+        if (!grid || !chips) return;
+
+        const categoria = (this.state.posCatalog && this.state.posCatalog.categoria) || '';
+        const busca = (document.getElementById('pos-barcode')?.value || '').trim().toLowerCase();
+
+        chips.innerHTML = [{ id: '', name: 'Todos' }, ...this.state.categories].map(c =>
+            `<button type="button" class="pos-chip${categoria === c.id ? ' active' : ''}" data-cat="${this.esc(c.id)}">${this.esc(c.name)}</button>`
+        ).join('');
+
+        const lista = this.state.products
+            .filter(p => !categoria || p.category === categoria)
+            .filter(p => !busca || (p.name || '').toLowerCase().includes(busca) || String(p.code || '').toLowerCase().includes(busca))
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        if (lista.length === 0) {
+            grid.innerHTML = '<div class="pos-empty">Nenhum produto encontrado.</div>';
             return;
         }
 
-        container.innerHTML = this.state.cart.map(item => `
-            <div class="cart-item-labs">
-                <div class="cart-item-left">
-                    ${item.image
-                ? `<img src="${item.image}" class="pos-cart-avatar">`
-                : `<div class="pos-cart-avatar-letter">${(item.name || '?').charAt(0).toUpperCase()}</div>`
-            }
-                    <div class="cart-item-info">
-                        <span class="cart-item-name">${this.esc(item.name)} <span class="cart-item-qty">(x${item.qty})</span></span>
-                    </div>
-                </div>
-                <div class="cart-item-right">
-                    <span class="cart-item-price">${this.formatCurrency(item.price * item.qty)}</span>
-                    <button class="btn-cart-remove" onclick="app.removeFromCart('${item.id}')">
-                        <i data-lucide="trash-2"></i>
-                    </button>
-                </div>
-            </div>
-        `).join('');
-        this.initLucide();
-        this.calculateTotals();
+        grid.innerHTML = lista.map(p => {
+            const semEstoque = !(p.stock > 0);
+            const foto = p.image
+                ? `<img src="${p.image}" alt="">`
+                : `<span class="pos-card-letter">${this.esc((p.name || '?').charAt(0).toUpperCase())}</span>`;
+            return `
+                <button type="button" class="pos-card${semEstoque ? ' is-out' : ''}" ${semEstoque ? 'disabled' : ''} onclick="app.addToCart('${p.id}', 1)">
+                    <span class="pos-card-img">${foto}</span>
+                    <span class="pos-card-name">${this.esc(p.name)}</span>
+                    <span class="pos-card-foot">
+                        <strong>${this.formatCurrency(p.price)}</strong>
+                        <span class="pos-card-stock">${semEstoque ? 'Sem estoque' : p.stock + ' un'}</span>
+                    </span>
+                </button>`;
+        }).join('');
+    },
+
+    changeCartQty(id, delta) {
+        const item = this.state.cart.find(i => i.id === id);
+        if (!item) return;
+        const novo = item.qty + delta;
+        if (novo <= 0) {
+            this.removeFromCart(id);
+            return;
+        }
+        const produto = this.state.products.find(p => p.id === id);
+        if (produto && novo > produto.stock) {
+            this.showNotification('error', 'Estoque insuficiente para este produto.');
+            return;
+        }
+        item.qty = novo;
+        this.renderCart();
     },
 
     removeFromCart(id) {
@@ -3405,6 +3500,8 @@ const app = {
         const discountInput = document.getElementById('pos-discount');
         const desconto = discountInput ? parseFloat(discountInput.value) || 0 : 0;
         const totalFinal = Math.max(0, subtotal - desconto);
+        const subEl = document.getElementById('pos-subtotal');
+        if (subEl) subEl.textContent = this.formatCurrency(subtotal);
         document.getElementById('pos-total-val').textContent = this.formatCurrency(totalFinal);
         this.calculateChange();
     },
@@ -3455,14 +3552,6 @@ const app = {
         const pagamento = paymentEl ? paymentEl.value : 'N/A';
         const customerEl = document.getElementById('pos-customer');
         let cliente = (customerEl && customerEl.value) || 'Consumidor Final';
-
-        if (this.state.posState.isDirectSale) {
-            cliente = 'Consumidor Final';
-        } else if (cliente === 'Consumidor Final') {
-            this.showNotification('error', 'Por favor, selecione um cliente cadastrado ou ative a Venda Direta.');
-            if (customerEl) customerEl.focus();
-            return;
-        }
 
         // Armazena a venda pendente no estado
         this.state.pendingSale = {
@@ -3517,7 +3606,7 @@ const app = {
                 paid: '',
                 isDirectSale: false
             };
-            this.updateDirectSaleUI();
+            this.updatePaidVisibility();
 
             const changeRow = document.getElementById('pos-change-row');
             if (changeRow) changeRow.classList.add('hidden');
@@ -4302,6 +4391,9 @@ const app = {
         const userModal = document.getElementById('user-modal');
         if (userModal) userModal.classList.toggle('hidden', type !== 'user-modal');
 
+        const categoriesModal = document.getElementById('categories-modal');
+        if (categoriesModal) categoriesModal.classList.toggle('hidden', type !== 'categories');
+
         const entradaModal = document.getElementById('entrada-modal');
         if (entradaModal) entradaModal.classList.toggle('hidden', type !== 'entrada-modal');
 
@@ -4363,7 +4455,7 @@ const app = {
         }
 
         // Garantir que todos os modais internos estejam escondidos
-        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'confirm-remove-logo', 'backup-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
+        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'confirm-remove-logo', 'backup-modal', 'categories-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
         modals.forEach(id => {
             document.getElementById(id)?.classList.add('hidden');
         });
@@ -4387,45 +4479,7 @@ const app = {
         if (select) select.innerHTML = '<option value="">Consumidor Final</option>' + this.state.customers.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
     },
     updatePOSProductList() {
-        const select = document.getElementById('pos-product-manual');
-        if (!select) return;
-
-        // Ordenar produtos por nome da categoria + nome do produto
-        const sorted = [...this.state.products].sort((a, b) => {
-            const catA = this.state.categories.find(c => c.id === a.category)?.name || 'z';
-            const catB = this.state.categories.find(c => c.id === b.category)?.name || 'z';
-            if (catA !== catB) return catA.localeCompare(catB);
-            return a.name.localeCompare(b.name);
-        });
-
-        select.innerHTML = '<option value="">Selecione um produto</option>' +
-            sorted.map(p => {
-                const cat = this.state.categories.find(c => c.id === p.category);
-                const label = cat ? `${p.name} — ${cat.name}` : p.name;
-                return `<option value="${p.id}">${this.esc(label)}</option>`;
-            }).join('');
-    },
-
-    updateDirectSaleUI() {
-        const btn = document.getElementById('btn-direct-sale');
-        const select = document.getElementById('pos-customer');
-        if (!btn || !select) return;
-
-        const isDirect = this.state.posState.isDirectSale;
-        btn.classList.toggle('active', isDirect);
-
-        if (isDirect) {
-            select.value = '';
-            select.disabled = true;
-            select.style.opacity = '0.5';
-            select.style.pointerEvents = 'none';
-            this.state.posState.customer = 'Consumidor Final';
-        } else {
-            select.disabled = false;
-            select.style.opacity = '1';
-            select.style.pointerEvents = 'auto';
-            this.state.posState.customer = select.value;
-        }
+        this.renderPosCatalog();
     },
 
     openReceiptOptions(id) {
@@ -4503,24 +4557,17 @@ const app = {
             },
             {
                 title: 'PDV: montar a venda',
-                desc: 'No PDV, adicione itens por código de barras ou selecionando manualmente o produto e a quantidade.',
+                desc: 'Clique no produto para adicionar, ou use o leitor de código de barras. F2 foca a busca.',
                 icon: 'shopping-bag',
                 view: 'pos',
-                highlight: ['#pos-barcode', '#pos-product-manual', '#btn-add-item', '#pos-qty']
+                highlight: ['#pos-barcode', '#pos-product-grid']
             },
             {
                 title: 'PDV: cliente e pagamento',
-                desc: 'Selecione o cliente, escolha o pagamento e informe desconto. Em dinheiro, informe o valor pago para calcular troco.',
+                desc: 'O cliente é opcional: sem seleção, a venda vai como Consumidor Final. Escolha o pagamento e, em dinheiro, informe o valor pago para o troco.',
                 icon: 'credit-card',
                 view: 'pos',
-                highlight: ['#pos-customer', '#pos-payment', '#pos-discount', '#pos-paid-group', '#pos-change-row']
-            },
-            {
-                title: 'PDV: venda direta',
-                desc: 'A venda direta é ideal para alto fluxo: atende como "Consumidor Final" sem escolher cliente.',
-                icon: 'zap',
-                view: 'pos',
-                highlight: ['#btn-direct-sale']
+                highlight: ['#pos-customer', '.pos-pay-buttons', '#pos-discount', '#pos-paid-group', '#pos-change-row']
             },
             {
                 title: 'PDV: finalizar e imprimir',
@@ -4619,12 +4666,11 @@ const app = {
                 highlight: ['#start-tutorial', '#open-backup-modal']
             },
             {
-                title: 'Configurações: Categorias',
-                desc: 'Crie categorias para organizar produtos e melhorar filtros e visualização.',
+                title: 'Produtos: categorias',
+                desc: 'Crie categorias pelo botão Categorias em Produtos, ou direto no cadastro do produto.',
                 icon: 'tag',
-                view: 'settings',
-                settingsSection: 'categorias',
-                highlight: ['#sv-section-categorias']
+                view: 'products',
+                highlight: ['#btn-open-categories']
             },
             {
                 title: 'Encerrar o sistema',
@@ -4645,17 +4691,17 @@ const app = {
             },
             {
                 title: 'PDV: montar a venda',
-                desc: 'Adicione itens por código de barras ou seleção manual, ajustando a quantidade.',
+                desc: 'Clique no produto para adicionar, ou use o leitor de código de barras. Ajuste a quantidade no carrinho.',
                 icon: 'shopping-bag',
                 view: 'pos',
-                highlight: ['#pos-barcode', '#pos-product-manual', '#btn-add-item', '#pos-qty']
+                highlight: ['#pos-barcode', '#pos-product-grid']
             },
             {
                 title: 'PDV: pagamento e finalização',
                 desc: 'Informe pagamento, desconto e finalize a venda. Em dinheiro, informe o valor pago para calcular o troco.',
                 icon: 'printer',
                 view: 'pos',
-                highlight: ['#pos-payment', '#pos-discount', '#pos-paid-group', '#btn-finish-sale']
+                highlight: ['.pos-pay-buttons', '#pos-discount', '#pos-paid-group', '#btn-finish-sale']
             },
             {
                 title: 'Clientes: cadastro e busca',
