@@ -2109,6 +2109,85 @@ const app = {
                     bridge.GetData('movimentacoes')
                 ]);
 
+                // Tenta carregar usuários via bridge, com fallback para localStorage
+                let usersData = null;
+                try {
+                    usersData = await bridge.GetData('users');
+                } catch (e) {
+                    console.warn("Bridge 'users' falhou no carregamento.");
+                }
+
+                if (!usersData || usersData === "[]" || usersData === "") {
+                    usersData = localStorage.getItem('sv_users');
+                }
+
+                const rawProducts = JSON.parse(productsData || '[]');
+                const rawCustomers = JSON.parse(customersData || '[]');
+                const rawSales = JSON.parse(salesData || '[]');
+                const rawSettings = JSON.parse(settingsData || '[]');
+                const rawReversals = JSON.parse(reversalsData || '[]');
+                const rawUsers = JSON.parse(usersData || '[]');
+
+                // Normalização e Garantia de IDs para Produtos
+                this.state.products = rawProducts.map(p => ({
+                    id: String(p.id || p.ID || 'P' + Math.random().toString(36).substr(2, 9)),
+                    name: String(p.name || p.Nome || p.Produto || ''),
+                    code: String(p.code || p.Código || p.Codigo || ''),
+                    cost: parseFloat(p.cost || p.Custo || p.custo || 0) || 0,
+                    price: parseFloat(p.price || p.Preço || p.Preco || p.preco || 0) || 0,
+                    stock: parseInt(p.stock || p.Estoque || p.estoque || 0) || 0,
+                    image: String(p.image || p.Imagem || ''),
+                    obs: String(p.obs || p.Observação || p.Observacao || ''),
+                    category: String(p.category || p.Categoria || '')
+                }));
+
+                // Normalização e Garantia de IDs para Clientes
+                this.state.customers = rawCustomers.map(c => ({
+                    id: String(c.id || c.ID || 'C' + Math.random().toString(36).substr(2, 9)),
+                    name: String(c.name || c.Nome || ''),
+                    whatsapp: String(c.whatsapp || c.WhatsApp || ''),
+                    email: String(c.email || c.Email || ''),
+                    obs: String(c.obs || c.Observação || c.Observacao || c["Observações / Endereço"] || ''),
+                    date: String(c.date || c.Data || new Date().toISOString()),
+                    image: String(c.image || c.Imagem || '')
+                }));
+
+                // Normalização de Vendas
+                this.state.sales = rawSales.map(s => {
+                    let items = [];
+                    try {
+                        if (s.items) {
+                            items = typeof s.items === 'string' ? JSON.parse(s.items) : s.items;
+                        }
+                    } catch (e) {
+                        console.error("Erro ao processar itens da venda:", e);
+                    }
+
+                    return {
+                        id: String(s.id || s.ID || ''),
+                        date: String(s.date || s.Data || ''),
+                        cliente: String(s.cliente || s.Cliente || 'Consumidor Final'),
+                        valor_total: parseFloat(s.valor_total || s["Valor Total"] || s.total || 0) || 0,
+                        desconto: parseFloat(s.desconto || s.Desconto || 0) || 0,
+                        valor_final: parseFloat(s.valor_final || s["Valor Final"] || 0) || 0,
+                        cost: parseFloat(s.cost || s.custo || s.Custo || s.custoTotal || 0) || 0,
+                        lucro: parseFloat(s.lucro || s.Lucro || 0) || 0,
+                        pagamento: String(s.pagamento || s["Forma de Pagamento"] || 'N/A'),
+                        items: items
+                    };
+                });
+
+                // Normalização de Estornos
+                this.state.reversals = rawReversals.map(r => ({
+                    id: String(r.id || ''),
+                    sale_id: String(r.sale_id || ''),
+                    product_id: String(r.product_id || ''),
+                    product_name: String(r.product_name || ''),
+                    qty: parseInt(r.qty || 0),
+                    date: String(r.date || '')
+                }));
+
+                // Normalização de Entradas
                 this.state.entradas = JSON.parse(entradasData || '[]').map(e => ({
                     id: String(e.id || ''),
                     date: String(e.date || ''),
