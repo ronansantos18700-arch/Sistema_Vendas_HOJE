@@ -296,7 +296,7 @@ const app = {
     },
 
     async login(username, password) {
-        // BUG 8 — Mensagem de lockout não atualiza em tempo real
+        // Mensagem de lockout atualiza em tempo real
         if (this.state.lockoutUntil && Date.now() < this.state.lockoutUntil) {
             if (this.lockoutInterval) clearInterval(this.lockoutInterval);
             const updateLockoutMsg = () => {
@@ -385,7 +385,7 @@ const app = {
         this.state.loginAttempts++;
 
         if (this.state.loginAttempts >= this.config.loginMaxAttempts) {
-            // Lockout configurado - BUG 8: Contador regressivo em tempo real
+            // Lockout configurado: contador regressivo em tempo real
             this.state.lockoutUntil = Date.now() + this.config.loginLockoutMs;
             
             if (this.lockoutInterval) clearInterval(this.lockoutInterval);
@@ -1115,7 +1115,7 @@ const app = {
         }
         if (viewId === 'products') {
             this.updateCategoryFilter();
-            // BUG 2: Preservar filtros ao trocar de tela (se já houver valores nos inputs)
+            // Preservar filtros ao trocar de tela (se já houver valores nos inputs)
             const queryAtiva = document.getElementById('filter-products')?.value || '';
             const categoriaAtiva = document.getElementById('filter-category')?.value || '';
             this.renderProducts(queryAtiva, categoriaAtiva);
@@ -1794,104 +1794,121 @@ const app = {
 
     async importBackup(event) {
         if (!this.requireAdmin('importar backups')) return;
-        const file = event.target.files[0];
+        const input = event.target;
+        const file = input.files[0];
+        input.value = ''; // libera o mesmo arquivo para uma nova escolha
         if (!file) return;
 
-        // Validar tamanho e formato
         const maxBytes = this.config.backupMaxSizeMb * 1024 * 1024;
         if (file.size > maxBytes) {
             this.showNotification('error',
                 `Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo: ${this.config.backupMaxSizeMb}MB.`
             );
-            event.target.value = '';
             return;
         }
         if (!file.name.toLowerCase().endsWith('.json')) {
             this.showNotification('error', 'Formato inválido. Apenas arquivos .json aceitos.');
-            event.target.value = '';
             return;
         }
 
-        // Abrir modal de confirmação personalizado com aviso de reinicialização
+        // Lê e valida antes de pedir confirmação: nada é alterado se o arquivo estiver ruim.
+        this.setLoading(true);
+        let backupData = null;
+        let validacao;
+        try {
+            const texto = await this.lerArquivo(file);
+            backupData = JSON.parse(texto);
+            const temChecksum = backupData && backupData.checksum !== undefined && backupData.state !== undefined;
+            const checksumCalc = temChecksum ? await this.generateChecksum(backupData.state) : undefined;
+            validacao = Backup.validarBackup(backupData, checksumCalc);
+        } catch (err) {
+            validacao = { ok: false, erro: 'Não foi possível ler o arquivo: ' + err.message };
+        } finally {
+            this.setLoading(false);
+        }
+
+        if (!validacao.ok) {
+            this.showNotification('error', validacao.erro);
+            return;
+        }
+
+        const c = validacao.contagem;
+        const quando = validacao.data ? new Date(validacao.data).toLocaleString('pt-BR') : 'data desconhecida';
         this.confirmAction(
             'Restaurar Backup?',
-            'Ao restaurar um backup, todos os dados atuais serão substituídos e o sistema será reiniciado automaticamente para aplicar as mudanças. Deseja continuar?',
-            async () => {
-                await this.processImportBackup(file);
-                event.target.value = '';
-            },
+            `Backup de ${quando}: ${c.products} produtos, ${c.customers} clientes, ${c.sales} vendas e ${c.entradas} entradas. ` +
+            'Todos os dados atuais serão substituídos e a tela será recarregada. Deseja continuar?',
+            async () => { await this.aplicarBackup(backupData, file.name); },
             'upload-cloud'
         );
     },
 
-    async processImportBackup(file) {
+    lerArquivo(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('falha de leitura'));
+            reader.readAsText(file);
+        });
+    },
+
+    async aplicarBackup(backupData, nomeArquivo) {
+        const st = backupData.state;
+        const media = backupData.media || {};
+
+        // Referências atuais: se a gravação falhar, o estado volta exatamente como estava.
+        const anterior = {
+            products: this.state.products,
+            customers: this.state.customers,
+            sales: this.state.sales,
+            reversals: this.state.reversals,
+            entradas: this.state.entradas,
+            settings: this.state.settings,
+            categories: this.state.categories,
+            movimentacoes: this.state.movimentacoes
+        };
+
         this.setLoading(true);
         try {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const backupData = JSON.parse(e.target.result);
+            this.state.products = st.products;
+            this.state.customers = st.customers;
+            this.state.sales = st.sales;
+            this.state.reversals = st.reversals || [];
+            this.state.entradas = st.entradas || [];
+            this.state.settings = st.settings || anterior.settings;
+            this.state.categories = st.categories || [];
+            // Backups antigos não têm movimentações: o saldo inicial é recriado a partir do estoque
+            this.state.movimentacoes = st.movimentacoes || [];
+            this.iniciarHistoricoEstoque();
+            this.state.dataLoaded = true;
 
-                    if (!['SV_ULTRA_V4', 'SV_ULTRA_V4_IMG'].includes(backupData.version)) {
-                        throw new Error('Versão de backup incompatível.');
-                    }
-
-                    // Verificar integridade se o checksum existir
-                    if (backupData.checksum) {
-                        const calc = await this.generateChecksum(backupData.state);
-                        if (calc !== backupData.checksum) {
-                            throw new Error('❌ Backup corrompido ou modificado. Restauração cancelada por segurança.');
-                        }
-                    }
-
-                    const { products, customers, sales, reversals, entradas, movimentacoes, settings, categories } = backupData.state;
-                    const media = backupData.media || {};
-
-                    this.logAudit('BACKUP_IMPORT', { file: file.name });
-
-                    // Restaurar imagens se existirem no backup e o Bridge estiver disponível
-                    if (Object.keys(media).length > 0 && window.chrome?.webview?.hostObjects?.bridge) {
-                        const bridge = window.chrome.webview.hostObjects.bridge;
-                        const totalMedia = Object.keys(media).length;
-                        let count = 0;
-
-                        this.showNotification('info', `Restaurando ${totalMedia} imagens... Aguarde.`);
-
-                        for (const [path, base64] of Object.entries(media)) {
-                            const success = await bridge.RestoreImage(path, base64);
-                            if (success) count++;
-                        }
-                        console.log(`Restauração concluída: ${count} de ${totalMedia} imagens salvas.`);
-                    }
-
-                    this.state.products = products || [];
-                    this.state.customers = customers || [];
-                    this.state.sales = sales || [];
-                    this.state.reversals = reversals || [];
-                    this.state.entradas = entradas || [];
-                    this.state.settings = settings || this.state.settings;
-                    this.state.categories = categories || [];
-                    // Backups antigos não têm movimentações: o saldo inicial é recriado a partir do estoque
-                    this.state.movimentacoes = movimentacoes || [];
-                    this.iniciarHistoricoEstoque();
-
-                    this.state.dataLoaded = true;
-                    await this.salvarDados();
-
-                    this.showNotification('success',
-                        '✅ Backup restaurado com sucesso! Seus usuários atuais foram mantidos (não alterados por segurança).'
-                    );
-                    setTimeout(() => window.location.reload(), 1500);
-                } catch (err) {
-                    this.showNotification('error', 'Erro ao processar arquivo: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
+            const gravado = await this.salvarDados();
+            if (!gravado) {
+                Object.assign(this.state, anterior);
+                this.showNotification('error', 'Restauração cancelada: o banco não gravou os dados. Nada foi alterado.');
+                return;
+            }
         } catch (err) {
-            this.showNotification('error', 'Erro ao ler arquivo: ' + err.message);
+            Object.assign(this.state, anterior);
+            this.showNotification('error', 'Erro ao restaurar backup: ' + err.message);
+            return;
         } finally {
             this.setLoading(false);
         }
+
+        // Imagens só são gravadas depois que os dados foram gravados com sucesso.
+        const bridge = window.chrome?.webview?.hostObjects?.bridge;
+        if (bridge) {
+            for (const [path, base64] of Object.entries(media)) {
+                try { await bridge.RestoreImage(path, base64); } catch (_) { /* a imagem é opcional */ }
+            }
+        }
+
+        this.logAudit('BACKUP_IMPORT', { file: nomeArquivo });
+        this.showNotification('success',
+            '✅ Backup restaurado com sucesso! Seus usuários atuais foram mantidos (não alterados por segurança).'
+        );
+        setTimeout(() => window.location.reload(), 1500);
     },
 
     updateBrand() {
@@ -2041,7 +2058,7 @@ const app = {
 
         if (!this.state.dataLoaded) {
             console.warn("Tentativa de salvar dados antes de carregar. Operação cancelada.");
-            return;
+            return false;
         }
 
         this.setLoading(true);
@@ -2082,9 +2099,11 @@ const app = {
                 localStorage.setItem('sv_categories', JSON.stringify(this.state.categories));
             }
             this.updateNotifications();
+            return true;
         } catch (err) {
             console.error("Erro ao salvar dados:", err);
             this.showNotification('error', "Erro crítico ao salvar dados: " + err.message);
+            return false;
         } finally {
             this.setLoading(false);
         }
@@ -3660,7 +3679,7 @@ const app = {
             if (Math.abs(amount) === 1) {
                 this.registrarAjusteEstoque(p, amount, 'Ajuste rápido');
                 await this.salvarDados();
-                // BUG 2: Preservar filtros ativos ao re-renderizar após ajuste de estoque
+                // Preservar filtros ativos ao re-renderizar após ajuste de estoque
                 const queryAtiva = document.getElementById('filter-products')?.value || '';
                 const categoriaAtiva = document.getElementById('filter-category')?.value || '';
                 this.renderProducts(queryAtiva, categoriaAtiva);
@@ -3699,7 +3718,7 @@ const app = {
             await this.salvarDados();
             this.showNotification('success', `Ajuste manual aplicado: ${this.state.stockAdjustmentType === 'add' ? '+' : '-'}${qty} un.`);
             this.closeModal();
-            // BUG 2: Preservar filtros ativos ao re-renderizar após ajuste de estoque
+            // Preservar filtros ativos ao re-renderizar após ajuste de estoque
             const queryAtiva = document.getElementById('filter-products')?.value || '';
             const categoriaAtiva = document.getElementById('filter-category')?.value || '';
             this.renderProducts(queryAtiva, categoriaAtiva);
@@ -3748,7 +3767,7 @@ const app = {
             await this.salvarDados();
             this.showNotification('success', this.state.editingId ? 'Produto atualizado com sucesso!' : 'Produto cadastrado com sucesso!');
             this.closeModal();
-            // BUG 2: Preservar filtros ativos ao re-renderizar após editar/adicionar produto
+            // Preservar filtros ativos ao re-renderizar após editar/adicionar produto
             const queryAtiva = document.getElementById('filter-products')?.value || '';
             const categoriaAtiva = document.getElementById('filter-category')?.value || '';
             this.renderProducts(queryAtiva, categoriaAtiva);
@@ -3790,7 +3809,7 @@ const app = {
                 this.state.products = this.state.products.filter(p => p.id !== id);
                 await this.salvarDados();
                 this.showNotification('success', 'Produto excluído com sucesso!');
-                // BUG 2: Preservar filtros ativos ao re-renderizar após excluir produto
+                // Preservar filtros ativos ao re-renderizar após excluir produto
                 const queryAtiva = document.getElementById('filter-products')?.value || '';
                 const categoriaAtiva = document.getElementById('filter-category')?.value || '';
                 this.renderProducts(queryAtiva, categoriaAtiva);
@@ -4755,7 +4774,7 @@ const app = {
         highlights.forEach(el => {
             const rect = el.getBoundingClientRect();
 
-            // Calcular coordenadas relativas ao app-container, considerando o zoom
+            // Calcular coordenadas relativas ao app-container
             const l = (rect.left - containerRect.left) - 4; // -4 para margem de respiro
             const t = (rect.top - containerRect.top) - 4;
             const r = (rect.right - containerRect.left) + 4;
@@ -4904,7 +4923,7 @@ const app = {
         this.showNotification('success', 'Entrada registrada e estoque atualizado!');
         this.closeModal();
         this.renderEntradas();
-        // BUG 2: Preservar filtros ativos ao re-renderizar produtos após entrada
+        // Preservar filtros ativos ao re-renderizar produtos após entrada
         const queryAtiva = document.getElementById('filter-products')?.value || '';
         const categoriaAtiva = document.getElementById('filter-category')?.value || '';
         this.renderProducts(queryAtiva, categoriaAtiva);
@@ -5051,7 +5070,7 @@ const app = {
 
                 this.showNotification('success', 'Entrada excluída e estoque atualizado!');
                 this.renderEntradas();
-                // BUG 2: Preservar filtros ativos ao re-renderizar produtos após excluir entrada
+                // Preservar filtros ativos ao re-renderizar produtos após excluir entrada
                 const queryAtiva = document.getElementById('filter-products')?.value || '';
                 const categoriaAtiva = document.getElementById('filter-category')?.value || '';
                 this.renderProducts(queryAtiva, categoriaAtiva);
