@@ -20,7 +20,7 @@ namespace SistemaVendas
     public static class Database
     {
         /// <summary>Versão atual do esquema do banco.</summary>
-        public const int VersaoEsquema = 1;
+        public const int VersaoEsquema = 2;
 
         private enum Tipo { Texto, Real, Inteiro, Booleano, Json }
 
@@ -93,6 +93,10 @@ namespace SistemaVendas
 
             new Tabela("categories", false, T("id"), T("name")),
 
+            // Histórico de estoque e custo (versão 2). Campos extras (obs, ignorada) vão para _extra.
+            new Tabela("movimentacoes", false,
+                T("id"), T("date"), T("produtoId"), T("tipo"), I("qtd"), R("custoUnit"), T("refId")),
+
             new Tabela("caixa", true),
         };
 
@@ -119,12 +123,11 @@ namespace SistemaVendas
                         "O banco foi criado por uma versão mais nova do sistema (esquema " + versao + ").");
                 }
 
-                // Migrações futuras entram aqui, por exemplo:
-                // if (versao < 2) { ... }
-
-                if (versao < 1)
+                // Migrações: CREATE TABLE IF NOT EXISTS cria só o que falta
+                // (versão 2 acrescenta a tabela movimentacoes; bancos novos criam tudo).
+                if (versao < VersaoEsquema)
                 {
-                    // CREATE TABLE IF NOT EXISTS: também cobre bancos criados antes do versionamento.
+                    // Também cobre bancos criados antes do versionamento.
                     foreach (Tabela t in Tabelas)
                     {
                         using (var cmd = conn.CreateCommand())
