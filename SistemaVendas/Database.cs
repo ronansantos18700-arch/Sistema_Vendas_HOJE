@@ -172,7 +172,7 @@ namespace SistemaVendas
                 }
             }
 
-            return resultado.ToString(Formatting.None);
+            return JsonConvert.SerializeObject(resultado, Formatting.None);
         }
 
         /// <summary>Substitui todo o conteúdo do tipo informado pelos itens do JSON recebido.</summary>
@@ -215,7 +215,7 @@ namespace SistemaVendas
                         if (t.Documento)
                         {
                             ins.CommandText = "INSERT INTO " + Q(t.Nome) + " (\"dados\") VALUES (@p0)";
-                            ins.Parameters.AddWithValue("@p0", item.ToString(Formatting.None));
+                            ins.Parameters.AddWithValue("@p0", JsonConvert.SerializeObject(item, Formatting.None));
                         }
                         else
                         {
@@ -242,7 +242,7 @@ namespace SistemaVendas
                             nomes.Add(Q(ColunaExtra));
                             params_.Add("@extra");
                             ins.Parameters.AddWithValue("@extra",
-                                extra.Count > 0 ? (object)extra.ToString(Formatting.None) : DBNull.Value);
+                                extra.Count > 0 ? (object)JsonConvert.SerializeObject(extra, Formatting.None) : DBNull.Value);
 
                             ins.CommandText = "INSERT INTO " + Q(t.Nome) +
                                               " (" + string.Join(", ", nomes) + ")" +
@@ -364,7 +364,7 @@ namespace SistemaVendas
                 case Tipo.Texto:
                     if (nulo) return DBNull.Value;
                     if (valor is JValue jv) return Convert.ToString(jv.Value, CultureInfo.InvariantCulture);
-                    return valor.ToString(Formatting.None);
+                    return JsonConvert.SerializeObject(valor, Formatting.None);
 
                 case Tipo.Real:
                     return ToDouble(valor);
@@ -379,7 +379,7 @@ namespace SistemaVendas
                     if (nulo) return "[]";
                     if (valor is JValue jsonStr && jsonStr.Type == JTokenType.String)
                         return jsonStr.Value<string>();
-                    return valor.ToString(Formatting.None);
+                    return JsonConvert.SerializeObject(valor, Formatting.None);
 
                 default:
                     return DBNull.Value;
