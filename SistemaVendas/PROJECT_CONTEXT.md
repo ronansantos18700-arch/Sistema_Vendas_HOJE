@@ -9,13 +9,13 @@ Este arquivo registra o contexto e o histórico resumido de mudanças realizadas
 
 ## Visão geral
 
-O SV Ultra (SistemaVendas) é um PDV que roda dentro do Excel (VSTO), abrindo uma janela Windows Forms com WebView2 para renderizar o Frontend (HTML/CSS/JS). Os dados são persistidos principalmente em abas de uma planilha Excel via uma bridge C# ⇄ JavaScript, com fallback em `localStorage`.
+O SV Ultra (SistemaVendas) é um PDV desktop (aplicativo Windows Forms independente, sem Excel) que renderiza o Frontend (HTML/CSS/JS) em uma janela WebView2. Os dados são persistidos em um banco SQLite (`sistema_vendas.db`) via uma bridge C# ⇄ JavaScript, com fallback em `localStorage`.
 
 ## Stack e arquitetura
 
-- Excel/VSTO (.NET Framework) + Ribbon
-  - O usuário abre o sistema via botão no Ribbon do Excel.
-  - A UI principal é um `Form` (Windows Forms) que inicializa o WebView2.
+- .NET Framework 4.8 (Windows Forms, SDK-style)
+  - `Program.cs` inicia o `FormVendas` (`Form` que inicializa o WebView2 e o banco).
+  - Banco: SQLite via `Microsoft.Data.Sqlite` (`Database.cs`).
 - WebView2
   - Carrega o Frontend via domínio virtual: `https://app.local/index.html` (evita problemas de origem do `file://`).
   - Expõe a bridge em JS via `window.chrome.webview.hostObjects.bridge`.
@@ -29,11 +29,12 @@ O SV Ultra (SistemaVendas) é um PDV que roda dentro do Excel (VSTO), abrindo um
 - Frontend: `SistemaVendas/frontend`
   - UI: `index.html`, `style.css`
   - Lógica: `app.js`
-- Host (Excel/VSTO): `SistemaVendas/`
-  - Ribbon: `Ribbon1.cs` (abre a janela do sistema)
+- Host (WinForms): `SistemaVendas/`
+  - Entrada: `Program.cs`
   - Host UI: `FormVendas.cs` (WebView2 + bridge)
   - Bridge: `Bridge.cs` (GetData/SaveData + seleção de imagens)
-- Persistência: via `bridge.SaveData(...)` quando disponível e fallback em `localStorage`
+  - Banco: `Database.cs` (SQLite: criação de tabelas, leitura e gravação)
+- Persistência: via `bridge.SaveData(...)` (SQLite) quando disponível e fallback em `localStorage`
   - Tema: `sv_theme`
   - Zoom: `sv_zoom_v4`
   - Caixa: `sv_caixa`
@@ -95,28 +96,20 @@ O SV Ultra (SistemaVendas) é um PDV que roda dentro do Excel (VSTO), abrindo um
 
 ## Dados e persistência (fonte da verdade)
 
-### Bridge (Excel ⇄ JSON)
+### Bridge (C# ⇄ SQLite)
 
-A bridge persiste e recupera dados em abas do Excel usando os tipos abaixo. Campos “complexos” (ex.: `items`, `sangrias`, `suprimentos`) são serializados como JSON dentro da célula.
+O arquivo do banco fica em `%LOCALAPPDATA%\SistemaVendas_UNIQ\sistema_vendas.db` (criado na primeira execução). Cada tipo enviado pelo frontend vira uma tabela de mesmo nome. `GetData(tipo)` devolve um array JSON; `SaveData(tipo, json)` substitui todo o conteúdo da tabela (em transação). Campos “complexos” (`items`, `sangrias`, `suprimentos`) são guardados como JSON em colunas `TEXT`. Propriedades sem coluna correspondente ficam em `_extra` (JSON), para não serem perdidas.
 
-- `products` → aba `produtos`
-  - `id,name,code,cost,price,stock,image,obs,category`
-- `customers` → aba `clientes`
-  - `id,name,whatsapp,email,obs,date,image`
-- `sales` → aba `Planilha1`
-  - `id,date,cliente,valor_total,desconto,valor_final,cost,lucro,pagamento,items`
-- `settings` → aba `configuracoes`
-  - `razao_social,responsavel,whatsapp,email,endereco,foto`
-- `reversals` → aba `extornos`
-  - `id,sale_id,product_id,product_name,qty,date`
-- `users` → aba `usuarios`
-  - `id,username,fullname,password,role,isDefaultCredential`
-- `entradas` → aba `entradas`
-  - `id,date,fornecedor,nota,obs,items,totalCusto`
-- `fechamentos` → aba `fechamentos`
-  - `id,dataAbertura,dataFechamento,operador,valorAbertura,valorFechamento,totalVendasDinheiro,totalVendasCartao,totalVendasPix,totalGeral,diferenca,sangrias,suprimentos`
-- `categories` → aba `categorias`
-  - `id,name`
+- `products` → colunas `id,name,code,cost,price,stock,image,obs,category`
+- `customers` → `id,name,whatsapp,email,obs,date,image`
+- `sales` → `id,date,cliente,valor_total,desconto,valor_final,cost,lucro,pagamento,items`
+- `settings` → `companyName,ownerName,whatsapp,email,address,logoUrl`
+- `reversals` → `id,sale_id,product_id,product_name,qty,date`
+- `users` → `id,username,fullname,password,role,isDefaultCredential`
+- `entradas` → `id,date,fornecedor,nota,obs,items,totalCusto`
+- `fechamentos` → `id,dataAbertura,dataFechamento,operador,valorAbertura,valorFechamento,totalVendasDinheiro,totalVendasCartao,totalVendasPix,totalGeral,diferenca,sangrias,suprimentos`
+- `categories` → `id,name`
+- `caixa` → tabela de documento (cada sessão de caixa guardada inteira como JSON em `dados`)
 
 ### Fallback localStorage
 
@@ -137,8 +130,8 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 
 ## Como abrir/rodar (visão prática)
 
-- No Excel: clicar no botão do Ribbon que abre o `FormVendas` (janela do sistema).
-- Em dev/debug: o host mapeia `frontend/` e navega em `https://app.local/index.html` usando WebView2.
+- Executar o projeto `SistemaVendas.csproj` (Visual Studio 2022 ou `dotnet build` no Windows). Abre diretamente a janela do sistema.
+- O host mapeia `frontend/` e navega em `https://app.local/index.html` usando WebView2.
   - Recibo A4 em `#receipt-container` (CSS com `@media print`)
   - Impressão de caixa usa classe `printing-caixa`
 
@@ -195,3 +188,13 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
   - Ajustado o parse/ordenação de datas usando `parseDate()` para evitar “Invalid Date” quando vier vazio ou em formato Excel.
   - Arquivo: `frontend/app.js`
 
+### 2026-11-14
+
+- Persistência migrada de Excel (VSTO) para SQLite:
+  - Novo `Database.cs` com criação de tabelas, leitura e gravação (`Microsoft.Data.Sqlite`). Banco em `%LOCALAPPDATA%\SistemaVendas_UNIQ\sistema_vendas.db`.
+  - `Bridge.cs`: `GetData`/`SaveData` agora usam `Database`; API do bridge e formato JSON mantidos (o frontend não mudou).
+  - Projeto convertido de add-in VSTO para aplicação WinForms (`OutputType` WinExe, SDK-style), com `Program.cs` como entrada.
+  - Removidos: `ThisWorkbook`, `Ribbon1/2`, `Planilha1-4` e `packages.config` (substituído por `PackageReference`).
+  - Sem importação dos dados antigos de `vendas.xlsx` (começa do zero). O arquivo foi mantido no repositório, sem uso pelo sistema.
+  - Caixa agora é persistido no banco (antes o bridge recusava o tipo `caixa`).
+  - Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/FormVendas.cs`, `SistemaVendas/Program.cs`, `SistemaVendas/SistemaVendas.csproj`, `SistemaVendas/PROJECT_CONTEXT.md`
