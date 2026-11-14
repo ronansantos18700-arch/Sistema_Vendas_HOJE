@@ -666,7 +666,7 @@ const app = {
         }
 
         const toast = document.createElement('div');
-        const bgColor = type === 'success' ? '#12a3a2' : type === 'error' ? '#cc3333' : '#3d34a5';
+        const bgColor = type === 'success' ? '#12a3a2' : type === 'error' ? '#cc3333' : '#14b8a6';
         toast.style.cssText = `background: ${bgColor}; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 0.9rem; min-width: 250px; animation: slideIn 0.3s ease-out;`;
         toast.textContent = message;
 
@@ -2484,8 +2484,8 @@ const app = {
             datasets.push({
                 label: 'Faturamento',
                 data: revenueData,
-                borderColor: '#3d34a5',
-                backgroundColor: 'rgba(61, 52, 165, 0.1)',
+                borderColor: '#14b8a6',
+                backgroundColor: 'rgba(20, 184, 166, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2496,8 +2496,8 @@ const app = {
             datasets.push({
                 label: 'Lucro',
                 data: profitData,
-                borderColor: '#12a3a2',
-                backgroundColor: 'rgba(18, 163, 162, 0.1)',
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2672,8 +2672,8 @@ const app = {
                 datasets: [{
                     label: 'Qtd. Vendida',
                     data: data,
-                    backgroundColor: 'rgba(124, 58, 237, 0.6)',
-                    borderColor: '#3d34a5',
+                    backgroundColor: 'rgba(20, 184, 166, 0.6)',
+                    borderColor: '#14b8a6',
                     borderWidth: 1,
                     borderRadius: 6,
                     barThickness: 18
@@ -2845,8 +2845,8 @@ const app = {
                 datasets: [{
                     label: 'Vendas',
                     data: hourlyStats,
-                    backgroundColor: 'rgba(124, 58, 237, 0.4)',
-                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(20, 184, 166, 0.4)',
+                    borderColor: '#14b8a6',
                     borderWidth: 1,
                     borderRadius: 4
                 }]
@@ -2941,8 +2941,8 @@ const app = {
                 datasets: [{
                     label: 'Margem %',
                     data: marginData,
-                    borderColor: '#12a3a2',
-                    backgroundColor: 'rgba(18, 163, 162, 0.1)',
+                    borderColor: '#14b8a6',
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
                     borderWidth: 2,
                     pointRadius: 3,
                     pointBackgroundColor: '#10b981',
