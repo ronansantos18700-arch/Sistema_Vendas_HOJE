@@ -254,3 +254,13 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não verificado: layout em 1920×1080 e 1366×768 com 125% de escala (sem navegador no ambiente de desenvolvimento). Precisa de teste no Windows.
 - Fase 3: vendas, entradas e estoque já usam as movimentações (Fase 2). O caixa continua como documento separado, sem reconstrução, até decidir o uso do caixa.
 
+### 2026-11-14 (Fase 3 — caixa simplificado)
+
+- Decisão: caixa simplificado para a v1 (abertura, fechamento, sangria e suprimento saíram do sistema).
+- A tela "Caixa" virou "Resumo": total de vendas e quantidade por forma de pagamento (dinheiro, cartão, Pix e outros) em um dia ou período.
+  - Regra pura em `frontend/resumo.js` (`resumoPorPagamento`, `periodo`, `formaDePagamento`).
+  - Testes: `node tests/js/test_resumo.js`.
+- Saíram: menu "Histórico Caixa", seção de configurações, impressão de fechamento, passos do tutorial sobre caixa.
+- Dados antigos de caixa e fechamentos continuam nas tabelas `caixa` e `fechamentos` do banco, mas o app não lê nem grava mais. Backups deixam de incluir `fechamentos`; backups antigos com essa chave são ignorados na restauração.
+- Não verificado no Windows: a tela Resumo e os filtros de data.
+

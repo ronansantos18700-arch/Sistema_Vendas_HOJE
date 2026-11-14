@@ -71,8 +71,6 @@ const app = {
         lockoutUntil: null,
         mustChangePassword: false,
         auditLog: [],
-        caixaAtual: null,
-        historicoFechamentos: [],
         entradas: [],
         categories: []
     },
@@ -163,448 +161,58 @@ const app = {
         }
     },
 
-    // --- Módulo de Caixa ---
-    abrirCaixa(valorInicial) {
-        const valor = parseFloat(valorInicial) || 0;
-        if (valor < 0) {
-            this.showNotification('error', 'Valor de abertura inválido.');
-            return;
-        }
-
-        const operador = this.state.currentUser?.fullname || this.state.settings.ownerName || 'Operador';
-
-        this.state.caixaAtual = {
-            id: 'CX' + Date.now(),
-            dataAbertura: new Date().toISOString(),
-            valorAbertura: valor,
-            operador: operador,
-            sangrias: [],
-            suprimentos: [],
-            dataFechamento: null,
-            valorFechamento: null,
-            totalVendasDinheiro: 0,
-            totalVendasCartao: 0,
-            totalVendasPix: 0,
-            totalGeral: 0,
-            diferenca: 0
-        };
-
-        this.logAudit('ABRIR_CAIXA', { valorInicial });
-        this.salvarDados();
-        this.renderCaixa();
-        this.updateCaixaDot();
-        this.showNotification('success', 'Caixa aberto com sucesso!');
+    // --- Resumo de vendas por forma de pagamento (substitui o caixa na v1) ---
+    hojeISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     },
 
-    registrarSangria(valor, motivo) {
-        if (!this.state.caixaAtual) return;
-        if (isNaN(valor) || valor <= 0 || !motivo) {
-            this.showNotification('error', 'Valor ou motivo inválidos.');
-            return;
-        }
-
-        this.state.caixaAtual.sangrias.push({
-            valor: parseFloat(valor),
-            motivo: motivo,
-            data: new Date().toISOString()
-        });
-
-        this.salvarDados();
-        this.renderCaixa();
-        this.showNotification('success', 'Sangria registrada!');
+    resumoHoje() {
+        const hoje = this.hojeISO();
+        document.getElementById('resumo-de').value = hoje;
+        document.getElementById('resumo-ate').value = hoje;
+        this.renderResumo();
     },
 
-    registrarSuprimento(valor, motivo) {
-        if (!this.state.caixaAtual) return;
-        if (isNaN(valor) || valor <= 0 || !motivo) {
-            this.showNotification('error', 'Valor ou motivo inválidos.');
-            return;
-        }
-
-        this.state.caixaAtual.suprimentos.push({
-            valor: parseFloat(valor),
-            motivo: motivo,
-            data: new Date().toISOString()
-        });
-
-        this.salvarDados();
-        this.renderCaixa();
-        this.showNotification('success', 'Suprimento registrado!');
-    },
-
-    async fecharCaixa(valorContado) {
-        if (!this.state.caixaAtual) return;
-        
-        const valor = parseFloat(valorContado);
-        if (isNaN(valor) || valor < 0) {
-            this.showNotification('error', 'Valor contado inválido.');
-            return;
-        }
-
-        const caixa = this.state.caixaAtual;
-        const agora = new Date();
-        caixa.dataFechamento = agora.toISOString();
-        caixa.valorFechamento = valor;
-
-        // Filtrar vendas no período do caixa
-        const vendasPeriodo = this.state.sales.filter(s => {
-            const dataVenda = new Date(s.date);
-            const dataAbertura = new Date(caixa.dataAbertura);
-            return dataVenda >= dataAbertura && dataVenda <= agora;
-        });
-
-        caixa.totalVendasDinheiro = vendasPeriodo
-            .filter(s => s.pagamento.toLowerCase() === 'dinheiro')
-            .reduce((sum, s) => sum + s.valor_final, 0);
-
-        caixa.totalVendasCartao = vendasPeriodo
-            .filter(s => s.pagamento.toLowerCase() === 'cartao' || s.pagamento.toLowerCase() === 'cartão')
-            .reduce((sum, s) => sum + s.valor_final, 0);
-
-        caixa.totalVendasPix = vendasPeriodo
-            .filter(s => s.pagamento.toLowerCase() === 'pix')
-            .reduce((sum, s) => sum + s.valor_final, 0);
-
-        caixa.totalGeral = vendasPeriodo.reduce((sum, s) => sum + s.valor_final, 0);
-
-        const totalSangrias = caixa.sangrias.reduce((sum, s) => sum + s.valor, 0);
-        const totalSuprimentos = caixa.suprimentos.reduce((sum, s) => sum + s.valor, 0);
-
-        const saldoEsperado = caixa.valorAbertura + caixa.totalVendasDinheiro - totalSangrias + totalSuprimentos;
-        caixa.diferenca = caixa.valorFechamento - saldoEsperado;
-
-        // Mover para histórico
-        this.state.historicoFechamentos.push({ ...caixa });
-        this.state.caixaAtual = null;
-
-        this.logAudit('FECHAR_CAIXA', { diferenca: caixa.diferenca });
-        await this.salvarDados();
-
-        // Preencher dados do resumo de impressão 
-        const fechado = this.state.historicoFechamentos[
-            this.state.historicoFechamentos.length - 1
-        ];
-        document.getElementById('caixa-print-empresa').textContent =
-            this.state.settings.companyName || 'Empresa';
-        document.getElementById('caixa-print-operador').textContent =
-            fechado.operador || '';
-        document.getElementById('caixa-print-abertura').textContent =
-            new Date(fechado.dataAbertura).toLocaleString('pt-BR');
-        document.getElementById('caixa-print-fechamento').textContent =
-            new Date(fechado.dataFechamento).toLocaleString('pt-BR');
-        document.getElementById('caixa-print-valor-inicial').textContent =
-            this.formatCurrency(fechado.valorAbertura);
-        document.getElementById('caixa-print-dinheiro').textContent =
-            this.formatCurrency(fechado.totalVendasDinheiro);
-        document.getElementById('caixa-print-cartao').textContent =
-            this.formatCurrency(fechado.totalVendasCartao);
-        document.getElementById('caixa-print-pix').textContent =
-            this.formatCurrency(fechado.totalVendasPix);
-        document.getElementById('caixa-print-total-vendas').textContent =
-            this.formatCurrency(fechado.totalGeral);
-        document.getElementById('caixa-print-sangrias').textContent =
-            this.formatCurrency(
-                fechado.sangrias.reduce((s, i) => s + Number(i.valor), 0));
-        document.getElementById('caixa-print-suprimentos').textContent =
-            this.formatCurrency(
-                fechado.suprimentos.reduce((s, i) => s + Number(i.valor), 0));
-
-        const somaSangrias = fechado.sangrias.reduce((s, i) => s + Number(i.valor), 0);
-        const somaSuprimentos = fechado.suprimentos.reduce((s, i) => s + Number(i.valor), 0);
-        const esperado = fechado.valorAbertura + fechado.totalVendasDinheiro
-            - somaSangrias + somaSuprimentos;
-
-        document.getElementById('caixa-print-esperado').textContent =
-            this.formatCurrency(esperado);
-
-        document.getElementById('caixa-print-contado').textContent =
-            this.formatCurrency(fechado.valorFechamento);
-
-        const difEl = document.getElementById('caixa-print-diferenca');
-        difEl.textContent = this.formatCurrency(fechado.diferenca);
-        difEl.className = fechado.diferenca >= 0
-            ? 'caixa-print-diferenca-positiva'
-            : 'caixa-print-diferenca-negativa';
-
-        document.getElementById('caixa-print-rodape').textContent =
-            'Gerado em ' + new Date().toLocaleString('pt-BR');
-
-        // Adicionar classe ao body e html para o CSS de impressão correto 
-        document.documentElement.classList.add('printing-caixa');
-        document.body.classList.add('printing-caixa');
-
-        setTimeout(() => {
-            window.print();
-            // Remover classe após impressão 
-            setTimeout(() => {
-                document.documentElement.classList.remove('printing-caixa');
-                document.body.classList.remove('printing-caixa');
-            }, 500);
-        }, 300);
-
-        this.renderCaixa();
-        this.updateCaixaDot();
-        this.showNotification('success', 'Caixa fechado com sucesso!');
-    },
-
-    renderCaixa() {
-        const container = document.getElementById('caixa-content');
+    renderResumo() {
+        const container = document.getElementById('resumo-tabela');
         if (!container) return;
+        const deEl = document.getElementById('resumo-de');
+        const ateEl = document.getElementById('resumo-ate');
+        if (deEl && !deEl.value) deEl.value = this.hojeISO();
+        if (ateEl && !ateEl.value) ateEl.value = this.hojeISO();
 
-        if (!this.state.caixaAtual) {
-            // View de Caixa Fechado
-            container.innerHTML = `
-                <div class="settings-card glass-inner" style="max-width: 500px; margin: 2rem auto; text-align: center;">
-                    <div class="sv-card-header" style="justify-content: center; margin-bottom: 2rem;">
-                        <div class="sv-header-info">
-                            <i data-lucide="lock" style="width: 48px; height: 48px; color: var(--text-dim); margin-bottom: 1rem;"></i>
-                            <h3>Caixa Fechado</h3>
-                            <p>Abra o caixa para começar a operar.</p>
-                        </div>
-                    </div>
-                    <div class="input-group-labs" style="margin-bottom: 1.5rem; text-align: left;">
-                        <label class="input-label-labs">Valor de Abertura (Fundo de Caixa)</label>
-                        <input type="number" id="caixa-abertura-valor" class="glass-input-labs" placeholder="0.00" step="0.01">
-                    </div>
-                    <button class="btn-save-labs" style="width: 100%;" onclick="app.abrirCaixa(document.getElementById('caixa-abertura-valor').value)">
-                        <i data-lucide="unlock"></i> ABRIR CAIXA AGORA
-                    </button>
-                </div>
-            `;
-        } else {
-            // View de Caixa Aberto
-            const cx = this.state.caixaAtual;
-            
-            // BUG — Card de resumo do caixa sem mostrar vendas esperadas
-            // Calcular as vendas do período do caixa aberto
-            const vendasDoPeriodo = this.state.sales.filter(s => {
-                const d = new Date(s.date);
-                return d >= new Date(this.state.caixaAtual.dataAbertura);
-            });
-            const vendasDinheiro = vendasDoPeriodo
-                .filter(s => s.pagamento === 'dinheiro')
-                .reduce((sum, s) => sum + (s.valor_final || 0), 0);
-            const totalVendas = vendasDoPeriodo
-                .reduce((sum, s) => sum + (s.valor_final || 0), 0);
-            const somaSangrias = (this.state.caixaAtual.sangrias || [])
-                .reduce((s, i) => s + Number(i.valor), 0);
-            const somaSuprimentos = (this.state.caixaAtual.suprimentos || [])
-                .reduce((s, i) => s + Number(i.valor), 0);
-            const esperadoEmCaixa = this.state.caixaAtual.valorAbertura
-                + vendasDinheiro - somaSangrias + somaSuprimentos;
-
-            const movimentacoes = [...cx.sangrias.map(s => ({ ...s, tipo: 'SANGRE' })),
-            ...cx.suprimentos.map(s => ({ ...s, tipo: 'SUPRIME' }))]
-                .sort((a, b) => new Date(b.data) - new Date(a.data));
-
-            container.innerHTML = `
-                <div class="caixa-grid">
-                    <!-- Resumo Atual -->
-                    <div class="settings-card glass-inner">
-                        <div class="sv-card-header">
-                            <div class="sv-header-info">
-                                <h4>Resumo da Sessão</h4>
-                                <p>Operador: <strong>${cx.operador}</strong></p>
-                            </div>
-                            <span class="tag-draft">ABERTO</span>
-                        </div>
-                        <div class="resumo-caixa">
-                            <div class="resumo-item">
-                                <h4>Abertura</h4>
-                                <p>${this.formatCurrency(cx.valorAbertura)}</p>
-                            </div>
-                        </div>
-
-                        <hr style="margin: 1rem 0; opacity: 0.1;">
-                        <p>Total Vendas (período): <strong>${this.formatCurrency(totalVendas)}</strong></p>
-                        <p>Vendas Dinheiro: <strong>${this.formatCurrency(vendasDinheiro)}</strong></p>
-                        <p>Sangrias: <strong>-${this.formatCurrency(somaSangrias)}</strong></p>
-                        <p>Suprimentos: <strong>+${this.formatCurrency(somaSuprimentos)}</strong></p>
-                        <hr style="margin: 1rem 0; opacity: 0.1;">
-                        <p style="font-size: 1.1rem;">Esperado em Caixa: <strong>${this.formatCurrency(esperadoEmCaixa)}</strong></p>
-
-                        <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-dim);">
-                            Iniciado em: ${new Date(cx.dataAbertura).toLocaleString()}
-                        </div>
-                    </div>
-
-                    <!-- Lançamentos -->
-                    <div class="settings-card glass-inner">
-                        <div class="sv-card-header">
-                            <div class="sv-header-info">
-                                <h4>Movimentação de Caixa</h4>
-                                <p>Sangrias e Suprimentos manuais.</p>
-                            </div>
-                        </div>
-                        <div class="sv-fields-grid" style="margin-top: 1rem;">
-                            <div class="input-group-labs">
-                                <label class="input-label-labs">Valor</label>
-                                <input type="number" id="caixa-mov-valor" class="glass-input-labs" placeholder="0.00" step="0.01">
-                            </div>
-                            <div class="input-group-labs">
-                                <label class="input-label-labs">Motivo</label>
-                                <input type="text" id="caixa-mov-motivo" class="glass-input-labs" placeholder="Ex: Pagamento fornecedor">
-                            </div>
-                        </div>
-                        <div class="sv-grid-2" style="margin-top: 1rem;">
-                            <button class="btn-cancel-labs" onclick="app.registrarSangria(document.getElementById('caixa-mov-valor').value, document.getElementById('caixa-mov-motivo').value)">
-                                <i data-lucide="minus-circle"></i> SANGRIA
-                            </button>
-                            <button class="btn-save-labs" onclick="app.registrarSuprimento(document.getElementById('caixa-mov-valor').value, document.getElementById('caixa-mov-motivo').value)">
-                                <i data-lucide="plus-circle"></i> SUPRIMENTO
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Fechamento -->
-                    <div class="settings-card glass-inner">
-                        <div class="sv-card-header">
-                            <div class="sv-header-info">
-                                <h4>Finalizar Expediente</h4>
-                                <p>Informe o valor total em dinheiro no caixa.</p>
-                            </div>
-                        </div>
-                        <div class="input-group-labs" style="margin-top: 1rem;">
-                            <label class="input-label-labs">Total Dinheiro Contado</label>
-                            <input type="number" id="caixa-fechamento-valor" class="glass-input-labs" placeholder="0.00" step="0.01">
-                        </div>
-                        <button class="btn-save-labs" style="width: 100%; margin-top: 1.5rem; background: var(--accent-blue-gradient);" onclick="app.confirmarFechamento()">
-                            <i data-lucide="check-circle"></i> FECHAR CAIXA E IMPRIMIR
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tabela de Movimentações -->
-                <div class="settings-card glass-inner caixa-movimentacoes">
-                    <div class="sv-card-header">
-                        <div class="sv-header-info">
-                            <h4>Histórico de Movimentações</h4>
-                            <p>Registros desta sessão de caixa.</p>
-                        </div>
-                    </div>
-                    <table class="caixa-table">
-                        <thead>
-                            <tr>
-                                <th>Hora</th>
-                                <th>Tipo</th>
-                                <th>Motivo</th>
-                                <th>Valor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${movimentacoes.map(m => `
-                                <tr>
-                                    <td>${new Date(m.data).toLocaleTimeString()}</td>
-                                    <td class="${m.tipo === 'SANGRE' ? 'tipo-sangria' : 'tipo-suprimento'}">${m.tipo}</td>
-                                    <td>${this.esc(m.motivo)}</td>
-                                    <td class="${m.tipo === 'SANGRE' ? 'tipo-sangria' : 'tipo-suprimento'}">
-                                        ${m.tipo === 'SANGRE' ? '-' : '+'} R$ ${m.valor.toFixed(2)}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                            ${movimentacoes.length === 0 ? '<tr><td colspan="4" style="text-align: center; color: var(--text-dim); padding: 2rem;">Nenhuma movimentação registrada.</td></tr>' : ''}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-        this.initLucide();
-    },
-
-    confirmarFechamento() {
-        const valor = document.getElementById('caixa-fechamento-valor').value;
-        if (!valor || isNaN(valor)) {
-            this.showNotification('error', 'Informe o valor contado para fechar o caixa.');
+        const de = deEl ? deEl.value : this.hojeISO();
+        const ate = ateEl ? ateEl.value : de;
+        if (de > ate) {
+            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-dim);">A data inicial é posterior à data final.</div>';
             return;
         }
 
-        this.confirmAction(
-            'Fechar Caixa',
-            'Deseja realmente encerrar esta sessão de caixa? O resumo será impresso.',
-            () => this.fecharCaixa(valor),
-            'lock'
-        );
-    },
+        const p = Resumo.periodo(de, ate);
+        const r = Resumo.resumoPorPagamento(this.state.sales, p.inicio, p.fim);
+        const colunas = 'grid-template-columns: 1fr 120px 180px;';
 
-    updateCaixaDot() {
-        const dot = document.getElementById('caixa-status-dot');
-        if (!dot) return;
-
-        if (this.state.caixaAtual) {
-            dot.classList.remove('fechado');
-            dot.classList.add('aberto');
-        } else {
-            dot.classList.remove('aberto');
-            dot.classList.add('fechado');
-        }
-    },
-
-    renderCaixaHistorico() {
-        const container = document.getElementById('caixa-historico-container');
-        if (!container) return;
-
-        const items = Array.isArray(this.state.historicoFechamentos)
-            ? [...this.state.historicoFechamentos]
-            : [];
-
-        if (items.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-dim);">Nenhum fechamento registrado.</div>';
-            return;
-        }
-
-        items.sort((a, b) => {
-            const dateA = this.parseDate(a.dataFechamento || a.dataAbertura) || new Date(0);
-            const dateB = this.parseDate(b.dataFechamento || b.dataAbertura) || new Date(0);
-            return dateB - dateA;
-        });
-
-        const rows = items.map(cx => {
-            const abertura = this.parseDate(cx.dataAbertura);
-            const fechamento = this.parseDate(cx.dataFechamento);
-
-            const valorAbertura = Number(cx.valorAbertura) || 0;
-            const valorFechamento = Number(cx.valorFechamento) || 0;
-            const totalVendasDinheiro = Number(cx.totalVendasDinheiro) || 0;
-            const totalSangrias = Array.isArray(cx.sangrias) ? cx.sangrias.reduce((s, i) => s + Number(i.valor || 0), 0) : 0;
-            const totalSuprimentos = Array.isArray(cx.suprimentos) ? cx.suprimentos.reduce((s, i) => s + Number(i.valor || 0), 0) : 0;
-            const esperado = valorAbertura + totalVendasDinheiro - totalSangrias + totalSuprimentos;
-            const diferenca = Number(cx.diferenca) || (valorFechamento - esperado);
-
-            const diffClass = diferenca >= 0 ? 'cx-diff-pos' : 'cx-diff-neg';
-
-            return `
-                <tr>
-                    <td>${this.esc((cx.id || '').toString().slice(-6))}</td>
-                    <td>${this.esc(cx.operador || '')}</td>
-                    <td>${abertura ? abertura.toLocaleString('pt-BR') : ''}</td>
-                    <td>${fechamento ? fechamento.toLocaleString('pt-BR') : ''}</td>
-                    <td>${this.formatCurrency(valorAbertura)}</td>
-                    <td>${this.formatCurrency(esperado)}</td>
-                    <td>${this.formatCurrency(valorFechamento)}</td>
-                    <td class="${diffClass}">${this.formatCurrency(diferenca)}</td>
-                </tr>
-            `;
-        }).join('');
+        const linhas = r.linhas.map(l => `
+            <div class="nested-item-labs-row" style="${colunas} padding: 0.75rem 0.5rem; font-size: 0.9rem; border-bottom: 1px solid var(--glass-border);">
+                <span style="font-weight: 500;">${l.rotulo}</span>
+                <span>${l.quantidade}</span>
+                <span>${this.formatCurrency(l.total)}</span>
+            </div>`).join('');
 
         container.innerHTML = `
-            <table class="caixa-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Operador</th>
-                        <th>Abertura</th>
-                        <th>Fechamento</th>
-                        <th>Valor Inicial</th>
-                        <th>Esperado</th>
-                        <th>Contado</th>
-                        <th>Diferença</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
-        `;
+            <div class="list-header-labs" style="${colunas} padding: 1rem; font-size: 0.75rem; border-bottom: 1px solid var(--glass-border);">
+                <span>FORMA DE PAGAMENTO</span>
+                <span>VENDAS</span>
+                <span>TOTAL</span>
+            </div>
+            ${linhas}
+            <div class="nested-item-labs-row" style="${colunas} padding: 0.9rem 0.5rem; font-size: 1rem; font-weight: 700;">
+                <span>Total</span>
+                <span>${r.quantidade}</span>
+                <span>${this.formatCurrency(r.total)}</span>
+            </div>`;
+        this.initLucide();
     },
 
     logAudit(action, details = {}) {
@@ -657,7 +265,6 @@ const app = {
         }
 
         this.updateNotifications();
-        this.updateCaixaDot();
         this.renderAll();
     },
 
@@ -1449,7 +1056,7 @@ const app = {
         const titles = {
             dashboard: 'Visão Geral do Dashboard',
             pos: 'Ponto de Venda',
-            caixa: 'Fechamento de Caixa',
+            resumo: 'Resumo de Vendas',
             products: 'Gestão de Produtos',
             customers: 'Gestão de Clientes',
             history: 'Histórico de Saídas',
@@ -1460,7 +1067,7 @@ const app = {
         const tags = {
             dashboard: 'AO VIVO',
             pos: 'OPERACIONAL',
-            caixa: 'CAIXA',
+            resumo: 'RELATÓRIOS',
             products: 'ESTOQUE',
             customers: 'CLIENTES',
             history: 'RELATÓRIOS',
@@ -1476,9 +1083,8 @@ const app = {
         if (viewId === 'dashboard') {
             this.renderDashboard();
         }
-        if (viewId === 'caixa') {
-            this.renderCaixa();
-            this.updateCaixaDot();
+        if (viewId === 'resumo') {
+            this.renderResumo();
         }
         if (viewId === 'settings') {
             this.renderSettings();
@@ -1958,9 +1564,6 @@ const app = {
         if (sectionName === 'aparencia') {
             this.syncAppearanceThemeToggle();
         }
-        if (sectionName === 'caixa') {
-            this.renderCaixaHistorico();
-        }
         if (sectionName === 'categorias') {
             this.renderCategories();
         }
@@ -2380,7 +1983,6 @@ const app = {
             reversals: this.state.reversals,
             entradas: this.state.entradas,
             movimentacoes: this.state.movimentacoes,
-            fechamentos: this.state.historicoFechamentos,
             categories: this.state.categories,
             users: this.state.users
         };
@@ -2459,9 +2061,8 @@ const app = {
                     if (mudanca) payload[nome] = mudanca;
                 }
 
-                // Configurações e caixa são pequenos: sempre regravados por inteiro.
+                // Configurações são pequenas: sempre regravadas por inteiro.
                 payload.settings = { full: [this.state.settings] };
-                payload.caixa = { full: this.state.caixaAtual ? [this.state.caixaAtual] : [] };
 
                 const saved = await bridge.SaveChanges(JSON.stringify(payload));
                 if (!saved) {
@@ -2476,8 +2077,6 @@ const app = {
                 localStorage.setItem('sv_sales', JSON.stringify(this.state.sales));
                 localStorage.setItem('sv_settings', JSON.stringify(this.state.settings));
                 localStorage.setItem('sv_users', JSON.stringify(this.state.users));
-                localStorage.setItem('sv_caixa', JSON.stringify(this.state.caixaAtual ? [this.state.caixaAtual] : []));
-                localStorage.setItem('sv_fechamentos', JSON.stringify(this.state.historicoFechamentos));
                 localStorage.setItem('sv_entradas', JSON.stringify(this.state.entradas));
                 localStorage.setItem('sv_movimentacoes', JSON.stringify(this.state.movimentacoes));
                 localStorage.setItem('sv_categories', JSON.stringify(this.state.categories));
@@ -2499,123 +2098,16 @@ const app = {
                 const bridge = window.chrome.webview.hostObjects.bridge;
 
                 // Carregar dados principais
-                const [productsData, customersData, salesData, settingsData, reversalsData, entradasData, fechamentosData, categoriesData, movimentacoesData] = await Promise.all([
+                const [productsData, customersData, salesData, settingsData, reversalsData, entradasData, categoriesData, movimentacoesData] = await Promise.all([
                     bridge.GetData('products'),
                     bridge.GetData('customers'),
                     bridge.GetData('sales'),
                     bridge.GetData('settings'),
                     bridge.GetData('reversals'),
                     bridge.GetData('entradas'),
-                    bridge.GetData('fechamentos'),
                     bridge.GetData('categories'),
                     bridge.GetData('movimentacoes')
                 ]);
-
-                // Carregar caixa com fallback individual
-                let rawCaixa = [];
-                try {
-                    const caixaData = await bridge.GetData('caixa');
-                    rawCaixa = JSON.parse(caixaData || '[]');
-                } catch (e) {
-                    rawCaixa = JSON.parse(localStorage.getItem('sv_caixa') || '[]');
-                }
-
-                // Tenta carregar usuários via bridge, com fallback para localStorage
-                let usersData = null;
-                try {
-                    usersData = await bridge.GetData('users');
-                } catch (e) {
-                    console.warn("Bridge 'users' falhou no carregamento.");
-                }
-
-                if (!usersData || usersData === "[]" || usersData === "") {
-                    usersData = localStorage.getItem('sv_users');
-                }
-
-                const rawProducts = JSON.parse(productsData || '[]');
-                const rawCustomers = JSON.parse(customersData || '[]');
-                const rawSales = JSON.parse(salesData || '[]');
-                const rawSettings = JSON.parse(settingsData || '[]');
-                const rawReversals = JSON.parse(reversalsData || '[]');
-                const rawUsers = JSON.parse(usersData || '[]');
-
-                // Normalização e Garantia de IDs para Produtos
-                this.state.products = rawProducts.map(p => ({
-                    id: String(p.id || p.ID || 'P' + Math.random().toString(36).substr(2, 9)),
-                    name: String(p.name || p.Nome || p.Produto || ''),
-                    code: String(p.code || p.Código || p.Codigo || ''),
-                    cost: parseFloat(p.cost || p.Custo || p.custo || 0) || 0,
-                    price: parseFloat(p.price || p.Preço || p.Preco || p.preco || 0) || 0,
-                    stock: parseInt(p.stock || p.Estoque || p.estoque || 0) || 0,
-                    image: String(p.image || p.Imagem || ''),
-                    obs: String(p.obs || p.Observação || p.Observacao || ''),
-                    category: String(p.category || p.Categoria || '')
-                }));
-
-                // Normalização e Garantia de IDs para Clientes
-                this.state.customers = rawCustomers.map(c => ({
-                    id: String(c.id || c.ID || 'C' + Math.random().toString(36).substr(2, 9)),
-                    name: String(c.name || c.Nome || ''),
-                    whatsapp: String(c.whatsapp || c.WhatsApp || ''),
-                    email: String(c.email || c.Email || ''),
-                    obs: String(c.obs || c.Observação || c.Observacao || c["Observações / Endereço"] || ''),
-                    date: String(c.date || c.Data || new Date().toISOString()),
-                    image: String(c.image || c.Imagem || '')
-                }));
-
-                // Normalização de Vendas
-                this.state.sales = rawSales.map(s => {
-                    let items = [];
-                    try {
-                        if (s.items) {
-                            items = typeof s.items === 'string' ? JSON.parse(s.items) : s.items;
-                        }
-                    } catch (e) {
-                        console.error("Erro ao processar itens da venda:", e);
-                    }
-
-                    return {
-                        id: String(s.id || s.ID || ''),
-                        date: String(s.date || s.Data || ''),
-                        cliente: String(s.cliente || s.Cliente || 'Consumidor Final'),
-                        valor_total: parseFloat(s.valor_total || s["Valor Total"] || s.total || 0) || 0,
-                        desconto: parseFloat(s.desconto || s.Desconto || 0) || 0,
-                        valor_final: parseFloat(s.valor_final || s["Valor Final"] || 0) || 0,
-                        cost: parseFloat(s.cost || s.custo || s.Custo || s.custoTotal || 0) || 0,
-                        lucro: parseFloat(s.lucro || s.Lucro || 0) || 0,
-                        pagamento: String(s.pagamento || s["Forma de Pagamento"] || 'N/A'),
-                        items: items
-                    };
-                });
-
-                // Normalização de Estornos
-                this.state.reversals = rawReversals.map(r => ({
-                    id: String(r.id || ''),
-                    sale_id: String(r.sale_id || ''),
-                    product_id: String(r.product_id || ''),
-                    product_name: String(r.product_name || ''),
-                    qty: parseInt(r.qty || 0),
-                    date: String(r.date || '')
-                }));
-
-                // Normalização de Caixa, Fechamentos e Entradas
-                this.state.caixaAtual = rawCaixa.length > 0 ? rawCaixa[0] : null;
-                
-                this.state.historicoFechamentos = JSON.parse(fechamentosData || '[]').map(f => ({
-                    id: String(f.id || ''),
-                    dataAbertura: String(f.dataAbertura || ''),
-                    dataFechamento: String(f.dataFechamento || ''),
-                    operador: String(f.operador || ''),
-                    valorAbertura: parseFloat(f.valorAbertura || 0) || 0,
-                    valorFechamento: parseFloat(f.valorFechamento || 0) || 0,
-                    totalVendasDinheiro: parseFloat(f.totalVendasDinheiro || 0) || 0,
-                    totalVendasCartao: parseFloat(f.totalVendasCartao || 0) || 0,
-                    totalVendasPix: parseFloat(f.totalVendasPix || 0) || 0,
-                    totalGeral: parseFloat(f.totalGeral || 0) || 0,
-                    diferenca: parseFloat(f.diferenca || 0) || 0,
-                    sangrias: typeof f.sangrias === 'string' ? JSON.parse(f.sangrias || '[]') : (f.sangrias || []),
-                    suprimentos: typeof f.suprimentos === 'string' ? JSON.parse(f.suprimentos || '[]') : (f.suprimentos || [])
-                }));
 
                 this.state.entradas = JSON.parse(entradasData || '[]').map(e => ({
                     id: String(e.id || ''),
@@ -2690,9 +2182,6 @@ const app = {
                 this.state.settings = JSON.parse(localStorage.getItem('sv_settings')) || this.state.settings;
                 this.state.users = JSON.parse(localStorage.getItem('sv_users')) || [];
 
-                const rawCaixa = JSON.parse(localStorage.getItem('sv_caixa') || '[]');
-                this.state.caixaAtual = rawCaixa.length > 0 ? rawCaixa[0] : null;
-                this.state.historicoFechamentos = JSON.parse(localStorage.getItem('sv_fechamentos') || '[]');
                 this.state.entradas = JSON.parse(localStorage.getItem('sv_entradas') || '[]');
                 this.state.categories = JSON.parse(localStorage.getItem('sv_categories') || '[]');
                 this.state.movimentacoes = JSON.parse(localStorage.getItem('sv_movimentacoes') || '[]');
@@ -4883,7 +4372,7 @@ const app = {
             },
             {
                 title: 'Navegação (menu lateral)',
-                desc: 'Use o menu lateral para alternar entre as áreas: Dashboard, PDV, Caixa, Produtos, Clientes, Saídas e Entradas.',
+                desc: 'Use o menu lateral para alternar entre as áreas: Dashboard, PDV, Resumo, Produtos, Clientes, Saídas e Entradas.',
                 icon: 'layout-dashboard',
                 view: 'dashboard',
                 highlight: ['.sidebar .nav-links']
@@ -4973,11 +4462,11 @@ const app = {
                 highlight: ['#history-view']
             },
             {
-                title: 'Caixa: operar a sessão',
-                desc: 'Abra o caixa com fundo, registre sangrias e suprimentos e feche informando o total contado. O sistema calcula o esperado e a diferença.',
-                icon: 'wallet',
-                view: 'caixa',
-                highlight: ['#caixa-content', '#caixa-status-dot']
+                title: 'Resumo de vendas',
+                desc: 'Veja o total de vendas por forma de pagamento (dinheiro, cartão e Pix) em um dia ou em um período.',
+                icon: 'receipt',
+                view: 'resumo',
+                highlight: ['#resumo-content']
             },
             {
                 title: 'Configurações: visão geral',
@@ -5035,14 +4524,6 @@ const app = {
                 highlight: ['#sv-section-categorias']
             },
             {
-                title: 'Configurações: Histórico do Caixa',
-                desc: 'Veja um resumo de aberturas/fechamentos com operador, datas, esperado, contado e diferença.',
-                icon: 'clock',
-                view: 'settings',
-                settingsSection: 'caixa',
-                highlight: ['#sv-section-caixa', '#caixa-historico-container']
-            },
-            {
                 title: 'Encerrar o sistema',
                 desc: 'Ao finalizar suas atividades, use o botão "Sair" para fechar com segurança.',
                 icon: 'log-out',
@@ -5088,15 +4569,8 @@ const app = {
                 highlight: ['#history-view']
             },
             {
-                title: 'Caixa: sessão e fechamento',
-                desc: 'Abra e feche o caixa com segurança. O sistema calcula o esperado e a diferença.',
-                icon: 'wallet',
-                view: 'caixa',
-                highlight: ['#caixa-content', '#caixa-status-dot']
-            },
-            {
                 title: 'Áreas administrativas (somente Admin)',
-                desc: 'Algumas áreas exigem perfil Administrador: Dashboard, Produtos, Entradas e Configurações (Empresa/Usuários/Backup/Categorias/Histórico do Caixa).',
+                desc: 'Algumas áreas exigem perfil Administrador: Dashboard, Produtos, Entradas e Configurações (Empresa/Usuários/Backup/Categorias).',
                 icon: 'shield-check',
                 highlight: ['#topbar-user-profile']
             },
