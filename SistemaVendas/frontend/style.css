@@ -1,33 +1,53 @@
-/* 
+/*
  * SV Ultra - Labs Design Theme
- * Focus: Deep purple glow, floating glass container, and high-end UI
+ * Tema escuro com destaque teal. Tokens no topo; componentes base no bloco final (Design System v2).
  */
 
 /* Fonte do sistema (Windows): Segoe UI */
 
+/* 
+ * SV Ultra - Design System (v2)
+ * Tema escuro com destaque teal. Sem dependência de internet (fontes e ícones são locais).
+ * Cores de destaque: use var(--accent) e rgba(var(--accent-rgb), a). Não use cores fixas.
+ */
+
 :root {
-    --bg-dark: #141414;
+    /* Superfícies */
+    --bg-dark: #0b1117;
     --purple-glow: transparent;
-    --glass-card: #141414;
-    --glass-inner: #1a1a1a;
-    --glass-border: #2a2a2a;
-    --text-white: #ffffff;
-    --text-dim: #a1a1aa;
-    --accent-purple: #3d34a5;
-    --accent-blue-gradient: linear-gradient(90deg, #3d34a5, #5b52c9);
-    
-    /* Nova paleta */
-    --color-1: #3d34a5;
-    --color-2: #5b52c9;
-    --color-3: #2d6fc4;
-    --color-4: #12a3a2;
-    --color-danger: #cc3333;
-    
-    /* Responsividade */
-    --radius-lg: 0.75rem;
-    --radius-md: 0.5rem;
-    --radius-sm: 0.25rem;
-    --transition: 0.2s ease-in-out;
+    --glass-card: #111a22;
+    --glass-inner: #16222b;
+    --glass-border: #22313c;
+    --input-bg: rgba(0, 0, 0, 0.25);
+
+    /* Texto */
+    --text-white: #e6f0f4;
+    --text-dim: #8aa1ae;
+
+    /* Destaque */
+    --accent: #14b8a6;
+    --accent-hover: #2dd4bf;
+    --accent-rgb: 20, 184, 166;
+    --accent-gradient: linear-gradient(135deg, #0d9488, #14b8a6);
+
+    /* Cores de apoio */
+    --color-1: #0d9488;
+    --color-2: #14b8a6;
+    --color-3: #0ea5e9;
+    --color-4: #2dd4bf;
+    --color-danger: #ef4444;
+    --color-warning: #eab308;
+
+    /* Movimento: sutil e leve */
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --dur-fast: 150ms;
+    --dur-base: 220ms;
+    --transition: var(--dur-base) var(--ease-out);
+
+    /* Raio e espaçamento */
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 8px;
     
     /* Fontes */
     --font-base: 0.875rem;
@@ -49,13 +69,18 @@
 }
 
 .light-theme {
-    --bg-dark: #f8fafc;
+    --bg-dark: #f1f5f7;
     --glass-card: #ffffff;
     --glass-inner: #ffffff;
-    --glass-border: #e2e8f0;
-    --text-white: #0f172a;
-    --text-dim: #64748b;
-    --purple-glow: rgba(61, 52, 165, 0.03);
+    --glass-border: #dbe4ea;
+    --input-bg: #f7fafb;
+    --text-white: #0f1d24;
+    --text-dim: #5b7280;
+    --accent: #0f9488;
+    --accent-hover: #0d7f75;
+    --accent-rgb: 15, 148, 136;
+    --accent-gradient: linear-gradient(135deg, #0f766e, #0f9488);
+    --purple-glow: rgba(15, 148, 136, 0.03);
 }
 
 .light-theme ::-webkit-scrollbar-thumb {
@@ -90,7 +115,7 @@
 
 .light-theme .glass-input-labs:focus {
     background: #ffffff;
-    border-color: var(--accent-purple);
+    border-color: var(--accent);
 }
 
 .light-theme .glass-input-labs option {
@@ -142,7 +167,7 @@
 }
 
 .light-theme .btn-toggle-password:hover {
-    color: var(--accent-purple);
+    color: var(--accent);
 }
 
 .light-theme .notification-dropdown {
@@ -290,8 +315,8 @@ html {
 }
 
 .btn-zoom-sidebar:hover {
-    background: var(--accent-purple);
-    border-color: var(--accent-purple);
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 .btn-zoom-sidebar i {
@@ -677,9 +702,9 @@ body {
     font-size: 0.7rem;
     padding: 2px 8px;
     border-radius: 99px;
-    background: rgba(124, 58, 237, 0.15);
-    color: var(--accent-purple);
-    border: 1px solid rgba(124, 58, 237, 0.2);
+    background: rgba(var(--accent-rgb), 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
     display: inline-block;
     margin-top: 3px;
     width: fit-content; /* ← adicionar isso */
@@ -904,7 +929,7 @@ body {
 }
 
 .btn-save, .btn-save-labs, .btn-cancel-labs {
-    background: var(--accent-purple);
+    background: var(--accent);
     color: var(--text-white);
     padding: 0.75rem 1.5rem;
     min-height: 44px;
@@ -984,12 +1009,12 @@ body {
 }
 
 .btn-finish-sale {
-    background: var(--accent-blue-gradient) !important;
+    background: var(--accent-gradient) !important;
     padding: 0.85rem !important;
     font-size: 0.95rem !important;
     letter-spacing: 0.5px;
     border-radius: var(--radius-sm);
-    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.4);
     text-transform: uppercase;
     font-weight: 700;
     flex-shrink: 0; /* Impede que o botão de finalizar seja espremido */
@@ -1012,10 +1037,10 @@ body {
 }
 
 .btn-insert-logo {
-    background: var(--accent-purple);
+    background: var(--accent);
     color: var(--text-white);
     padding: 0.5rem 1rem;
-    border: 1px solid var(--accent-purple);
+    border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     font-size: 0.8rem;
     font-weight: 600;
@@ -1081,14 +1106,14 @@ body {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: rgba(124, 58, 237, 0.18);
-    color: var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.18);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
     font-size: 0.8rem;
-    border: 1px solid rgba(124, 58, 237, 0.3);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 .cart-item-labs {
@@ -1260,7 +1285,7 @@ body {
 }
 
 .glass-input-labs:focus {
-    border-color: var(--accent-purple);
+    border-color: var(--accent);
     background: rgba(0, 0, 0, 0.6);
 }
 
@@ -1422,7 +1447,7 @@ body {
 .login-header h1 {
     font-size: 2.5rem;
     font-weight: 700;
-    background: var(--accent-blue-gradient);
+    background: var(--accent-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1509,13 +1534,13 @@ body {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(124, 58, 237, 0.1);
-    color: var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    border: 1px solid rgba(124, 58, 237, 0.2);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
 }
 
 .user-details {
@@ -1539,9 +1564,9 @@ body {
 }
 
 .role-admin {
-    background: rgba(124, 58, 237, 0.15);
-    color: var(--accent-purple);
-    border: 1px solid rgba(124, 58, 237, 0.3);
+    background: rgba(var(--accent-rgb), 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 .role-operador {
@@ -1910,14 +1935,14 @@ body {
     width: 36px;
     height: 36px;
     border-radius: 6px;
-    background: rgba(124, 58, 237, 0.1);
-    color: var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     font-size: 0.8rem;
-    border: 1px solid rgba(124, 58, 237, 0.2);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
 }
 
 .product-info-mini {
@@ -1998,8 +2023,8 @@ body {
 }
 
 .badge-qty {
-    background: rgba(124, 58, 237, 0.1);
-    color: var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
     padding: 2px 8px;
     border-radius: 4px;
     font-weight: 700;
@@ -2132,7 +2157,7 @@ body {
 .item-amount {
     font-size: 0.95rem;
     font-weight: 700;
-    color: var(--accent-purple);
+    color: var(--accent);
 }
 
 .item-actions-wrapper {
@@ -2156,9 +2181,9 @@ body {
 }
 
 .btn-action-view:hover {
-    background: rgba(124, 58, 237, 0.1);
-    color: var(--accent-purple);
-    border-color: rgba(124, 58, 237, 0.2);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .btn-action-view i {
@@ -2169,7 +2194,7 @@ body {
 .btn-link {
     background: transparent;
     border: none;
-    color: var(--accent-purple);
+    color: var(--accent);
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
@@ -2179,7 +2204,7 @@ body {
 }
 
 .btn-link:hover {
-    background: rgba(124, 58, 237, 0.1);
+    background: rgba(var(--accent-rgb), 0.1);
 }
 
 /* Media Queries for specific resolutions requested */
@@ -2325,7 +2350,7 @@ body.sem-login .requer-login { display: none !important; }
 .loader {
     width: 48px;
     height: 48px;
-    border: 3px solid var(--accent-purple);
+    border: 3px solid var(--accent);
     border-bottom-color: transparent;
     border-radius: 50%;
     display: inline-block;
@@ -2537,7 +2562,7 @@ body.sem-login .requer-login { display: none !important; }
 
 .photo-placeholder:hover {
     background: rgba(255, 255, 255, 0.05);
-    border-color: var(--accent-purple);
+    border-color: var(--accent);
 }
 
 .photo-preview-labs {
@@ -2586,7 +2611,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 .btn-save-labs {
-    background: var(--accent-purple);
+    background: var(--accent);
     color: white;
     padding: 0.6rem 1.5rem; /* Reduzido */
     border: none;
@@ -2595,7 +2620,7 @@ body.sem-login .requer-login { display: none !important; }
     font-size: 0.8rem;
     cursor: pointer;
     transition: var(--transition);
-    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+    box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.3);
 }
 
 .btn-cancel-labs:hover, .btn-save-labs:hover {
@@ -2792,9 +2817,9 @@ body.sem-login .requer-login { display: none !important; }
     gap: 6px;
     padding: 4px 8px;
     border-radius: 6px;
-    background: rgba(124, 58, 237, 0.1);
+    background: rgba(var(--accent-rgb), 0.1);
     color: #a78bfa;
-    border: 1px solid rgba(124, 58, 237, 0.2);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
@@ -2808,7 +2833,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #history-list-labs .btn-items-visualizer:hover {
-    background: rgba(124, 58, 237, 0.2);
+    background: rgba(var(--accent-rgb), 0.2);
     transform: translateY(-1px);
 }
 
@@ -2841,7 +2866,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 .settings-header-labs i {
-    color: var(--accent-purple);
+    color: var(--accent);
 }
 
 .settings-header-labs h4 {
@@ -2877,7 +2902,7 @@ body.sem-login .requer-login { display: none !important; }
 .backup-card:hover {
     background: rgba(255, 255, 255, 0.06);
     transform: translateY(-2px);
-    border-color: var(--accent-purple);
+    border-color: var(--accent);
 }
 
 .backup-icon {
@@ -2956,14 +2981,14 @@ body.sem-login .requer-login { display: none !important; }
     border-radius: 50%;
     aspect-ratio: 1 / 1;  /* BUG 1: garantir proporção quadrada */
     flex-shrink: 0;        /* BUG 1: não encolher em flex containers */
-    background: rgba(124, 58, 237, 0.2);
-    color: var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.2);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     font-size: 1.2rem;
-    border: 1px solid rgba(124, 58, 237, 0.3);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 .product-info-mini {
@@ -3283,7 +3308,7 @@ body.sem-login .requer-login { display: none !important; }
     align-items: center;
     justify-content: center;
     margin: 0 auto;
-    color: var(--accent-purple);
+    color: var(--accent);
 }
 
 .tutorial-icon-container i {
@@ -3308,7 +3333,7 @@ body.sem-login .requer-login { display: none !important; }
     box-shadow: 0 0 0 4px var(--color-1), 0 0 30px var(--color-2);
     pointer-events: auto;
     animation: highlightPulse 2s infinite;
-    background-color: rgba(124, 58, 237, 0.2);
+    background-color: rgba(var(--accent-rgb), 0.2);
     border-radius: var(--radius-md);
     outline: 2px solid white; /* Adicional para clareza */
 }
@@ -3368,9 +3393,9 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #settings-view .sv-settings-menu-item.active {
-    background: rgba(124, 58, 237, 0.1);
-    color: var(--accent-purple);
-    border-left: 3px solid var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
 }
@@ -3398,7 +3423,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #settings-view .sv-settings-content::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-purple);
+    background: var(--accent);
 }
 
 #settings-view .sv-settings-section {
@@ -3506,8 +3531,8 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #settings-view .sv-btn-outline:hover {
-    border-color: var(--accent-purple);
-    color: var(--accent-purple);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 #settings-view .sv-btn-icon-danger {
@@ -3593,7 +3618,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #settings-view .sv-user-avatar.admin {
-    background: var(--accent-purple);
+    background: var(--accent);
 }
 
 #settings-view .sv-user-avatar.operador {
@@ -3621,8 +3646,8 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #settings-view .sv-user-badge.admin {
-    background: rgba(124, 58, 237, 0.1);
-    color: var(--accent-purple);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
 }
 
 #settings-view .sv-user-badge.operador {
@@ -3701,7 +3726,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 #settings-view .sv-toggle input:checked + .sv-toggle-track {
-    background-color: var(--accent-purple);
+    background-color: var(--accent);
 }
 
 #settings-view .sv-toggle input:checked + .sv-toggle-track:before {
@@ -3722,8 +3747,8 @@ body.sem-login .requer-login { display: none !important; }
     justify-content: center;
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--accent-purple);
-    background: rgba(124, 58, 237, 0.05);
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.05);
     padding: 1.5rem;
     border-radius: var(--radius-md);
 }
@@ -3749,10 +3774,10 @@ body.sem-login .requer-login { display: none !important; }
     appearance: none;
     width: 20px;
     height: 20px;
-    background: var(--accent-purple);
+    background: var(--accent);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
     transition: var(--transition);
 }
 
@@ -3765,4 +3790,128 @@ body.sem-login .requer-login { display: none !important; }
     justify-content: space-between;
     color: var(--text-dim);
     font-size: 0.85rem;
+}
+
+
+/* ==========================================================================
+   DESIGN SYSTEM v2 - componentes base (fica no fim para vencer regras antigas)
+   Movimento sutil: 150-220 ms. Respeita "reduzir movimento" do Windows.
+   ========================================================================== */
+
+/* Campos */
+.glass-input-labs {
+    background: var(--input-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), background var(--dur-fast);
+}
+
+.glass-input-labs:hover {
+    border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+.glass-input-labs:focus {
+    border-color: var(--accent);
+    background: var(--input-bg);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+}
+
+/* Botões principais */
+.btn-save-labs,
+.btn-save {
+    background: var(--accent-gradient);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 1.35rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(var(--accent-rgb), 0.22);
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), filter var(--dur-fast);
+}
+
+.btn-save-labs:hover,
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.32);
+    filter: brightness(1.06);
+}
+
+.btn-save-labs:active,
+.btn-save:active {
+    transform: scale(0.98);
+    box-shadow: 0 3px 10px rgba(var(--accent-rgb), 0.2);
+}
+
+/* Botões secundários */
+.btn-cancel-labs {
+    background: transparent;
+    color: var(--text-white);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 1.35rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+}
+
+.btn-cancel-labs:hover {
+    background: rgba(var(--accent-rgb), 0.08);
+    border-color: rgba(var(--accent-rgb), 0.4);
+    transform: none;
+    filter: none;
+}
+
+.btn-cancel-labs:active {
+    transform: scale(0.98);
+}
+
+/* Foco por teclado, visível em qualquer tema */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Navegação: indicador lateral no item ativo */
+.nav-btn {
+    transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+}
+
+.nav-btn:hover {
+    transform: translateX(2px);
+}
+
+.nav-btn.active {
+    color: var(--text-white);
+    background: rgba(var(--accent-rgb), 0.12);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Entrada suave das telas (só opacidade: não cria contexto de posicionamento) */
+@keyframes svEntrada {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.view {
+    animation: svEntrada var(--dur-base) var(--ease-out);
+}
+
+/* Reduzir movimento (configuração do Windows) */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+    }
 }
