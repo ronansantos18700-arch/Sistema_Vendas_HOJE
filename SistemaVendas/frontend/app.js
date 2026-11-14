@@ -5016,9 +5016,24 @@ const app = {
     },
 
     deleteEntrada(id) {
+        const entradaAlvo = this.state.entradas.find(e => e.id === id);
+        if (entradaAlvo) {
+            // Bloqueia a exclusão se vendas feitas depois da entrada dependem do estoque dela
+            const verificacao = Estoque.verificarExclusaoEntrada(this.state.movimentacoes, entradaAlvo);
+            if (!verificacao.ok) {
+                const linhas = verificacao.problemas.map(pr => {
+                    const produto = this.state.products.find(p => String(p.id) === pr.produtoId);
+                    const nome = produto ? produto.name : pr.produtoId;
+                    return `${nome}: ${pr.falta} unidade(s) já vendida(s)`;
+                });
+                this.showNotification('error', 'Não é possível excluir esta entrada porque o estoque já foi vendido. ' + linhas.join('; ') + '.');
+                return;
+            }
+        }
+
         this.confirmAction(
             'Excluir Entrada?',
-            'Ao excluir uma entrada, o estoque dos produtos será reduzido proporcionalmente. Deseja continuar?',
+            'O estoque e o custo médio dos produtos serão recalculados sem esta entrada. Deseja continuar?',
             async () => {
                 const index = this.state.entradas.findIndex(e => e.id === id);
                 if (index === -1) return;

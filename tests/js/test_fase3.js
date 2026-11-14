@@ -82,6 +82,88 @@ function lancarItem(app, campos, qty, custo) {
     check('venda: carrinho original não foi alterado', app.state.cart[0].cost === 5);
   }
 
+  // --- Exclusão de entrada: bloqueada quando vendas dependem do estoque dela ---
+  function entradaRegistrada(app, Estoque, id, qty, custo) {
+    const entrada = { id, date: new Date().toISOString(), fornecedor: 'F', nota: '1', obs: '',
+      items: [{ productId: 'P1', productName: 'Café', qty, unitCost: custo, totalCost: qty * custo }], totalCusto: qty * custo };
+    app.registrarMovimentacoes(Estoque.movimentosDaEntrada(entrada));
+    app.state.entradas.unshift(entrada);
+    return entrada;
+  }
+  function venda(app, Estoque, id, qty) {
+    const sale = { id, date: new Date().toISOString(), items: [{ id: 'P1', name: 'Café', qty, cost: app.state.products[0].cost, price: 30 }] };
+    app.registrarMovimentacoes(Estoque.movimentosDaVenda(sale));
+    app.state.sales.push(sale);
+  }
+  function excluir(app, id) {
+    let confirmou = false;
+    app.confirmAction = (t, m, cb) => { confirmou = true; cb(); };
+    app.deleteEntrada(id);
+    return confirmou;
+  }
+
+  {
+    const { app, Estoque } = criarApp();
+    const e1 = entradaRegistrada(app, Estoque, 'EN1', 10, 20);
+    venda(app, Estoque, 'V1', 4);
+    const avisos = [];
+    app.showNotification = (tipo, msg) => avisos.push({ tipo, msg });
+    const confirmou = excluir(app, e1.id);
+    check('exclusão bloqueada: entrada com venda posterior', confirmou === false && app.state.entradas.length === 1);
+    check('exclusão bloqueada: mensagem informa 4 unidades vendidas', avisos.some(a => a.tipo === 'error' && a.msg.includes('4 unidade')));
+    check('exclusão bloqueada: estoque segue 6', app.state.products[0].stock === 6);
+  }
+
+  {
+    const { app, Estoque } = criarApp();
+    const e1 = entradaRegistrada(app, Estoque, 'EN1', 10, 20);
+    const confirmou = excluir(app, e1.id);
+    check('exclusão liberada: entrada sem venda', confirmou === true && app.state.entradas.length === 0);
+    check('exclusão liberada: estoque volta a 0 e custo a 0', app.state.products[0].stock === 0 && app.state.products[0].cost === 0);
+  }
+
+  {
+    // Entrada 2 depende de a entrada 1 ter abastecido a venda: excluir a 1 deixa a venda sem estoque
+    const { app, Estoque } = criarApp();
+    const e1 = entradaRegistrada(app, Estoque, 'EN1', 10, 20);
+    venda(app, Estoque, 'V1', 4);
+    entradaRegistrada(app, Estoque, 'EN2', 10, 30);
+    const confirmou = excluir(app, e1.id);
+    check('exclusão bloqueada: entrada anterior sustenta venda posterior', confirmou === false);
+  }
+
+  {
+    // Ajuste manual que zera o estoque depois da entrada também bloqueia a exclusão
+    const { app, Estoque } = criarApp();
+    const e1 = entradaRegistrada(app, Estoque, 'EN1', 10, 20);
+    app.registrarMovimentacoes([Estoque.movimentoAjuste('P1', -10, 'Quebra')]);
+    const confirmou = excluir(app, e1.id);
+    check('exclusão bloqueada: ajuste de saída depois da entrada', confirmou === false);
+  }
+
+  {
+    // Entrada anterior ao histórico (sem movimentações): só reverte a quantidade
+    const { app, Estoque } = criarApp();
+    app.state.products[0].stock = 5; app.state.products[0].cost = 4;
+    app.state.movimentacoes.push(Estoque.movimentoCadastro('P1', 5, 4));
+    const legada = { id: 'EN0', date: new Date().toISOString(), fornecedor: 'F', nota: '0', obs: '',
+      items: [{ productId: 'P1', productName: 'Café', qty: 3, unitCost: 2, totalCost: 6 }], totalCusto: 6 };
+    app.state.entradas.push(legada);
+    const confirmou = excluir(app, legada.id);
+    check('exclusão legada liberada com estoque suficiente', confirmou === true && app.state.products[0].stock === 2);
+  }
+
+  {
+    const { app, Estoque } = criarApp();
+    app.state.products[0].stock = 2; app.state.products[0].cost = 4;
+    app.state.movimentacoes.push(Estoque.movimentoCadastro('P1', 2, 4));
+    const legada = { id: 'EN0', date: new Date().toISOString(), fornecedor: 'F', nota: '0', obs: '',
+      items: [{ productId: 'P1', productName: 'Café', qty: 3, unitCost: 2, totalCost: 6 }], totalCusto: 6 };
+    app.state.entradas.push(legada);
+    const confirmou = excluir(app, legada.id);
+    check('exclusão legada bloqueada com estoque menor que a entrada', confirmou === false && app.state.entradas.length === 1);
+  }
+
   console.log(falhas === 0 ? 'Todos os testes passaram.' : `${falhas} falha(s).`);
   process.exit(falhas === 0 ? 0 : 1);
 })().catch(e => { console.log('FALHA inesperada:', e.stack || e.message); process.exit(1); });
