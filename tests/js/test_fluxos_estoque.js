@@ -17,6 +17,7 @@ const ctx = {
 ctx.window = ctx; ctx.globalThis = ctx;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(base, 'estoque.js'), 'utf8'), ctx);
+vm.runInContext(fs.readFileSync(path.join(base, 'resumo.js'), 'utf8'), ctx);
 try { vm.runInContext(fs.readFileSync(path.join(base, 'app.js'), 'utf8') + '\n;globalThis.__app = app;', ctx, { timeout: 5000 }); }
 catch (e) { console.log('AVISO ao carregar app.js:', e.message); }
 const app = ctx.__app;
@@ -120,6 +121,25 @@ app.openModal = (t) => { modalAberto = t; };
 app.showProductHistory('P1');
 check('histórico abre o modal do produto', modalAberto === 'product-history-modal');
 check('histórico do produto com 1 linha', ctx.Estoque.historico(app.state.movimentacoes, 'P1').length === 1);
+
+// Resumo de vendas: renderiza totais por forma de pagamento e trata data invertida
+app.state.sales = [
+  { id: 'V1', date: new Date().toISOString(), pagamento: 'Dinheiro', valor_final: 10 },
+  { id: 'V2', date: new Date().toISOString(), pagamento: 'PIX', valor_final: 5 },
+];
+const campos = {};
+const elementoFalso = (id) => (campos[id] = campos[id] || { value: '', innerHTML: '', set html(v) { this.innerHTML = v; } });
+ctx.document.getElementById = (id) => elementoFalso(id);
+const hoje = app.hojeISO();
+campos['resumo-de'] = { value: hoje, innerHTML: '' };
+campos['resumo-ate'] = { value: hoje, innerHTML: '' };
+campos['resumo-tabela'] = { value: '', innerHTML: '' };
+app.renderResumo();
+check('resumo mostra totais do dia', campos['resumo-tabela'].innerHTML.includes('Dinheiro') && campos['resumo-tabela'].innerHTML.includes('Total'));
+campos['resumo-de'].value = '2099-01-10';
+campos['resumo-ate'].value = '2099-01-01';
+app.renderResumo();
+check('resumo com data inicial posterior à final mostra aviso', campos['resumo-tabela'].innerHTML.includes('posterior'));
 
 // Login desativado: sessão local de administrador, sem logout e sem passo de usuários no tutorial
 app.state.currentUser = { ...app.config.usuarioLocal };

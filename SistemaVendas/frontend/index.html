@@ -67,10 +67,9 @@
                     <i data-lucide="shopping-bag"></i>
                     <span>PDV</span>
                 </button>
-                <button class="nav-btn" data-view="caixa">
-                    <i data-lucide="wallet"></i>
-                    <span>Caixa</span>
-                    <span id="caixa-status-dot" class="caixa-dot fechado"></span>
+                <button class="nav-btn" data-view="resumo">
+                    <i data-lucide="receipt"></i>
+                    <span>Resumo</span>
                 </button>
                 <button class="nav-btn" data-view="products">
                     <i data-lucide="box"></i>
@@ -513,10 +512,23 @@
                     </div>
                 </section>
 
-                <!-- Caixa View -->
-                <section id="caixa-view" class="view caixa-view">
-                    <div id="caixa-content">
-                        <!-- Conteúdo dinâmico via renderCaixa() -->
+                <!-- Resumo de Vendas (substitui o caixa na v1) -->
+                <section id="resumo-view" class="view resumo-view">
+                    <div id="resumo-content" class="glass" style="padding: 1.5rem; border-radius: 12px;">
+                        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.25rem;">
+                            <label style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: var(--text-dim);">
+                                De
+                                <input type="date" id="resumo-de" class="glass-input-labs" onchange="app.renderResumo()">
+                            </label>
+                            <label style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: var(--text-dim);">
+                                Até
+                                <input type="date" id="resumo-ate" class="glass-input-labs" onchange="app.renderResumo()">
+                            </label>
+                            <button type="button" class="btn-save-labs" onclick="app.resumoHoje()">Hoje</button>
+                        </div>
+                        <div id="resumo-tabela">
+                            <!-- Preenchido por app.renderResumo() -->
+                        </div>
                     </div>
                 </section>
 
@@ -548,10 +560,6 @@
                             <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('categorias')">
                                 <i data-lucide="tag"></i>
                                 <span>Categorias</span>
-                            </button>
-                            <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('caixa')">
-                                <i data-lucide="clock"></i>
-                                <span>Histórico Caixa</span>
                             </button>
                         </aside>
 
@@ -785,17 +793,6 @@
                                 </div>
                             </section>
 
-                            <section id="sv-section-caixa" class="sv-settings-section">
-                                <div class="sv-settings-card">
-                                    <div class="sv-card-header">
-                                        <div class="sv-header-info">
-                                            <h4>Histórico do Caixa</h4>
-                                            <p>Registro de aberturas e fechamentos do caixa.</p>
-                                        </div>
-                                    </div>
-                                    <div id="caixa-historico-container" class="caixa-table-container"></div>
-                                </div>
-                            </section>
                         </main>
                     </div>
                 </section>
@@ -1171,7 +1168,7 @@
                         <label class="input-label-labs">PERFIL DE ACESSO</label>
                         <select id="user-role" class="glass-input-labs" required>
                             <option value="admin">Administrador (Total)</option>
-                            <option value="operador">Operador (PDV + Caixa + Clientes + Saídas)</option>
+                            <option value="operador">Operador (PDV + Clientes + Saídas)</option>
                         </select>
                     </div>
                     <div style="display: flex; justify-content: flex-end; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border);">
@@ -1321,36 +1318,8 @@
     </div>
 
     <script src="estoque.js"></script>
+    <script src="resumo.js"></script>
     <script src="app.js"></script>
     
-    <!-- Novo Container de Impressão de Caixa -->
-    <div id="caixa-print-container" style="display:none;"> 
-        <div class="caixa-print-content"> 
-            <h2 id="caixa-print-empresa"></h2> 
-            <p style="font-size:11px;color:#666;" id="caixa-print-titulo">FECHAMENTO DE CAIXA</p> 
-            <hr> 
-            <div class="caixa-print-row"><span>Operador:</span><span id="caixa-print-operador"></span></div> 
-            <div class="caixa-print-row"><span>Abertura:</span><span id="caixa-print-abertura"></span></div> 
-            <div class="caixa-print-row"><span>Fechamento:</span><span id="caixa-print-fechamento"></span></div> 
-            <hr> 
-            <p class="caixa-print-section-title">Resumo de Vendas</p> 
-            <div class="caixa-print-row"><span>Valor Inicial:</span><span id="caixa-print-valor-inicial"></span></div> 
-            <div class="caixa-print-row"><span>Vendas Dinheiro:</span><span id="caixa-print-dinheiro"></span></div> 
-            <div class="caixa-print-row"><span>Vendas Cartão:</span><span id="caixa-print-cartao"></span></div> 
-            <div class="caixa-print-row"><span>Vendas Pix:</span><span id="caixa-print-pix"></span></div> 
-            <div class="caixa-print-row caixa-print-total"><span>Total Vendas:</span><span id="caixa-print-total-vendas"></span></div> 
-            <hr> 
-            <p class="caixa-print-section-title">Movimentações</p> 
-            <div class="caixa-print-row"><span>Total Sangrias:</span><span id="caixa-print-sangrias"></span></div> 
-            <div class="caixa-print-row"><span>Total Suprimentos:</span><span id="caixa-print-suprimentos"></span></div> 
-            <hr> 
-            <p class="caixa-print-section-title">Fechamento</p> 
-            <div class="caixa-print-row"><span>Esperado em Caixa:</span><span id="caixa-print-esperado"></span></div> 
-            <div class="caixa-print-row"><span>Valor Contado:</span><span id="caixa-print-contado"></span></div> 
-            <div class="caixa-print-row caixa-print-total"><span>Diferença:</span><span id="caixa-print-diferenca"></span></div> 
-            <hr> 
-            <p style="font-size:11px;color:#666;text-align:center;" id="caixa-print-rodape"></p> 
-        </div> 
-    </div>
 </body>
 </html>
