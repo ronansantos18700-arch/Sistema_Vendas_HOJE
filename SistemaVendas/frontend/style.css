@@ -4668,19 +4668,17 @@ textarea:focus-visible {
     #pos-view .pos-change-row { padding: 0.45rem 0.75rem; }
 }
 
-/* PDV: foto inteira e centralizada, sem corte (object-fit: contain) */
+/* PDV: a foto preenche o quadro inteiro, centralizada (object-fit: cover).
+   Mesmo quadro para todas as fotos, sem fundo branco extra. */
 #pos-view .pos-card-img {
-    background: #ffffff;
-    padding: 0.4rem;
+    padding: 0;
+    background: var(--glass-inner);
 }
 #pos-view .pos-card-img img,
 #pos-view .pos-ci-thumb img {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
+    object-position: center;
     display: block;
-}
-#pos-view .pos-ci-thumb {
-    background: #ffffff;
-    padding: 2px;
 }

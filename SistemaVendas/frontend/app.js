@@ -3414,7 +3414,7 @@ const app = {
             container.innerHTML = this.state.cart.map(item => `
                 <div class="pos-cart-item">
                     <div class="pos-ci-thumb">${item.image
-                        ? `<img src="${item.image}" alt="">`
+                        ? `<img class="pos-foto" src="${item.image}" alt="">`
                         : `<span>${this.esc((item.name || '?').charAt(0).toUpperCase())}</span>`}</div>
                     <div class="pos-ci-info">
                         <span class="pos-ci-name">${this.esc(item.name)}</span>
@@ -3429,6 +3429,7 @@ const app = {
                     <button type="button" class="pos-ci-remove" title="Remover item" onclick="app.removeFromCart('${item.id}')"><i data-lucide="trash-2"></i></button>
                 </div>`).join('');
             this.initLucide();
+            this.ajustarFotosPdv(container);
         }
         this.renderPosCatalog(); // atualiza o estoque exibido nos cards
         this.calculateTotals();
@@ -3459,7 +3460,7 @@ const app = {
         grid.innerHTML = lista.map(p => {
             const semEstoque = !(p.stock > 0);
             const foto = p.image
-                ? `<img src="${p.image}" alt="">`
+                ? `<img class="pos-foto" src="${p.image}" alt="">`
                 : `<span class="pos-card-letter">${this.esc((p.name || '?').charAt(0).toUpperCase())}</span>`;
             return `
                 <button type="button" class="pos-card${semEstoque ? ' is-out' : ''}" ${semEstoque ? 'disabled' : ''} onclick="app.addToCart('${p.id}', 1)">
@@ -3471,6 +3472,85 @@ const app = {
                     </span>
                 </button>`;
         }).join('');
+        this.ajustarFotosPdv(grid);
+    },
+
+    // PDV: se a foto tem margem branca, amplia o conteúdo para preencher o quadro.
+    // Só muda a exibição na tela; o arquivo da foto não é alterado.
+    fotoBbox(img) {
+        try {
+            const w = img.naturalWidth, h = img.naturalHeight;
+            if (!w || !h) return null;
+            const escala = Math.min(1, 160 / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * escala)), ch = Math.max(1, Math.round(h * escala));
+            const cv = document.createElement('canvas');
+            cv.width = cw; cv.height = ch;
+            const ctx = cv.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, cw, ch);
+            const d = ctx.getImageData(0, 0, cw, ch).data;
+            let x0 = cw, y0 = ch, x1 = -1, y1 = -1;
+            for (let y = 0; y < ch; y++) {
+                for (let x = 0; x < cw; x++) {
+                    const i = (y * cw + x) * 4;
+                    const fundo = d[i + 3] < 20 || (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235);
+                    if (!fundo) {
+                        if (x < x0) x0 = x;
+                        if (x > x1) x1 = x;
+                        if (y < y0) y0 = y;
+                        if (y > y1) y1 = y;
+                    }
+                }
+            }
+            if (x1 < 0) return null;
+            return { x0: x0 / cw, y0: y0 / ch, x1: (x1 + 1) / cw, y1: (y1 + 1) / ch };
+        } catch (_) {
+            return null; // imagem não lida pelo canvas: mantém o recorte padrão
+        }
+    },
+
+    ajustarFotosPdv(raiz) {
+        if (!raiz || typeof raiz.querySelectorAll !== 'function') return;
+        if (!this._pdvFotoResize) {
+            this._pdvFotoResize = true;
+            window.addEventListener('resize', () => {
+                document.querySelectorAll('#pos-view img.pos-foto').forEach(img => {
+                    if (img._bboxFeito) this.posicionarFotoPdv(img);
+                });
+            });
+        }
+        raiz.querySelectorAll('img.pos-foto').forEach(img => {
+            const aplicar = () => {
+                if (!img._bboxFeito) {
+                    img._bbox = this.fotoBbox(img);
+                    img._bboxFeito = true;
+                }
+                this.posicionarFotoPdv(img);
+            };
+            if (img.complete && img.naturalWidth) aplicar();
+            else img.addEventListener('load', aplicar, { once: true });
+        });
+    },
+
+    posicionarFotoPdv(img) {
+        const b = img._bbox;
+        const W = img.clientWidth, H = img.clientHeight;
+        const w = img.naturalWidth, h = img.naturalHeight;
+        if (!b || !W || !H || !w || !h) { img.style.transform = ''; return; }
+        // Cobertura padrão (object-fit: cover) e posição do conteúdo dentro do quadro
+        const s0 = Math.max(W / w, H / h);
+        const Rw = w * s0, Rh = h * s0;
+        const ox = (W - Rw) / 2, oy = (H - Rh) / 2;
+        const bw = (b.x1 - b.x0) * Rw, bh = (b.y1 - b.y0) * Rh;
+        const bcx = ox + (b.x0 + b.x1) / 2 * Rw, bcy = oy + (b.y0 + b.y1) / 2 * Rh;
+        // Amplia o conteúdo até caber no quadro, com limite para não pixelizar
+        const k = Math.min(1.35, Math.max(1, Math.min(W / bw, H / bh)));
+        let tx = -k * (bcx - W / 2), ty = -k * (bcy - H / 2);
+        // A área do quadro precisa continuar coberta pela foto (sem faixa vazia)
+        const mx = (k - 1) * W / 2, my = (k - 1) * H / 2;
+        tx = Math.min(Math.max(tx, -mx), mx);
+        ty = Math.min(Math.max(ty, -my), my);
+        img.style.transformOrigin = '50% 50%';
+        img.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${k.toFixed(3)})`;
     },
 
     changeCartQty(id, delta) {
