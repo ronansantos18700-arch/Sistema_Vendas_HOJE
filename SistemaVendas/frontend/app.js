@@ -3421,8 +3421,13 @@ const app = {
         if (this.requirePasswordChange()) return;
         if (this.state.cart.length === 0) return;
 
-        const subtotal = this.state.cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const custoTotal = this.state.cart.reduce((acc, item) => acc + (item.cost * item.qty), 0);
+        // Custo do momento da venda: usa o custo atual do produto (o carrinho pode estar aberto durante uma entrada)
+        const itensVenda = this.state.cart.map(item => {
+            const atual = this.state.products.find(p => p.id === item.id);
+            return { ...item, cost: atual ? atual.cost : item.cost };
+        });
+        const subtotal = itensVenda.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        const custoTotal = itensVenda.reduce((acc, item) => acc + (item.cost * item.qty), 0);
         const discountInput = document.getElementById('pos-discount');
         const desconto = discountInput ? parseFloat(discountInput.value) || 0 : 0;
         const totalFinal = Math.max(0, subtotal - desconto);
@@ -3451,7 +3456,7 @@ const app = {
             cost: custoTotal,
             lucro: lucro,
             pagamento: pagamento,
-            items: [...this.state.cart]
+            items: itensVenda
         };
 
         // Resetar textos do modal para modo "Nova Venda"
@@ -4804,20 +4809,15 @@ const app = {
         const product = this.state.products.find(p => p.id === productId);
         if (!product) return;
 
-        const existing = this.entradaItemsTemp.find(i => i.productId === productId);
-        if (existing) {
-            existing.qty += qty;
-            existing.unitCost = unitCost;
-            existing.totalCost = existing.qty * existing.unitCost;
-        } else {
-            this.entradaItemsTemp.push({
-                productId,
-                productName: product.name,
-                qty,
-                unitCost,
-                totalCost: qty * unitCost
-            });
-        }
+        // Cada linha guarda o próprio custo. Se o mesmo produto entrar duas vezes, são duas linhas,
+        // e o custo médio é recalculado na ordem delas.
+        this.entradaItemsTemp.push({
+            productId,
+            productName: product.name,
+            qty,
+            unitCost,
+            totalCost: qty * unitCost
+        });
 
         // Resetar campos de item
         document.getElementById('entrada-produto').value = '';
@@ -5016,9 +5016,24 @@ const app = {
     },
 
     deleteEntrada(id) {
+        const entradaAlvo = this.state.entradas.find(e => e.id === id);
+        if (entradaAlvo) {
+            // Bloqueia a exclusão se vendas feitas depois da entrada dependem do estoque dela
+            const verificacao = Estoque.verificarExclusaoEntrada(this.state.movimentacoes, entradaAlvo);
+            if (!verificacao.ok) {
+                const linhas = verificacao.problemas.map(pr => {
+                    const produto = this.state.products.find(p => String(p.id) === pr.produtoId);
+                    const nome = produto ? produto.name : pr.produtoId;
+                    return `${nome}: ${pr.falta} unidade(s) já vendida(s)`;
+                });
+                this.showNotification('error', 'Não é possível excluir esta entrada porque o estoque já foi vendido. ' + linhas.join('; ') + '.');
+                return;
+            }
+        }
+
         this.confirmAction(
             'Excluir Entrada?',
-            'Ao excluir uma entrada, o estoque dos produtos será reduzido proporcionalmente. Deseja continuar?',
+            'O estoque e o custo médio dos produtos serão recalculados sem esta entrada. Deseja continuar?',
             async () => {
                 const index = this.state.entradas.findIndex(e => e.id === id);
                 if (index === -1) return;

@@ -230,6 +230,47 @@
         };
     }
 
+    /** Menor saldo acumulado (sem limite de zero) ao aplicar a sequência; nunca maior que 0. */
+    function menorSaldoBruto(lista) {
+        let bruto = 0;
+        let menor = 0;
+        for (const mov of lista) {
+            if (mov.ignorada) continue;
+            if (mov.tipo === TIPOS.SALDO_INICIAL) bruto = mov.qtd;
+            else bruto += mov.qtd;
+            if (bruto < menor) menor = bruto;
+        }
+        return menor;
+    }
+
+    /**
+     * Verifica se a exclusão de uma entrada pode ser feita sem deixar saldo negativo,
+     * ou seja, sem que vendas posteriores fiquem sem estoque para sair.
+     * Só bloqueia o que a exclusão causa: falta que já existia antes não conta.
+     * Devolve { ok, problemas: [{ produtoId, falta }] }, falta = unidades que não poderiam ser revertidas.
+     */
+    function verificarExclusaoEntrada(movimentacoes, entrada) {
+        const plano = planejarExclusaoEntrada(movimentacoes, entrada);
+        const ignorar = new Set(plano.ignorar);
+        const produtos = [...new Set(plano.novas.map(m => m.produtoId))];
+        const problemas = [];
+
+        for (const pid of produtos) {
+            const antes = movimentacoes.filter(m => m.produtoId === pid);
+            const depois = [
+                ...antes.filter(m => !ignorar.has(m.id)),
+                ...plano.novas.filter(m => m.produtoId === pid)
+            ];
+            const menorAntes = menorSaldoBruto(antes);
+            const menorDepois = menorSaldoBruto(depois);
+            if (menorDepois < menorAntes) {
+                problemas.push({ produtoId: pid, falta: menorAntes - menorDepois });
+            }
+        }
+
+        return { ok: problemas.length === 0, problemas: problemas };
+    }
+
     const ROTULOS = Object.freeze({
         saldo_inicial: 'Saldo inicial',
         entrada: 'Entrada',
@@ -291,6 +332,7 @@
         movimentosDaVenda: movimentosDaVenda,
         movimentosDoEstorno: movimentosDoEstorno,
         planejarExclusaoEntrada: planejarExclusaoEntrada,
+        verificarExclusaoEntrada: verificarExclusaoEntrada,
         movimentoAjuste: movimentoAjuste,
         movimentoAjusteCusto: movimentoAjusteCusto,
         movimentoCadastro: movimentoCadastro,
