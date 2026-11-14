@@ -650,12 +650,6 @@ const app = {
     },
 
     showNotification(type, message) {
-        // Ignorar notificações sobre logomarca faltante para o recibo
-        const msgLower = message.toLowerCase();
-        if (msgLower.includes('logomarca') || msgLower.includes('logo')) {
-            return;
-        }
-
         // Criar elemento de notificação se não existir
         let container = document.getElementById('notification-container');
         if (!container) {
@@ -666,8 +660,9 @@ const app = {
         }
 
         const toast = document.createElement('div');
-        const bgColor = type === 'success' ? '#7fa58e' : type === 'error' ? '#b5676a' : '#c9a96e';
-        toast.style.cssText = `background: ${bgColor}; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 0.9rem; min-width: 250px; animation: slideIn 0.3s ease-out;`;
+        const tipo = ['success', 'error'].includes(type) ? type : 'info';
+        toast.className = `sv-toast sv-toast-${tipo}`;
+        toast.setAttribute('role', 'status');
         toast.textContent = message;
 
         container.appendChild(toast);
@@ -715,6 +710,22 @@ const app = {
                         root: icon
                     });
                 }
+            });
+        }
+
+        // Estoque em tempo real: filtro e ordenação
+        const filtroEstoque = document.getElementById('filter-estoque');
+        if (filtroEstoque) filtroEstoque.addEventListener('input', () => this.renderEstoque());
+        const ordemEstoque = document.getElementById('sort-estoque');
+        if (ordemEstoque) ordemEstoque.addEventListener('change', () => this.renderEstoque());
+
+        // Nova venda: abre o PDV (o switchView já foca o código de barras). Não limpa o carrinho atual.
+        const btnNovaVenda = document.getElementById('btn-nova-venda');
+        if (btnNovaVenda) {
+            btnNovaVenda.addEventListener('click', () => {
+                this.switchView('pos');
+                const sidebar = document.querySelector('.sidebar');
+                if (sidebar) sidebar.classList.remove('show');
             });
         }
 
@@ -1057,6 +1068,7 @@ const app = {
             pos: 'Ponto de Venda',
             resumo: 'Resumo de Vendas',
             products: 'Gestão de Produtos',
+            estoque: 'Estoque em Tempo Real',
             customers: 'Gestão de Clientes',
             history: 'Histórico de Saídas',
             entradas: 'Histórico de Entradas',
@@ -1122,6 +1134,7 @@ const app = {
         if (viewId === 'customers') this.renderCustomers();
         if (viewId === 'history') this.renderHistory();
         if (viewId === 'entradas') this.renderEntradas();
+        if (viewId === 'estoque') this.renderEstoque();
 
         this.initLucide();
     },
@@ -1585,6 +1598,7 @@ const app = {
 
         this.salvarDados();
         this.updateNotifications(); // Atualiza os alertas imediatamente
+        if (this.state.currentView === 'estoque') this.renderEstoque();
     },
 
     renderSettingsNotifications() {
@@ -2130,6 +2144,7 @@ const app = {
                 localStorage.setItem('sv_categories', JSON.stringify(this.state.categories));
             }
             this.updateNotifications();
+            if (this.state.currentView === 'estoque') this.renderEstoque();
             return true;
         } catch (err) {
             console.error("Erro ao salvar dados:", err);
@@ -5101,22 +5116,118 @@ const app = {
         this.initLucide();
     },
 
-    // Histórico de movimentações de um produto (mais recente primeiro)
+    // Estoque em tempo real: cards com foto, quantidade e nível (mesmos limites das notificações).
+    renderEstoque() {
+        const grid = document.getElementById('estoque-grid');
+        if (!grid) return;
+
+        const n = this.state.settings.notifications || {};
+        const baixo = Number(n.stockLowVal) || 10;
+        const medio = Number(n.stockMediumVal) || 25;
+        const nivel = (p) => (p.stock < baixo ? 'baixo' : p.stock < medio ? 'medio' : 'ok');
+        const rotulo = { baixo: 'Baixo', medio: 'Médio', ok: 'Normal' };
+
+        const busca = (document.getElementById('filter-estoque')?.value || '').trim().toLowerCase();
+        const ordem = document.getElementById('sort-estoque')?.value || 'estoque';
+
+        const contagem = { baixo: 0, medio: 0, ok: 0 };
+        this.state.products.forEach(p => { contagem[nivel(p)]++; });
+        const resumo = document.getElementById('estoque-resumo');
+        if (resumo) resumo.textContent = `${contagem.baixo} baixo · ${contagem.medio} médio · ${contagem.ok} normal`;
+
+        const lista = this.state.products
+            .filter(p => !busca || (p.name || '').toLowerCase().includes(busca) || String(p.code || '').toLowerCase().includes(busca))
+            .sort(ordem === 'nome'
+                ? (a, b) => (a.name || '').localeCompare(b.name || '')
+                : (a, b) => (a.stock - b.stock) || (a.name || '').localeCompare(b.name || ''));
+
+        if (lista.length === 0) {
+            grid.innerHTML = '<div class="pos-empty">Nenhum produto encontrado.</div>';
+            return;
+        }
+
+        grid.innerHTML = lista.map(p => {
+            const nv = nivel(p);
+            const foto = p.image
+                ? `<img src="${p.image}" alt="">`
+                : `<span class="estoque-letter">${this.esc((p.name || '?').charAt(0).toUpperCase())}</span>`;
+            return `
+                <div class="estoque-card estoque-${nv}">
+                    <div class="estoque-foto">${foto}</div>
+                    <div class="estoque-info">
+                        <span class="estoque-nome" title="${this.esc(p.name)}">${this.esc(p.name)}</span>
+                        <span class="estoque-cod">${this.esc(p.code)}</span>
+                    </div>
+                    <div class="estoque-qtd">
+                        <strong>${p.stock}</strong>
+                        <span>${rotulo[nv]}</span>
+                    </div>
+                </div>`;
+        }).join('');
+    },
+
+    // Histórico de movimentações de um produto (mais recente primeiro).
+    // Mostra as últimas 100 e permite carregar mais e filtrar por período.
+    // O saldo de cada linha vem do histórico completo, mesmo quando o filtro esconde linhas.
     showProductHistory(id) {
         const produto = this.state.products.find(p => String(p.id) === String(id));
         if (!produto) return;
 
-        const linhas = Estoque.historico(this.state.movimentacoes, produto.id).slice().reverse();
+        this._hist = { id: produto.id, limite: 100, periodo: 'tudo' };
+        const select = document.getElementById('hist-periodo');
+        if (select) select.value = 'tudo';
 
         document.getElementById('product-history-title').textContent = `Histórico — ${produto.name}`;
         document.getElementById('product-history-summary').textContent =
             `Estoque atual: ${produto.stock} un. · Custo médio: ${this.formatCurrency(produto.cost)}`;
 
+        this.renderProductHistory();
+        this.openModal('product-history-modal');
+    },
+
+    setProductHistoryPeriod(valor) {
+        if (!this._hist) return;
+        this._hist.periodo = valor;
+        this._hist.limite = 100;
+        this.renderProductHistory();
+    },
+
+    loadMoreProductHistory() {
+        if (!this._hist) return;
+        this._hist.limite += 100;
+        this.renderProductHistory();
+    },
+
+    renderProductHistory() {
+        const hist = this._hist;
+        const produto = hist && this.state.products.find(p => String(p.id) === String(hist.id));
+        if (!produto) return;
+
+        const todas = Estoque.historico(this.state.movimentacoes, produto.id).slice().reverse();
+        const dias = hist.periodo === 'tudo' ? null : Number(hist.periodo);
+        const corte = dias ? Date.now() - dias * 24 * 60 * 60 * 1000 : null;
+        const filtradas = corte === null
+            ? todas
+            : todas.filter(({ mov }) => mov.date && new Date(mov.date).getTime() >= corte);
+        const visiveis = filtradas.slice(0, hist.limite);
+
+        const contador = document.getElementById('product-history-count');
+        if (contador) {
+            contador.textContent = filtradas.length === 0
+                ? ''
+                : `Mostrando ${visiveis.length} de ${filtradas.length}`;
+        }
+
+        const maisWrap = document.getElementById('product-history-more-wrap');
+        if (maisWrap) maisWrap.classList.toggle('hidden', filtradas.length <= hist.limite);
+
         const container = document.getElementById('product-history-list');
-        if (linhas.length === 0) {
+        if (todas.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-dim); font-size: 0.85rem;">Nenhuma movimentação registrada para este produto.</div>';
+        } else if (filtradas.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-dim); font-size: 0.85rem;">Nenhuma movimentação neste período.</div>';
         } else {
-            container.innerHTML = linhas.map(({ mov, saldoApos }) => {
+            container.innerHTML = visiveis.map(({ mov, saldoApos }) => {
                 const apagada = mov.ignorada;
                 const estilo = apagada ? 'opacity: 0.45;' : '';
                 const data = mov.date ? new Date(mov.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -5134,8 +5245,6 @@ const app = {
                     </div>`;
             }).join('');
         }
-
-        this.openModal('product-history-modal');
     },
 
     showEntradaDetails(id) {

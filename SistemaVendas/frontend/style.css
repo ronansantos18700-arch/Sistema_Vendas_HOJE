@@ -518,7 +518,7 @@ body {
 }
 
 /* Garante que o conteúdo interno não seja cortado e respeite o container */
-.products-view, .customers-view, .history-view, .entradas-view, .settings-view {
+.products-view, .estoque-view, .customers-view, .history-view, .entradas-view, .settings-view {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -2588,7 +2588,7 @@ body.sem-login .requer-login { display: none !important; }
 }
 
 /* Individual View Flex Support - Apply only when active */
-.products-view.active, .customers-view.active, .history-view.active, .product-exits-view.active {
+.products-view.active, .estoque-view.active, .customers-view.active, .history-view.active, .product-exits-view.active {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -4681,3 +4681,110 @@ textarea:focus-visible {
     object-position: center;
     display: block;
 }
+
+/* Notificações (toast): cores do tema, sem fundo fixo */
+.sv-toast {
+    background: var(--glass-card);
+    color: var(--text-white);
+    border: 1px solid var(--glass-border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    padding: 0.85rem 1.2rem;
+    font-size: var(--fs-sm);
+    min-width: 260px;
+    max-width: 380px;
+    animation: slideIn 0.3s ease-out;
+}
+.sv-toast-success { border-left-color: var(--color-success); }
+.sv-toast-error { border-left-color: var(--color-danger); }
+
+/* Sino maior, com ícone e contador legíveis */
+.btn-notification {
+    width: 40px;
+    height: 40px;
+}
+.btn-notification i {
+    width: 18px;
+    height: 18px;
+}
+.notification-badge {
+    min-width: 17px;
+    height: 17px;
+    font-size: 0.7rem;
+}
+
+/* Sidebar: ação principal 'Nova venda' em destaque (sem fundo cheio) */
+.nav-btn.nav-btn-primary {
+    color: var(--accent);
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    margin-bottom: 0.4rem;
+}
+.nav-btn.nav-btn-primary:hover {
+    background: rgba(var(--accent-rgb), 0.1);
+}
+
+/* Estoque em tempo real */
+.estoque-resumo {
+    align-self: center;
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+}
+#estoque-view .estoque-grid {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+    align-content: start;
+    gap: 0.9rem;
+    padding: 0.2rem;
+}
+#estoque-view .estoque-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.6rem;
+    background: var(--glass-card);
+    border: 1px solid var(--glass-border);
+    border-top: 3px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+#estoque-view .estoque-card:hover { transform: translateY(-2px); }
+#estoque-view .estoque-card.estoque-baixo { border-top-color: var(--color-danger); }
+#estoque-view .estoque-card.estoque-medio { border-top-color: var(--color-warning); }
+#estoque-view .estoque-card.estoque-ok { border-top-color: var(--color-success); }
+#estoque-view .estoque-foto {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--glass-inner);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#estoque-view .estoque-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#estoque-view .estoque-letter { font-size: 2.4rem; font-weight: 600; color: var(--accent); }
+#estoque-view .estoque-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#estoque-view .estoque-nome {
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#estoque-view .estoque-cod { font-size: var(--fs-xs); color: var(--text-dim); }
+#estoque-view .estoque-qtd { display: flex; justify-content: space-between; align-items: baseline; }
+#estoque-view .estoque-qtd strong { font-size: 1.5rem; color: var(--text-white); }
+#estoque-view .estoque-qtd span {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+}
+#estoque-view .estoque-card.estoque-baixo .estoque-qtd span { color: var(--color-danger); }
+#estoque-view .estoque-card.estoque-medio .estoque-qtd span { color: var(--color-warning); }
+#estoque-view .estoque-card.estoque-ok .estoque-qtd span { color: var(--color-success); }

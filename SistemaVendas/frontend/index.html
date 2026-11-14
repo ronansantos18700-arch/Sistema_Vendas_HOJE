@@ -64,6 +64,10 @@
                     <i data-lucide="layout-dashboard"></i>
                     <span>Dashboard</span>
                 </button>
+                <button class="nav-btn nav-btn-primary" id="btn-nova-venda" title="Nova venda (abre o PDV com foco no código de barras)">
+                    <i data-lucide="plus-circle"></i>
+                    <span>Nova venda</span>
+                </button>
                 <button class="nav-btn" data-view="pos">
                     <i data-lucide="shopping-bag"></i>
                     <span>PDV</span>
@@ -75,6 +79,10 @@
                 <button class="nav-btn" data-view="products">
                     <i data-lucide="box"></i>
                     <span>Produtos</span>
+                </button>
+                <button class="nav-btn" data-view="estoque">
+                    <i data-lucide="boxes"></i>
+                    <span>Estoque</span>
                 </button>
                 <button class="nav-btn" data-view="customers">
                     <i data-lucide="user"></i>
@@ -445,6 +453,21 @@
                             <!-- Dynamic items -->
                         </div>
                     </div>
+                </section>
+
+                <!-- Estoque em tempo real -->
+                <section id="estoque-view" class="view estoque-view">
+                    <div class="view-header-labs">
+                        <div style="display: flex; gap: 1rem;">
+                            <input type="text" id="filter-estoque" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por nome ou código..." autocomplete="off">
+                            <select id="sort-estoque" class="glass-input-labs" style="width: 220px;">
+                                <option value="estoque">Menor estoque primeiro</option>
+                                <option value="nome">Nome (A-Z)</option>
+                            </select>
+                        </div>
+                        <span id="estoque-resumo" class="estoque-resumo"></span>
+                    </div>
+                    <div id="estoque-grid" class="estoque-grid"></div>
                 </section>
 
                 <!-- Customers View -->
@@ -974,6 +997,16 @@
                     <button type="button" class="btn-edit-activity" style="padding: 0.5rem; display: flex; align-items: center; justify-content: center;" onclick="app.closeModal()"><i data-lucide="x"></i></button>
                 </div>
 
+                <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem;">
+                    <select id="hist-periodo" class="glass-input-labs" style="width: 220px;" onchange="app.setProductHistoryPeriod(this.value)">
+                        <option value="tudo">Todo o período</option>
+                        <option value="30">Últimos 30 dias</option>
+                        <option value="90">Últimos 90 dias</option>
+                        <option value="365">Últimos 12 meses</option>
+                    </select>
+                    <span id="product-history-count" style="font-size: 0.8rem; color: var(--text-dim);"></span>
+                </div>
+
                 <div class="glass-inner" style="padding: 0; border-radius: 8px; flex: 1; overflow-y: auto; scrollbar-gutter: stable;">
                     <div class="list-header-labs" style="grid-template-columns: 140px 1.4fr 70px 110px 80px 1fr; padding: 1rem; font-size: 0.75rem; position: sticky; top: 0; background: #11111e; z-index: 10; border-bottom: 1px solid var(--glass-border);">
                         <span>DATA</span>
@@ -984,6 +1017,9 @@
                         <span>OBSERVAÇÃO</span>
                     </div>
                     <div id="product-history-list" style="padding: 0 1rem 1rem 1rem;"></div>
+                    <div id="product-history-more-wrap" class="hidden" style="text-align: center; padding: 0 1rem 1rem 1rem;">
+                        <button id="product-history-more" type="button" class="btn-ghost-labs" onclick="app.loadMoreProductHistory()">Carregar mais</button>
+                    </div>
                 </div>
             </div>
 
