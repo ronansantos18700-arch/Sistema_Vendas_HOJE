@@ -209,3 +209,17 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/frontend/app.js`, `SistemaVendas/PROJECT_CONTEXT.md`
 - Pendente: gravação incremental por registro (inserir/atualizar/excluir), prevista para a próxima etapa.
 
+### 2026-11-14 (Fase 1 — gravação incremental)
+
+- Gravação só do que mudou:
+  - `salvarDados()` compara o estado com o snapshot da última gravação bem-sucedida (`snapshotSalvo`) e envia apenas `upsert` (inclusos/alterados), `delete` (ids removidos) e `order` (quando a ordem muda).
+  - Novo `Bridge.SaveChanges(json)` e `Database.ApplyChanges(json)`: aplica tudo em uma transação. Se algo falhar, nada é gravado e o snapshot antigo é mantido, então a próxima gravação tenta de novo.
+  - Coleções com id ausente ou repetido, primeira gravação após carregar, e reset de usuários gravam por inteiro (`full`).
+  - Configurações e caixa são sempre regravados por inteiro (são pequenos).
+- `Database.cs`: `InserirItem`, `AplicarUpsert`, `ExcluirItem` e `AplicarOrdem` (valores negativos temporários para reordenar sem conflito de chave).
+- `Bridge.SaveAll` continua disponível, mas não é mais usado por `salvarDados()`.
+- Testes sem Windows (rodam fora do Visual Studio):
+  - `node tests/js/test_diff.js` — lógica de diferença do frontend (carrega o `app.js` de verdade).
+  - `python3 tests/db/test_ordem_sql.py` — sequência SQL de ordem/upsert/exclusão, incluindo 200 rodadas aleatórias.
+- Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/frontend/app.js`, `SistemaVendas/PROJECT_CONTEXT.md`, `tests/`
+

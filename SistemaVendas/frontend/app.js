@@ -74,6 +74,7 @@ const app = {
 
     // --- Temporários ---
     entradaItemsTemp: [],
+    snapshotSalvo: null, // última gravação bem-sucedida (usado para gravar só o que mudou)
 
     // --- Utilitários de DOM ---
     getDOMRefs() {
@@ -1891,6 +1892,7 @@ const app = {
 
                     if (window.chrome?.webview?.hostObjects?.bridge) {
                         const bridge = window.chrome.webview.hostObjects.bridge;
+                        this.snapshotSalvo = null; // gravação direta: próxima gravação compara com o banco inteiro
                         // Aguarda o SaveData terminar completamente antes de continuar
                         const saved = await bridge.SaveData(
                             'users',
@@ -2416,6 +2418,64 @@ const app = {
     },
 
     // --- Storage Logic ---
+    colecoesParaSalvar() {
+        return {
+            products: this.state.products,
+            customers: this.state.customers,
+            sales: this.state.sales,
+            reversals: this.state.reversals,
+            entradas: this.state.entradas,
+            fechamentos: this.state.historicoFechamentos,
+            categories: this.state.categories,
+            users: this.state.users
+        };
+    },
+
+    // Mapa id -> JSON do registro, na ordem da lista. Retorna null se houver id ausente ou repetido.
+    snapshotDaLista(lista) {
+        const ids = [];
+        const mapa = new Map();
+        for (const item of lista) {
+            const id = String(item.id ?? '');
+            if (!id || mapa.has(id)) return null;
+            mapa.set(id, JSON.stringify(item));
+            ids.push(id);
+        }
+        return { ids, mapa };
+    },
+
+    criarSnapshot(colecoes) {
+        const resultado = {};
+        for (const [nome, lista] of Object.entries(colecoes)) {
+            const snap = this.snapshotDaLista(lista);
+            if (!snap) return null; // próxima gravação regrava tudo
+            resultado[nome] = snap;
+        }
+        return { colecoes: resultado };
+    },
+
+    // Compara a lista atual com o snapshot e devolve só o necessário (null = sem mudanças).
+    montarMudancas(lista, snapshot) {
+        const atual = this.snapshotDaLista(lista);
+        if (!atual || !snapshot) return { full: lista };
+
+        const upsert = lista.filter(item => {
+            const id = String(item.id);
+            return snapshot.mapa.get(id) !== atual.mapa.get(id);
+        });
+        const remover = snapshot.ids.filter(id => !atual.mapa.has(id));
+        const ordemMudou = atual.ids.length !== snapshot.ids.length
+            || atual.ids.some((id, idx) => id !== snapshot.ids[idx]);
+
+        if (upsert.length === 0 && remover.length === 0 && !ordemMudou) return null;
+
+        const mudanca = {};
+        if (upsert.length) mudanca.upsert = upsert;
+        if (remover.length) mudanca.delete = remover;
+        if (ordemMudou) mudanca.order = atual.ids;
+        return mudanca;
+    },
+
     async salvarDados() {
         // Forçar dataLoaded se tivermos itens no estado (indica que o sistema está operacional)
         if (!this.state.dataLoaded && (this.state.products.length > 0 || this.state.sales.length > 0)) {
@@ -2432,24 +2492,29 @@ const app = {
             if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
                 const bridge = window.chrome.webview.hostObjects.bridge;
 
-                // Grava todas as coleções em UMA transação no banco: ou tudo é salvo, ou nada.
-                const payload = {
-                    products: this.state.products,
-                    customers: this.state.customers,
-                    sales: this.state.sales,
-                    settings: [this.state.settings],
-                    reversals: this.state.reversals,
-                    entradas: this.state.entradas,
-                    fechamentos: this.state.historicoFechamentos,
-                    categories: this.state.categories,
-                    caixa: this.state.caixaAtual ? [this.state.caixaAtual] : [],
-                    users: this.state.users
-                };
+                // Grava somente o que mudou desde a última gravação bem-sucedida (uma transação).
+                const colecoes = this.colecoesParaSalvar();
+                const anterior = this.snapshotSalvo;
+                const payload = {};
 
-                const saved = await bridge.SaveAll(JSON.stringify(payload));
+                for (const [nome, lista] of Object.entries(colecoes)) {
+                    const mudanca = anterior
+                        ? this.montarMudancas(lista, anterior.colecoes[nome])
+                        : { full: lista };
+                    if (mudanca) payload[nome] = mudanca;
+                }
+
+                // Configurações e caixa são pequenos: sempre regravados por inteiro.
+                payload.settings = { full: [this.state.settings] };
+                payload.caixa = { full: this.state.caixaAtual ? [this.state.caixaAtual] : [] };
+
+                const saved = await bridge.SaveChanges(JSON.stringify(payload));
                 if (!saved) {
+                    // Mantém o snapshot antigo: a próxima gravação tenta as mesmas mudanças de novo.
                     throw new Error("Não foi possível salvar os dados. Nenhuma alteração foi gravada.");
                 }
+
+                this.snapshotSalvo = this.criarSnapshot(colecoes);
             } else {
                 localStorage.setItem('sv_products', JSON.stringify(this.state.products));
                 localStorage.setItem('sv_customers', JSON.stringify(this.state.customers));
@@ -2471,6 +2536,7 @@ const app = {
     },
 
     async carregarDados() {
+        this.snapshotSalvo = null; // estado recém-lido: próxima gravação compara com o banco inteiro
         this.setLoading(true);
         try {
             if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.bridge) {
