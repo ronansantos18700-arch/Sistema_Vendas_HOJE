@@ -4176,6 +4176,7 @@ const app = {
                         <button class="btn-stock-add" onclick="app.adjustStock('${p.id}', 2)" title="Ajuste Manual — Entrada"><i data-lucide="plus"></i></button>
                     </div>
                     <div class="col-actions" data-label="AÇÕES">
+                        <button class="btn-action-view" onclick="app.showProductHistory('${p.id}')" title="Histórico de Estoque"><i data-lucide="history"></i></button>
                         <button class="btn-action-edit" onclick="app.editProduct('${p.id}')"><i data-lucide="edit-3"></i></button>
                         <button class="btn-action-delete" onclick="app.deleteProduct('${p.id}')"><i data-lucide="trash-2"></i></button>
                     </div>
@@ -4821,6 +4822,9 @@ const app = {
         const entradaDetailsModal = document.getElementById('entrada-details-modal');
         if (entradaDetailsModal) entradaDetailsModal.classList.toggle('hidden', type !== 'entrada-details-modal');
 
+        const historyModal = document.getElementById('product-history-modal');
+        if (historyModal) historyModal.classList.toggle('hidden', type !== 'product-history-modal');
+
         this.initLucide();
 
         // Reset form if not editing and not stock adjustment
@@ -4873,7 +4877,7 @@ const app = {
         }
 
         // Garantir que todos os modais internos estejam escondidos
-        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'confirm-remove-logo', 'backup-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal'];
+        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'confirm-remove-logo', 'backup-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
         modals.forEach(id => {
             document.getElementById(id)?.classList.add('hidden');
         });
@@ -5504,6 +5508,43 @@ const app = {
         `).join('');
 
         this.initLucide();
+    },
+
+    // Histórico de movimentações de um produto (mais recente primeiro)
+    showProductHistory(id) {
+        const produto = this.state.products.find(p => String(p.id) === String(id));
+        if (!produto) return;
+
+        const linhas = Estoque.historico(this.state.movimentacoes, produto.id).slice().reverse();
+
+        document.getElementById('product-history-title').textContent = `Histórico — ${produto.name}`;
+        document.getElementById('product-history-summary').textContent =
+            `Estoque atual: ${produto.stock} un. · Custo médio: ${this.formatCurrency(produto.cost)}`;
+
+        const container = document.getElementById('product-history-list');
+        if (linhas.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-dim); font-size: 0.85rem;">Nenhuma movimentação registrada para este produto.</div>';
+        } else {
+            container.innerHTML = linhas.map(({ mov, saldoApos }) => {
+                const apagada = mov.ignorada;
+                const estilo = apagada ? 'opacity: 0.45;' : '';
+                const data = mov.date ? new Date(mov.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+                const qtd = mov.qtd > 0 ? `+${mov.qtd}` : `${mov.qtd}`;
+                const custo = mov.custoUnit == null ? '—' : this.formatCurrency(mov.custoUnit);
+                const saldo = apagada ? '—' : saldoApos;
+                return `
+                    <div class="nested-item-labs-row" style="grid-template-columns: 140px 1.4fr 70px 110px 80px 1fr; padding: 0.6rem 0.5rem; font-size: 0.82rem; border-bottom: 1px solid var(--glass-border); ${estilo}">
+                        <span>${data}</span>
+                        <span style="font-weight: 500;">${mov.tipo === 'entrada' && apagada ? 'Entrada (excluída)' : Estoque.rotulo(mov.tipo)}</span>
+                        <span style="${apagada ? 'text-decoration: line-through;' : ''}">${qtd}</span>
+                        <span>${custo}</span>
+                        <span>${saldo}</span>
+                        <span style="color: var(--text-dim);">${this.esc(mov.obs) || ''}</span>
+                    </div>`;
+            }).join('');
+        }
+
+        this.openModal('product-history-modal');
     },
 
     showEntradaDetails(id) {

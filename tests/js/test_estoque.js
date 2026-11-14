@@ -215,6 +215,22 @@ teste('invariante: exclusão de entrada equivale a nunca ter registrado a entrad
   }
 });
 
+teste('historico: saldo após cada movimentação, ignoradas não contam', () => {
+  const ent = { id: 'EN1', items: [{ productId: 'P1', qty: 5, unitCost: 10 }] };
+  const m = [...E.movimentosDaEntrada(ent), venda('P1', 2, 10, 'V1')];
+  const h = E.historico(m, 'P1');
+  assert.deepStrictEqual(h.map(x => x.saldoApos), [5, 3]);
+  m[1].ignorada = true;
+  assert.deepStrictEqual(E.historico(m, 'P1').map(x => x.saldoApos), [5, 5]);
+  assert.deepStrictEqual(E.historico(m, 'P9'), []);
+});
+
+teste('rótulos das movimentações', () => {
+  assert.strictEqual(E.rotulo('entrada'), 'Entrada');
+  assert.strictEqual(E.rotulo('exclusao_entrada'), 'Exclusão de entrada');
+  assert.strictEqual(E.rotulo('desconhecido'), 'desconhecido');
+});
+
 if (falhas > 0) {
   console.log('\n' + falhas + ' falha(s).');
   process.exit(1);

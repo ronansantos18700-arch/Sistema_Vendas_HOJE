@@ -111,6 +111,16 @@ app.iniciarHistoricoEstoque();
 app.registrarMovimentacoes(ctx.Estoque.movimentosDaVenda({ id: 'V9', items: [{ id: 'P1', qty: 2, cost: 2 }] }));
 check('venda sem NaN: estoque 3, custo 2', prod('P1').stock === 3 && prod('P1').cost === 2 && app.state.movimentacoes.every(m => !Number.isNaN(m.qtd)));
 
+// Histórico do produto: abre o modal sem erro e lista as movimentações
+reset();
+app.state.products = [{ id: 'P1', name: 'Café', stock: 0, cost: 0 }];
+app.registrarMovimentacoes([ctx.Estoque.movimentoCadastro('P1', 3, 5)]);
+let modalAberto = null;
+app.openModal = (t) => { modalAberto = t; };
+app.showProductHistory('P1');
+check('histórico abre o modal do produto', modalAberto === 'product-history-modal');
+check('histórico do produto com 1 linha', ctx.Estoque.historico(app.state.movimentacoes, 'P1').length === 1);
+
 // Login desativado: sessão local de administrador, sem logout e sem passo de usuários no tutorial
 app.state.currentUser = { ...app.config.usuarioLocal };
 check('login desativado por padrão', app.config.loginAtivo === false);

@@ -238,3 +238,10 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar cadastro, entrada, venda, exclusão de venda e de entrada, e reinício.
 - Arquivos: `SistemaVendas/frontend/estoque.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/Database.cs`, `tests/js/`.
 
+### 2026-11-14 (login desativado e histórico de estoque)
+
+- Login e gestão de usuários desativados: `app.config.loginAtivo = false`. O sistema abre como administrador local; telas de login, usuários e "Sair da Sessão" ficam ocultas (classe `requer-login`). Para voltar, use `loginAtivo = true`. O código de login foi mantido.
+- Histórico de estoque por produto: botão de relógio na lista de produtos abre o modal com data, tipo, quantidade, custo, saldo e observação. Movimentações excluídas aparecem apagadas e não contam no saldo (`Estoque.historico`).
+- Testes: `node tests/js/test_estoque.js`, `node tests/js/test_fluxos_estoque.js`.
+- Não compilado no Windows nem executado no WebView2.
+

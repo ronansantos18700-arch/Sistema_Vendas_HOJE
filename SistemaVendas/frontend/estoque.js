@@ -230,6 +230,35 @@
         };
     }
 
+    const ROTULOS = Object.freeze({
+        saldo_inicial: 'Saldo inicial',
+        entrada: 'Entrada',
+        venda: 'Venda',
+        estorno: 'Estorno',
+        ajuste: 'Ajuste',
+        ajuste_custo: 'Ajuste de custo',
+        exclusao_entrada: 'Exclusão de entrada'
+    });
+
+    function rotulo(tipo) {
+        return ROTULOS[tipo] || tipo;
+    }
+
+    /**
+     * Movimentações de um produto, na ordem em que foram registradas, com o saldo após cada uma.
+     * Movimentações ignoradas aparecem, mas não alteram saldo nem custo.
+     */
+    function historico(movimentacoes, produtoId) {
+        const id = String(produtoId);
+        let estado = { saldo: 0, custo: 0 };
+        return movimentacoes
+            .filter(m => m.produtoId === id)
+            .map(m => {
+                estado = aplicar(estado, m);
+                return { mov: m, saldoApos: estado.saldo, custoApos: estado.custo };
+            });
+    }
+
     /** Ajuste manual de quantidade (delta positivo ou negativo). */
     function movimentoAjuste(produtoId, delta, obs) {
         return criarMovimentacao({ produtoId: produtoId, tipo: TIPOS.AJUSTE, qtd: delta, obs: obs || 'Ajuste manual' });
@@ -264,7 +293,9 @@
         planejarExclusaoEntrada: planejarExclusaoEntrada,
         movimentoAjuste: movimentoAjuste,
         movimentoAjusteCusto: movimentoAjusteCusto,
-        movimentoCadastro: movimentoCadastro
+        movimentoCadastro: movimentoCadastro,
+        rotulo: rotulo,
+        historico: historico
     };
 
     if (typeof module === 'object' && module.exports) module.exports = api;
