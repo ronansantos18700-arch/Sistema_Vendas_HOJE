@@ -245,3 +245,12 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Testes: `node tests/js/test_estoque.js`, `node tests/js/test_fluxos_estoque.js`.
 - Não compilado no Windows nem executado no WebView2.
 
+### 2026-11-14 (Fase 4 — interface, parte 1)
+
+- Janela: sem bordas (`FormBorderStyle.None`), maximizada ao abrir (`WindowState.Maximized`) e visível na barra de tarefas (`ShowInTaskbar = true`, para ser possível minimizar e voltar à janela).
+- Zoom flutuante removido: botões, atalhos Ctrl +/−/0, Ctrl + roda do mouse e controle do zoom salvo. Layout precisa funcionar sem zoom.
+- Fonte: `Segoe UI` (fonte do Windows) no lugar de `SF Pro Display`, que não existe no Windows. Import externo de fonte removido.
+- Bibliotecas locais em `frontend/vendor/`: Chart.js 4.6.1 e Lucide 0.460.0. Não dependem mais de CDN, então funcionam sem internet.
+- Não verificado: layout em 1920×1080 e 1366×768 com 125% de escala (sem navegador no ambiente de desenvolvimento). Precisa de teste no Windows.
+- Fase 3: vendas, entradas e estoque já usam as movimentações (Fase 2). O caixa continua como documento separado, sem reconstrução, até decidir o uso do caixa.
+

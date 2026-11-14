@@ -640,7 +640,6 @@ const app = {
         this.setupBridge();
         await this.carregarDados();
         this.setupEventListeners();
-        this.initZoom();
         this.initLucide();
 
         const { loginScreen, appContainer } = this.getDOMRefs();
@@ -987,95 +986,6 @@ const app = {
                 }
             }
         });
-    },
-
-    initZoom() {
-        // Estado inicial do zoom
-        this.currentZoom = parseFloat(localStorage.getItem('sv_zoom_v4')) || 1.0;
-        this.applyZoom();
-
-        // Listeners da Barra Flutuante
-        document.getElementById('floating-zoom-in')?.addEventListener('click', () => this.zoomIn());
-        document.getElementById('floating-zoom-out')?.addEventListener('click', () => this.zoomOut());
-        document.getElementById('floating-zoom-reset')?.addEventListener('click', () => this.resetZoom());
-
-        // Atalhos de Teclado (Ctrl + +, Ctrl + -, Ctrl + 0)
-        window.addEventListener('keydown', (e) => {
-            if (e.ctrlKey) {
-                if (e.key === '+' || e.key === '=') {
-                    e.preventDefault();
-                    this.zoomIn();
-                } else if (e.key === '-') {
-                    e.preventDefault();
-                    this.zoomOut();
-                } else if (e.key === '0') {
-                    e.preventDefault();
-                    this.resetZoom();
-                }
-            }
-        });
-
-        // Suporte a Ctrl + Mouse Wheel
-        window.addEventListener('wheel', (e) => {
-            if (e.ctrlKey) {
-                e.preventDefault();
-                const delta = -e.deltaY * 0.001;
-                this.changeZoom(delta);
-            }
-        }, { passive: false });
-    },
-
-    zoomIn() {
-        this.changeZoom(0.1);
-    },
-
-    zoomOut() {
-        this.changeZoom(-0.1);
-    },
-
-    resetZoom() {
-        this.currentZoom = 1.0;
-        this.applyZoom();
-        this.saveZoom();
-    },
-
-    changeZoom(delta) {
-        // Limites: 0.5 (50%) a 3.0 (300%)
-        const newZoom = Math.min(Math.max(this.currentZoom + delta, 0.5), 3.0);
-        if (newZoom !== this.currentZoom) {
-            this.currentZoom = newZoom;
-            this.applyZoom();
-            this.saveZoom();
-        }
-    },
-
-    saveZoom() {
-        if (this.zoomSaveTimeout) clearTimeout(this.zoomSaveTimeout);
-        this.zoomSaveTimeout = setTimeout(() => {
-            localStorage.setItem('sv_zoom_v4', this.currentZoom.toFixed(2));
-        }, 300);
-    },
-
-    applyZoom() {
-        const percentage = Math.round(this.currentZoom * 100) + '%';
-        const floatingPercentageEl = document.getElementById('floating-zoom-value');
-        if (floatingPercentageEl) floatingPercentageEl.textContent = percentage;
-
-        const { appContainer } = this.getDOMRefs();
-        if (appContainer) {
-            if (this.zoomRaf) cancelAnimationFrame(this.zoomRaf);
-            this.zoomRaf = requestAnimationFrame(() => {
-                if (this.currentZoom === 1.0) {
-                    appContainer.style.transform = '';
-                    appContainer.style.width = '';
-                    appContainer.style.height = '';
-                } else {
-                    appContainer.style.transform = `scale(${this.currentZoom})`;
-                    appContainer.style.width = `${100 / this.currentZoom}vw`;
-                    appContainer.style.height = `${100 / this.currentZoom}vh`;
-                }
-            });
-        }
     },
 
     setupGlobalHandlers() {
@@ -2046,11 +1956,6 @@ const app = {
             this.renderSettingsNotifications();
         }
         if (sectionName === 'aparencia') {
-            const zoomValue = (this.currentZoom || 1) * 100;
-            const slider = document.getElementById('sv-zoom-slider');
-            const display = document.getElementById('sv-zoom-value');
-            if (slider) slider.value = zoomValue;
-            if (display) display.textContent = `${Math.round(zoomValue)}%`;
             this.syncAppearanceThemeToggle();
         }
         if (sectionName === 'caixa') {
@@ -2195,17 +2100,6 @@ const app = {
 
         select.innerHTML = '<option value="">Todas as categorias</option>' +
             this.state.categories.map(c => `<option value="${c.id}">${this.esc(c.name)}</option>`).join('');
-    },
-
-    handleZoomSlider(value) {
-        const targetZoom = value / 100;
-        const currentZoom = this.currentZoom || 1;
-        const delta = targetZoom - currentZoom;
-
-        this.changeZoom(delta);
-
-        const display = document.getElementById('sv-zoom-value');
-        if (display) display.textContent = `${value}%`;
     },
 
     async generateChecksum(data) {
@@ -3002,7 +2896,7 @@ const app = {
 
         const theme = this.getThemeColors();
         Chart.defaults.color = theme.text;
-        Chart.defaults.font.family = "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+        Chart.defaults.font.family = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
         Chart.defaults.font.size = 13;
         Chart.defaults.devicePixelRatio = window.devicePixelRatio || 2;
         Chart.defaults.responsive = true;
@@ -5295,7 +5189,6 @@ const app = {
         }
 
         const containerRect = appContainer.getBoundingClientRect();
-        const zoom = this.currentZoom || 1.0;
 
         // Inicia o polígono do clip-path (caixa externa)
         // Usamos uma técnica de polígono invertido para criar furos
@@ -5305,10 +5198,10 @@ const app = {
             const rect = el.getBoundingClientRect();
 
             // Calcular coordenadas relativas ao app-container, considerando o zoom
-            const l = (rect.left - containerRect.left) / zoom - 4; // -4 para margem de respiro
-            const t = (rect.top - containerRect.top) / zoom - 4;
-            const r = (rect.right - containerRect.left) / zoom + 4;
-            const b = (rect.bottom - containerRect.top) / zoom + 4;
+            const l = (rect.left - containerRect.left) - 4; // -4 para margem de respiro
+            const t = (rect.top - containerRect.top) - 4;
+            const r = (rect.right - containerRect.left) + 4;
+            const b = (rect.bottom - containerRect.top) + 4;
 
             // Adiciona o furo ao polígono
             path += `, ${l}px ${t}px, ${l}px ${b}px, ${r}px ${b}px, ${r}px ${t}px, ${l}px ${t}px, 0% 0%`;
