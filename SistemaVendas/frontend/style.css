@@ -4320,7 +4320,7 @@ textarea:focus-visible {
     min-height: 0;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
     align-content: start;
     gap: 0.9rem;
     padding: 0.15rem 0.3rem 0.5rem 0.15rem;
@@ -4356,7 +4356,7 @@ textarea:focus-visible {
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 1 / 1; /* fotos são 1024x1024: quadro quadrado mostra o produto inteiro */
     width: 100%;
     overflow: hidden;
     border-radius: var(--radius-md);
@@ -4636,7 +4636,6 @@ textarea:focus-visible {
 
 /* Telas menores: cards e carrinho se ajustam sem cortar */
 @media (max-height: 820px) {
-    #pos-view .pos-card-img { aspect-ratio: 16 / 10; }
     #pos-view .pos-total-row strong { font-size: 1.75rem; }
     #pos-view .pos-finish-btn { height: 52px; }
 }
