@@ -30,7 +30,7 @@ function criarApp(produtos, categorias = []) {
   const notificacoes = [];
   const dom = criarDom();
   const ctx = {
-    window: {}, console: { log: noop, warn: noop, info: noop, error: noop },
+    window: {}, addEventListener: noop, console: { log: noop, warn: noop, info: noop, error: noop },
     document: dom,
     localStorage: { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem: noop },
     setTimeout: noop, setInterval: noop, clearInterval: noop, requestAnimationFrame: noop,
