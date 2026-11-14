@@ -31,8 +31,10 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "FormVendas";
-            this.ShowInTaskbar = false;
+            // Sem bordas, mas visível na barra de tarefas: sem ela não há como minimizar ou voltar à janela.
+            this.ShowInTaskbar = true;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.Text = "Sistema de Vendas";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormVendas_FormClosing);
             this.Load += new System.EventHandler(this.FormVendas_Load);

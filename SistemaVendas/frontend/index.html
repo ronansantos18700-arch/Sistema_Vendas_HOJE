@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Labs. - SV Ultra</title>
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="vendor/lucide.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -98,14 +98,6 @@
                 <div id="user-profile-container" class="user-profile hidden requer-login">
                 </div>
 
-                <div class="zoom-panel-sidebar">
-                    <button id="floating-zoom-out" class="btn-zoom-sidebar" title="Reduzir Zoom"><i data-lucide="minus"></i></button>
-                    <div class="zoom-info-sidebar">
-                        <span id="floating-zoom-value">100%</span>
-                    </div>
-                    <button id="floating-zoom-in" class="btn-zoom-sidebar" title="Aumentar Zoom"><i data-lucide="plus"></i></button>
-                    <button id="floating-zoom-reset" class="btn-zoom-sidebar" title="Resetar">100%</button>
-                </div>
             </div>
         </aside>
 
