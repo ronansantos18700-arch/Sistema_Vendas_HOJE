@@ -4667,3 +4667,20 @@ textarea:focus-visible {
     #pos-view .pos-paid-group input { height: 38px; }
     #pos-view .pos-change-row { padding: 0.45rem 0.75rem; }
 }
+
+/* PDV: foto inteira e centralizada, sem corte (object-fit: contain) */
+#pos-view .pos-card-img {
+    background: #ffffff;
+    padding: 0.4rem;
+}
+#pos-view .pos-card-img img,
+#pos-view .pos-ci-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+#pos-view .pos-ci-thumb {
+    background: #ffffff;
+    padding: 2px;
+}
