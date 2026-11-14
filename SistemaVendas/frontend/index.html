@@ -349,61 +349,71 @@
 
                 <!-- PDV View -->
                 <section id="pos-view" class="view pos-view">
-                    <div class="pos-grid-labs">
-                        <div class="pos-column">
-                            <div class="pos-section-labs pos-customer-box">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                                    <h4 style="margin-bottom: 0;">Identificação do Cliente</h4>
-                                    <button id="btn-direct-sale" class="btn-direct-sale">
-                                        <i data-lucide="zap"></i>
-                                        <span>Venda Direta</span>
-                                    </button>
-                                </div>
-                                <select id="pos-customer" class="glass-input-labs">
-                                    <option value="">Selecione um cliente</option>
-                                </select>
+                    <div class="pos-layout">
+                        <div class="pos-catalog">
+                            <div class="pos-search">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="pos-barcode" placeholder="Código de barras ou nome do produto (F2)" autocomplete="off">
                             </div>
-                            <div class="pos-section-labs pos-launch-box">
-                                <h4>Lançamento de Itens</h4>
-                                <input type="text" id="pos-barcode" class="glass-input-labs" style="border-color: var(--accent);" placeholder="Código de Barra (BIP)">
-                                <div class="divider-text"><span>ou busque manual</span></div>
-                                <select id="pos-product-manual" class="glass-input-labs">
-                                    <option value="">Selecione um produto</option>
-                                </select>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <input type="number" id="pos-qty" value="1" min="1" inputmode="decimal" class="glass-input-labs" style="width: 80px;">
-                                    <button id="btn-add-item" class="btn-save btn-add-item" style="flex: 1;">Adicionar Item</button>
-                                </div>
-                            </div>
+                            <div id="pos-chips" class="pos-chips"></div>
+                            <div id="pos-product-grid" class="pos-grid"></div>
                         </div>
-                        <div class="pos-column">
-                            <div class="pos-section-labs">
-                                <h4>Itens da Venda</h4>
-                                <div id="pos-cart-items">
-                                    <div class="empty-cart-msg">Carrinho vazio</div>
+
+                        <aside class="pos-cart">
+                            <div class="pos-customer">
+                                <label class="input-label-labs" for="pos-customer">CLIENTE (OPCIONAL)</label>
+                                <select id="pos-customer" class="glass-input-labs">
+                                    <option value="">Consumidor Final</option>
+                                </select>
+                            </div>
+
+                            <div class="pos-cart-head">
+                                <h4>Itens da venda</h4>
+                                <span id="pos-cart-count" class="pos-cart-count">0</span>
+                            </div>
+
+                            <div id="pos-cart-items" class="pos-items">
+                                <div class="empty-cart-msg">Carrinho vazio</div>
+                            </div>
+
+                            <div class="pos-totals">
+                                <div class="pos-line">
+                                    <span>Subtotal</span>
+                                    <span id="pos-subtotal">R$ 0,00</span>
                                 </div>
-                                <div class="total-display-labs mt-2">
+                                <div class="pos-line">
+                                    <span>Desconto (R$)</span>
+                                    <input type="number" id="pos-discount" inputmode="decimal" placeholder="0,00" autocomplete="off">
+                                </div>
+                                <div class="pos-total-row">
                                     <span>TOTAL</span>
-                                    <h2 id="pos-total-val">R$ 0,00</h2>
+                                    <strong id="pos-total-val">R$ 0,00</strong>
                                 </div>
-                                <div class="pos-payment-grid">
-                                    <select id="pos-payment" class="glass-input-labs">
-                                        <option value="dinheiro">Dinheiro</option>
-                                        <option value="cartao">Cartão</option>
-                                        <option value="pix">PIX</option>
-                                    </select>
-                                    <input type="number" id="pos-discount" inputmode="decimal" class="glass-input-labs" placeholder="Desconto (R$)">
+                            </div>
+
+                            <div class="pos-pay">
+                                <span class="input-label-labs">PAGAMENTO</span>
+                                <div class="pos-pay-buttons">
+                                    <button type="button" class="pos-pay-btn active" data-pay="dinheiro">Dinheiro</button>
+                                    <button type="button" class="pos-pay-btn" data-pay="cartao">Cartão</button>
+                                    <button type="button" class="pos-pay-btn" data-pay="pix">PIX</button>
                                 </div>
-                                <div class="pos-payment-grid single-col" id="pos-paid-group">
-                                    <input type="number" id="pos-paid" inputmode="decimal" class="glass-input-labs" placeholder="Valor Pago">
+                                <select id="pos-payment" class="hidden">
+                                    <option value="dinheiro">Dinheiro</option>
+                                    <option value="cartao">Cartão</option>
+                                    <option value="pix">PIX</option>
+                                </select>
+                                <div id="pos-paid-group" class="pos-paid-group">
+                                    <input type="number" id="pos-paid" inputmode="decimal" placeholder="Valor pago (R$)" autocomplete="off">
                                 </div>
                                 <div id="pos-change-row" class="pos-change-row hidden">
                                     <span>Troco</span>
-                                    <h3 id="pos-change-val">R$ 0,00</h3>
+                                    <strong id="pos-change-val">R$ 0,00</strong>
                                 </div>
-                                <button id="btn-finish-sale" class="btn-save btn-finish-sale">FINALIZAR VENDA</button>
                             </div>
-                        </div>
+
+                            <button id="btn-finish-sale" class="pos-finish-btn">FINALIZAR VENDA <kbd>F4</kbd></button>
+                        </aside>
                     </div>
                 </section>
 
@@ -411,12 +421,15 @@
                 <section id="products-view" class="view products-view">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-products" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar produtos...">
+                            <input type="text" id="filter-products" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar produtos..." autocomplete="off">
                             <select id="filter-category" class="glass-input-labs" style="width: 200px;">
                                 <option value="">Todas as categorias</option>
                             </select>
                         </div>
-                        <button class="btn-save" onclick="app.openModal('product')">Novo Produto</button>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button id="btn-open-categories" class="btn-ghost-labs" onclick="app.openCategoriesModal()"><i data-lucide="tag"></i> Categorias</button>
+                            <button class="btn-save" onclick="app.openModal('product')">Novo Produto</button>
+                        </div>
                     </div>
                     <div id="products-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
                         <div class="list-header-labs">
@@ -438,7 +451,7 @@
                 <section id="customers-view" class="view customers-view">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-customers" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar clientes...">
+                            <input type="text" id="filter-customers" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar clientes..." autocomplete="off">
                         </div>
                         <button class="btn-save" onclick="app.openModal('customer')">Novo Cliente</button>
                     </div>
@@ -461,8 +474,8 @@
                 <section id="history-view" class="view history-view">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-history" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por cliente ou ID...">
-                            <input type="date" id="filter-date-history" class="glass-input-labs" style="width: 200px;">
+                            <input type="text" id="filter-history" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por cliente ou ID..." autocomplete="off">
+                            <input type="date" id="filter-date-history" class="glass-input-labs" style="width: 200px;" autocomplete="off">
                         </div>
                     </div>
                     <div id="history-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
@@ -489,8 +502,8 @@
                 <section id="entradas-view" class="view entradas-view">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-entradas" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por fornecedor, nota ou ID..." oninput="app.renderEntradas(this.value, document.getElementById('filter-date-entradas').value)">
-                            <input type="date" id="filter-date-entradas" class="glass-input-labs" style="width: 200px;" onchange="app.renderEntradas(document.getElementById('filter-entradas').value, this.value)">
+                            <input type="text" id="filter-entradas" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por fornecedor, nota ou ID..." oninput="app.renderEntradas(this.value, document.getElementById('filter-date-entradas').value)" autocomplete="off">
+                            <input type="date" id="filter-date-entradas" class="glass-input-labs" style="width: 200px;" onchange="app.renderEntradas(document.getElementById('filter-entradas').value, this.value)" autocomplete="off">
                         </div>
                         <button class="btn-save" onclick="app.openNovaEntrada()">
                             <i data-lucide="plus-circle" style="width: 18px; height: 18px; margin-right: 0.5rem;"></i>
@@ -519,11 +532,11 @@
                         <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.25rem;">
                             <label style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: var(--text-dim);">
                                 De
-                                <input type="date" id="resumo-de" class="glass-input-labs" onchange="app.renderResumo()">
+                                <input type="date" id="resumo-de" class="glass-input-labs" onchange="app.renderResumo()" autocomplete="off">
                             </label>
                             <label style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: var(--text-dim);">
                                 Até
-                                <input type="date" id="resumo-ate" class="glass-input-labs" onchange="app.renderResumo()">
+                                <input type="date" id="resumo-ate" class="glass-input-labs" onchange="app.renderResumo()" autocomplete="off">
                             </label>
                             <button type="button" class="btn-save-labs" onclick="app.resumoHoje()">Hoje</button>
                         </div>
@@ -558,10 +571,6 @@
                                 <i data-lucide="wrench"></i>
                                 <span>Ferramentas</span>
                             </button>
-                            <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('categorias')">
-                                <i data-lucide="tag"></i>
-                                <span>Categorias</span>
-                            </button>
                         </aside>
 
                         <!-- Conteúdo das Configurações -->
@@ -589,7 +598,7 @@
                                                         <i data-lucide="trash-2"></i>
                                                     </button>
                                                 </div>
-                                                <input type="hidden" id="settings-logo-url-page">
+                                                <input type="hidden" id="settings-logo-url-page" autocomplete="off">
                                             </div>
                                         </div>
 
@@ -605,25 +614,25 @@
                                         <div class="sv-fields-grid">
                                             <div class="input-group-labs">
                                                 <label class="input-label-labs">Razão Social / Nome Fantasia</label>
-                                                <input type="text" id="set-company-name-page" placeholder="Ex: Minha Empresa LTDA" class="glass-input-labs" required>
+                                                <input type="text" id="set-company-name-page" placeholder="Ex: Minha Empresa LTDA" class="glass-input-labs" required autocomplete="off">
                                             </div>
                                             <div class="input-group-labs">
                                                 <label class="input-label-labs">Responsável pelo Sistema</label>
-                                                <input type="text" id="set-owner-name-page" placeholder="Nome completo do responsável" class="glass-input-labs" required>
+                                                <input type="text" id="set-owner-name-page" placeholder="Nome completo do responsável" class="glass-input-labs" required autocomplete="off">
                                             </div>
                                             <div class="sv-grid-2">
                                                 <div class="input-group-labs">
                                                     <label class="input-label-labs">WhatsApp Comercial</label>
-                                                    <input type="text" id="set-company-whatsapp-page" placeholder="(00) 00000-0000" class="glass-input-labs">
+                                                    <input type="text" id="set-company-whatsapp-page" placeholder="(00) 00000-0000" class="glass-input-labs" autocomplete="off">
                                                 </div>
                                                 <div class="input-group-labs">
                                                     <label class="input-label-labs">E-mail de Contato</label>
-                                                    <input type="email" id="set-company-email-page" placeholder="contato@empresa.com" class="glass-input-labs">
+                                                    <input type="email" id="set-company-email-page" placeholder="contato@empresa.com" class="glass-input-labs" autocomplete="off">
                                                 </div>
                                             </div>
                                             <div class="input-group-labs">
                                                 <label class="input-label-labs">Endereço Principal</label>
-                                                <textarea id="set-company-address-page" placeholder="Endereço completo da empresa" class="glass-input-labs" style="height: 80px; resize: none;"></textarea>
+                                                <textarea id="set-company-address-page" placeholder="Endereço completo da empresa" class="glass-input-labs" style="height: 80px; resize: none;" autocomplete="off"></textarea>
                                             </div>
                                         </div>
 
@@ -686,12 +695,12 @@
                                                 <label for="notif-stock-low">Alertar estoque crítico</label>
                                                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                                                     <span style="font-size: 0.85rem; color: var(--text-dim);">Abaixo de</span>
-                                                    <input type="number" id="notif-stock-low-val" class="glass-input-labs" style="width: 70px; height: 32px; padding: 0 0.5rem; text-align: center;" value="10" onchange="app.saveSettingsNotifications()">
+                                                    <input type="number" id="notif-stock-low-val" class="glass-input-labs" style="width: 70px; height: 32px; padding: 0 0.5rem; text-align: center;" value="10" onchange="app.saveSettingsNotifications()" autocomplete="off">
                                                     <span style="font-size: 0.85rem; color: var(--text-dim);">unidades</span>
                                                 </div>
                                             </div>
                                             <label class="sv-toggle">
-                                                <input type="checkbox" id="notif-stock-low" onchange="app.saveSettingsNotifications()">
+                                                <input type="checkbox" id="notif-stock-low" onchange="app.saveSettingsNotifications()" autocomplete="off">
                                                 <span class="sv-toggle-track"></span>
                                             </label>
                                         </div>
@@ -701,12 +710,12 @@
                                                 <label for="notif-stock-medium">Alertar estoque médio</label>
                                                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                                                     <span style="font-size: 0.85rem; color: var(--text-dim);">Abaixo de</span>
-                                                    <input type="number" id="notif-stock-medium-val" class="glass-input-labs" style="width: 70px; height: 32px; padding: 0 0.5rem; text-align: center;" value="25" onchange="app.saveSettingsNotifications()">
+                                                    <input type="number" id="notif-stock-medium-val" class="glass-input-labs" style="width: 70px; height: 32px; padding: 0 0.5rem; text-align: center;" value="25" onchange="app.saveSettingsNotifications()" autocomplete="off">
                                                     <span style="font-size: 0.85rem; color: var(--text-dim);">unidades</span>
                                                 </div>
                                             </div>
                                             <label class="sv-toggle">
-                                                <input type="checkbox" id="notif-stock-medium" onchange="app.saveSettingsNotifications()">
+                                                <input type="checkbox" id="notif-stock-medium" onchange="app.saveSettingsNotifications()" autocomplete="off">
                                                 <span class="sv-toggle-track"></span>
                                             </label>
                                         </div>
@@ -717,7 +726,7 @@
                                                 <span>Dados da empresa ou logo ausentes</span>
                                             </div>
                                             <label class="sv-toggle">
-                                                <input type="checkbox" id="notif-settings" onchange="app.saveSettingsNotifications()">
+                                                <input type="checkbox" id="notif-settings" onchange="app.saveSettingsNotifications()" autocomplete="off">
                                                 <span class="sv-toggle-track"></span>
                                             </label>
                                         </div>
@@ -742,7 +751,7 @@
                                                 <span>Quando ativado, usa o tema claro.</span>
                                             </div>
                                             <label class="sv-toggle">
-                                                <input type="checkbox" id="appearance-theme-toggle">
+                                                <input type="checkbox" id="appearance-theme-toggle" autocomplete="off">
                                                 <span class="sv-toggle-track"></span>
                                             </label>
                                         </div>
@@ -767,29 +776,6 @@
                                         <button class="btn-save-labs" id="open-backup-modal" onclick="app.openModal('backup')">
                                             <i data-lucide="database"></i> Backup de Dados
                                         </button>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <!-- Seção Categorias -->
-                            <section id="sv-section-categorias" class="sv-settings-section">
-                                <div class="sv-settings-card">
-                                    <div class="sv-card-header">
-                                        <div class="sv-header-info">
-                                            <h4>Gestão de Categorias</h4>
-                                            <p>Organize seus produtos em categorias para facilitar a navegação.</p>
-                                        </div>
-                                    </div>
-
-                                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
-                                        <input type="text" id="new-category-name" class="glass-input-labs" style="flex: 1;" placeholder="Nome da nova categoria...">
-                                        <button class="btn-save-labs" onclick="app.addCategory()">
-                                            <i data-lucide="plus"></i> Adicionar
-                                        </button>
-                                    </div>
-
-                                    <div id="categories-list-container" class="glass-inner" style="padding: 1rem; border-radius: 8px; max-height: 400px; overflow-y: auto;">
-                                        <!-- Dynamic items via app.renderCategories() -->
                                     </div>
                                 </div>
                             </section>
@@ -882,7 +868,7 @@
                                 <h5>Importar Backup</h5>
                                 <span>Restaurar sistema a partir de um arquivo</span>
                             </div>
-                            <input type="file" id="import-backup-input" class="hidden" accept=".json" onchange="app.importBackup(event)">
+                            <input type="file" id="import-backup-input" class="hidden" accept=".json" onchange="app.importBackup(event)" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -914,17 +900,17 @@
                         <div class="modal-grid-labs" style="grid-template-columns: 1fr 1fr;">
                             <div class="input-group-labs">
                                 <label class="input-label-labs">FORNECEDOR</label>
-                                <input type="text" id="entrada-fornecedor" placeholder="Nome do fornecedor" class="glass-input-labs">
+                                <input type="text" id="entrada-fornecedor" placeholder="Nome do fornecedor" class="glass-input-labs" autocomplete="off">
                             </div>
                             <div class="input-group-labs">
                                 <label class="input-label-labs">Nº DA NOTA</label>
-                                <input type="text" id="entrada-nota" placeholder="Número da nota fiscal" class="glass-input-labs">
+                                <input type="text" id="entrada-nota" placeholder="Número da nota fiscal" class="glass-input-labs" autocomplete="off">
                             </div>
                         </div>
                         
                         <div class="input-group-labs" style="margin-top: 1rem;">
                             <label class="input-label-labs">OBSERVAÇÕES</label>
-                            <textarea id="entrada-obs" placeholder="Observações sobre esta entrada..." class="glass-input-labs" style="height: 60px; resize: none;"></textarea>
+                            <textarea id="entrada-obs" placeholder="Observações sobre esta entrada..." class="glass-input-labs" style="height: 60px; resize: none;" autocomplete="off"></textarea>
                         </div>
 
                         <div class="sv-divider" style="margin: 1rem 0;"></div>
@@ -939,11 +925,11 @@
                             </div>
                             <div class="input-group-labs">
                                 <label class="input-label-labs">QTD</label>
-                                <input type="number" id="entrada-qty" value="1" min="1" class="glass-input-labs">
+                                <input type="number" id="entrada-qty" value="1" min="1" class="glass-input-labs" autocomplete="off">
                             </div>
                             <div class="input-group-labs">
                                 <label class="input-label-labs">CUSTO UNIT.</label>
-                                <input type="number" id="entrada-custo-unit" step="0.01" placeholder="0.00" class="glass-input-labs">
+                                <input type="number" id="entrada-custo-unit" step="0.01" placeholder="0.00" class="glass-input-labs" autocomplete="off">
                             </div>
                             <button type="button" class="btn-save-labs" onclick="app.adicionarItemEntrada()" style="height: 42px; margin-bottom: 3px;">
                                 <i data-lucide="plus"></i>
@@ -1044,6 +1030,22 @@
             </div>
 
             <!-- Simplified Labs Modal -->
+            <!-- Modal Categorias (gestão movida de Configurações para Produtos) -->
+            <div id="categories-modal" class="modal glass hidden" style="max-width: 520px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3>Categorias</h3>
+                    <button type="button" class="btn-edit-activity" style="padding: 0.5rem; display: flex; align-items: center; justify-content: center;" onclick="app.closeModal()"><i data-lucide="x"></i></button>
+                </div>
+                <p style="color: var(--text-dim); margin-bottom: 1rem;">Organize seus produtos em categorias. Você também pode criar uma categoria direto no cadastro do produto.</p>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <input type="text" id="new-category-name" class="glass-input-labs" style="flex: 1;" placeholder="Nome da nova categoria..." autocomplete="off">
+                    <button class="btn-save-labs" onclick="app.addCategory()"><i data-lucide="plus"></i> Adicionar</button>
+                </div>
+                <div id="categories-list-container" class="glass-inner" style="padding: 1rem; border-radius: 8px; max-height: 360px; overflow-y: auto;">
+                    <!-- Dynamic items via app.renderCategories() -->
+                </div>
+            </div>
+
             <div id="product-modal" class="modal glass hidden" style="max-width: 800px;">
                 <h3 style="margin-bottom: 2rem;">Adicionar Novo Produto</h3>
                 <form id="product-form">
@@ -1056,7 +1058,7 @@
                                     <i data-lucide="package" style="width: 32px; height: 32px; color: var(--text-dim);"></i>
                                 </div>
                                 <button type="button" class="btn-edit-activity mt-1" onclick="app.handlePhotoSelection()">Escolher Foto</button>
-                                <input type="hidden" id="prod-image-url">
+                                <input type="hidden" id="prod-image-url" autocomplete="off">
                             </div>
                         </div>
                         
@@ -1064,39 +1066,46 @@
                         <div class="modal-column-right">
                             <div class="input-group-labs">
                                 <label class="input-label-labs">Nome do Produto</label>
-                                <input type="text" id="prod-name" placeholder="Digite o nome do produto" class="glass-input-labs" required>
+                                <input type="text" id="prod-name" placeholder="Digite o nome do produto" class="glass-input-labs" required autocomplete="off">
                             </div>
                             
                             <div class="input-group-labs">
                                 <label class="input-label-labs">Código de Barras</label>
-                                <input type="text" id="prod-code" placeholder="Escaneie ou digite o código" class="glass-input-labs" required>
+                                <input type="text" id="prod-code" placeholder="Escaneie ou digite o código" class="glass-input-labs" required autocomplete="off">
                             </div>
 
                             <div class="input-group-labs">
                                 <label class="input-label-labs">CATEGORIA</label>
-                                <select id="prod-category" class="glass-input-labs">
-                                    <option value="">Sem categoria</option>
-                                </select>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <select id="prod-category" class="glass-input-labs" style="flex: 1;">
+                                        <option value="">Sem categoria</option>
+                                    </select>
+                                    <button type="button" class="btn-ghost-labs" title="Criar nova categoria" onclick="app.toggleQuickCategory()"><i data-lucide="plus"></i></button>
+                                </div>
+                                <div id="prod-quick-category" class="hidden" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                                    <input type="text" id="prod-new-category-name" class="glass-input-labs" style="flex: 1;" placeholder="Nome da nova categoria" autocomplete="off">
+                                    <button type="button" class="btn-save-labs" onclick="app.addCategoryFromProduct()">Criar</button>
+                                </div>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                 <div class="input-group-labs">
                                     <label class="input-label-labs">Custo (R$)</label>
-                                    <input type="number" step="0.01" id="prod-cost" inputmode="decimal" placeholder="0.00" class="glass-input-labs" required>
+                                    <input type="number" step="0.01" id="prod-cost" inputmode="decimal" placeholder="0.00" class="glass-input-labs" required autocomplete="off">
                                 </div>
                                 <div class="input-group-labs">
                                     <label class="input-label-labs">Preço Venda (R$)</label>
-                                    <input type="number" step="0.01" id="prod-price" inputmode="decimal" placeholder="0.00" class="glass-input-labs" required>
+                                    <input type="number" step="0.01" id="prod-price" inputmode="decimal" placeholder="0.00" class="glass-input-labs" required autocomplete="off">
                                 </div>
                                 <div class="input-group-labs">
                                     <label class="input-label-labs">Estoque</label>
-                                    <input type="number" id="prod-stock" inputmode="decimal" placeholder="0" class="glass-input-labs" required>
+                                    <input type="number" id="prod-stock" inputmode="decimal" placeholder="0" class="glass-input-labs" required autocomplete="off">
                                 </div>
                             </div>
                             
                             <div class="input-group-labs">
                                 <label class="input-label-labs">Observação</label>
-                                <textarea id="prod-obs" placeholder="Observações sobre o produto..." class="glass-input-labs" style="height: 100px; resize: none;"></textarea>
+                                <textarea id="prod-obs" placeholder="Observações sobre o produto..." class="glass-input-labs" style="height: 100px; resize: none;" autocomplete="off"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1116,23 +1125,23 @@
                 <form id="customer-form">
                     <div style="margin-bottom: 1rem;">
                         <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">NOME COMPLETO</label>
-                        <input type="text" id="cust-name" placeholder="Ex: João Silva" class="glass-input-labs" required>
+                        <input type="text" id="cust-name" placeholder="Ex: João Silva" class="glass-input-labs" required autocomplete="off">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div>
                             <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">WHATSAPP</label>
-                            <input type="text" id="cust-whatsapp" placeholder="(00) 00000-0000" class="glass-input-labs" required>
+                            <input type="text" id="cust-whatsapp" placeholder="(00) 00000-0000" class="glass-input-labs" required autocomplete="off">
                         </div>
                         <div>
                             <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">EMAIL (OPCIONAL)</label>
-                            <input type="email" id="cust-email" placeholder="cliente@email.com" class="glass-input-labs">
+                            <input type="email" id="cust-email" placeholder="cliente@email.com" class="glass-input-labs" autocomplete="off">
                         </div>
                     </div>
                     <div style="margin-bottom: 1.5rem;">
                         <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">OBSERVAÇÕES / ENDEREÇO</label>
-                        <textarea id="cust-obs" class="glass-input-labs" style="height: 80px; resize: none;" placeholder="Informações adicionais..."></textarea>
+                        <textarea id="cust-obs" class="glass-input-labs" style="height: 80px; resize: none;" placeholder="Informações adicionais..." autocomplete="off"></textarea>
                     </div>
-                    <input type="hidden" id="cust-image-url">
+                    <input type="hidden" id="cust-image-url" autocomplete="off">
                     <div style="display: flex; justify-content: flex-end; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border);">
                         <button type="button" class="btn-cancel-labs" onclick="app.closeModal()">Descartar</button>
                         <button type="submit" class="btn-save-labs" style="background: var(--accent); color: white;">Salvar Cliente</button>
@@ -1149,20 +1158,20 @@
                 <form id="user-form">
                     <div style="margin-bottom: 1rem;">
                         <label class="input-label-labs">NOME COMPLETO</label>
-                        <input type="text" id="user-fullname" placeholder="Ex: Administrador" class="glass-input-labs" required>
+                        <input type="text" id="user-fullname" placeholder="Ex: Administrador" class="glass-input-labs" required autocomplete="off">
                     </div>
                     <div style="margin-bottom: 1rem;">
                         <label class="input-label-labs">USUÁRIO (LOGIN)</label>
-                        <input type="text" id="user-username" placeholder="Ex: admin" class="glass-input-labs" required>
+                        <input type="text" id="user-username" placeholder="Ex: admin" class="glass-input-labs" required autocomplete="off">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div>
                             <label class="input-label-labs">SENHA</label>
-                            <input type="password" id="user-password" placeholder="••••••" class="glass-input-labs" required>
+                            <input type="password" id="user-password" placeholder="••••••" class="glass-input-labs" required autocomplete="off">
                         </div>
                         <div>
                             <label class="input-label-labs">CONFIRMAR SENHA</label>
-                            <input type="password" id="user-confirm-password" placeholder="••••••" class="glass-input-labs" required>
+                            <input type="password" id="user-confirm-password" placeholder="••••••" class="glass-input-labs" required autocomplete="off">
                         </div>
                     </div>
                     <div style="margin-bottom: 1.5rem;">
@@ -1189,7 +1198,7 @@
                     <div style="margin-bottom: 1.5rem;">
                         <p id="stock-prod-name" style="font-size: 0.9rem; color: var(--text-dim); margin-bottom: 1rem; font-weight: 500;"></p>
                         <label id="stock-qty-label" style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">QUANTIDADE</label>
-                        <input type="number" id="stock-qty-add" inputmode="decimal" class="glass-input-labs" placeholder="Ex: 10" required>
+                        <input type="number" id="stock-qty-add" inputmode="decimal" class="glass-input-labs" placeholder="Ex: 10" required autocomplete="off">
                     </div>
                     <div style="display: flex; justify-content: flex-end; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border);">
                         <button type="button" class="btn-cancel-labs" onclick="app.closeModal()">Cancelar</button>
