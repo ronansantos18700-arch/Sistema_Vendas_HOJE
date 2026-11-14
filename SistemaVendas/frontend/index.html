@@ -12,7 +12,7 @@
 </head>
 <body>
     <!-- Login Screen -->
-    <div id="login-screen" class="login-screen">
+    <div id="login-screen" class="login-screen requer-login">
         <button type="button" class="btn-close-login" onclick="app.exitApp()" title="Fechar Aplicação">
             <i data-lucide="x"></i>
         </button>
@@ -95,7 +95,7 @@
                     <button class="nav-btn" data-view="settings"><i data-lucide="settings"></i><span>Configurações</span></button>
                     <button class="nav-btn" id="btn-exit-app" style="color: #ef4444;"><i data-lucide="log-out"></i><span>Sair</span></button>
                 </nav>
-                <div id="user-profile-container" class="user-profile hidden">
+                <div id="user-profile-container" class="user-profile hidden requer-login">
                 </div>
 
                 <div class="zoom-panel-sidebar">
@@ -123,7 +123,7 @@
 
                 <div class="header-right">
                     <div class="header-actions">
-                        <button id="btn-add-user-shortcut" class="btn-notification" title="Novo Usuário">
+                        <button id="btn-add-user-shortcut" class="btn-notification requer-login" title="Novo Usuário">
                             <i data-lucide="plus"></i>
                         </button>
 
@@ -150,7 +150,7 @@
 
                     <div class="topbar-separator"></div>
 
-                    <div id="topbar-user-profile" class="user-profile-topbar">
+                    <div id="topbar-user-profile" class="user-profile-topbar requer-login">
                         <div class="profile-logo-container-topbar">
                             <img id="topbar-profile-logo" src="" alt="User" class="avatar-topbar">
                         </div>
@@ -537,7 +537,7 @@
                                 <i data-lucide="building-2"></i>
                                 <span>Empresa</span>
                             </button>
-                            <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('usuarios')">
+                            <button type="button" class="sv-settings-menu-item requer-login" onclick="app.switchSettingsSection('usuarios')">
                                 <i data-lucide="users"></i>
                                 <span>Usuários</span>
                             </button>
@@ -634,7 +634,7 @@
                             </section>
 
                             <!-- Seção Usuários -->
-                            <section id="sv-section-usuarios" class="sv-settings-section">
+                            <section id="sv-section-usuarios" class="sv-settings-section requer-login">
                                 <div class="sv-settings-card">
                                     <div class="sv-card-header-flex">
                                         <div class="sv-header-info">

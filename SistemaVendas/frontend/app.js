@@ -6,6 +6,10 @@
 const app = {
     // --- Configuração ---
     config: {
+        // Login e gestão de usuários. Com false, o sistema abre direto (usuário local administrador)
+        // e as telas de login e de usuários ficam ocultas. Para voltar, troque para true.
+        loginAtivo: false,
+        usuarioLocal: { id: 'local', fullname: 'Administrador', username: 'local', role: 'admin' },
         loginMaxAttempts: 5,
         loginLockoutMs: 30000,
         pbkdf2Iterations: 100000,
@@ -96,10 +100,11 @@ const app = {
         const cancelBtn = document.getElementById('confirm-modal-cancel');
 
         if (titleEl) titleEl.textContent = 'Sair do Sistema';
-        if (msgEl) msgEl.textContent = 'O que deseja fazer agora?';
+        if (msgEl) msgEl.textContent = this.config.loginAtivo ? 'O que deseja fazer agora?' : 'Deseja fechar o programa?';
         if (iconEl) iconEl.setAttribute('data-lucide', 'log-out');
 
         if (okBtn) {
+            okBtn.style.display = this.config.loginAtivo ? '' : 'none';
             okBtn.textContent = 'Sair da Sessão';
             okBtn.onclick = () => {
                 this.logout();
@@ -625,6 +630,10 @@ const app = {
 
     // --- Initialization ---
     async init() {
+        if (!this.config.loginAtivo) {
+            this.state.currentUser = { ...this.config.usuarioLocal };
+            document.body.classList.add('sem-login');
+        }
         this.loadTheme();
         this.loadLoginSecurityState();
         this.setupGlobalHandlers();
@@ -802,6 +811,7 @@ const app = {
     },
 
     logout() {
+        if (!this.config.loginAtivo) return; // sem login, não há sessão para encerrar
         this.logAudit('LOGOUT', {});
         this.state.currentUser = null;
         const { loginScreen, appContainer } = this.getDOMRefs();
@@ -5200,7 +5210,9 @@ const app = {
             }
         ];
 
-        return { steps: isAdmin ? adminSteps : operatorSteps };
+        const lista = isAdmin ? adminSteps : operatorSteps;
+        // Sem login, a seção de usuários não existe: o passo correspondente sai do tutorial
+        return { steps: this.config.loginAtivo ? lista : lista.filter(s => s.settingsSection !== 'usuarios') };
     },
 
     updateTutorialContent() {

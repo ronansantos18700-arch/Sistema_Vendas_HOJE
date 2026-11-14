@@ -2232,6 +2232,9 @@ body {
 
 /* Utilities */
 .hidden { display: none !important; }
+
+/* Login e usuários desativados (app.config.loginAtivo = false): elementos marcados somem. */
+body.sem-login .requer-login { display: none !important; }
 .view { 
     display: none; 
     min-height: 100%;

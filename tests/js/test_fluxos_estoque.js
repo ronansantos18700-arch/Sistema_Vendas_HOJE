@@ -111,5 +111,15 @@ app.iniciarHistoricoEstoque();
 app.registrarMovimentacoes(ctx.Estoque.movimentosDaVenda({ id: 'V9', items: [{ id: 'P1', qty: 2, cost: 2 }] }));
 check('venda sem NaN: estoque 3, custo 2', prod('P1').stock === 3 && prod('P1').cost === 2 && app.state.movimentacoes.every(m => !Number.isNaN(m.qtd)));
 
+// Login desativado: sessão local de administrador, sem logout e sem passo de usuários no tutorial
+app.state.currentUser = { ...app.config.usuarioLocal };
+check('login desativado por padrão', app.config.loginAtivo === false);
+check('usuário local é administrador', app.state.currentUser.role === 'admin');
+check('requireAdmin passa com usuário local', app.requireAdmin('teste') === true);
+app.logout();
+check('logout não encerra a sessão local', app.state.currentUser !== null);
+const passos = app.getTutorialDefinition().steps;
+check('tutorial sem passo de usuários', passos.every(s => s.settingsSection !== 'usuarios'));
+
 console.log(falhas ? '\n' + falhas + ' falha(s).' : '\nTodos os testes passaram.');
 process.exit(falhas ? 1 : 0);
