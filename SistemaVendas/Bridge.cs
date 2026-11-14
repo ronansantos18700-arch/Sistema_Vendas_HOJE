@@ -121,6 +121,26 @@ namespace SistemaVendas
             }
         }
 
+        /// <summary>
+        /// Aplica somente as mudanças (inserções, alterações, exclusões e ordem) em uma transação.
+        /// Veja Database.ApplyChanges para o formato do JSON.
+        /// </summary>
+        public bool SaveChanges(string jsonData)
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    return Database.ApplyChanges(jsonData);
+                }
+                catch (Exception ex)
+                {
+                    NotifyError("Erro ao salvar alterações: " + ex.Message);
+                    return false;
+                }
+            }
+        }
+
         private void NotifyError(string message)
         {
             string traduzido = message.Replace("products", "Produtos")
