@@ -549,8 +549,8 @@ const app = {
                 datasets: [{
                     label: 'Lucro Total',
                     data: data,
-                    backgroundColor: 'rgba(111, 158, 138, 0.6)',
-                    borderColor: '#6f9e8a',
+                    backgroundColor: 'rgba(127, 165, 142, 0.6)',
+                    borderColor: '#7fa58e',
                     borderWidth: 1,
                     borderRadius: 6,
                     barThickness: 18
@@ -666,7 +666,7 @@ const app = {
         }
 
         const toast = document.createElement('div');
-        const bgColor = type === 'success' ? '#6f9e8a' : type === 'error' ? '#c0605f' : '#6b92c4';
+        const bgColor = type === 'success' ? '#7fa58e' : type === 'error' ? '#b5676a' : '#c9a96e';
         toast.style.cssText = `background: ${bgColor}; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 0.9rem; min-width: 250px; animation: slideIn 0.3s ease-out;`;
         toast.textContent = message;
 
@@ -1229,10 +1229,10 @@ const app = {
                         </div>
                     </div>
                     <div class="sv-user-actions">
-                        <button type="button" class="btn-user-edit" onclick="app.editUser('${user.id}')" title="Editar Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(107, 146, 196, 0.1); color: var(--accent); border: 1px solid rgba(107, 146, 196, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
+                        <button type="button" class="btn-user-edit" onclick="app.editUser('${user.id}')" title="Editar Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(201, 169, 110, 0.1); color: var(--accent); border: 1px solid rgba(201, 169, 110, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
                             <i data-lucide="edit-3"></i>
                         </button>
-                        <button type="button" class="btn-user-delete" onclick="app.deleteUser('${user.id}')" title="Excluir Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(192, 96, 95, 0.1); color: #c0605f; border: 1px solid rgba(192, 96, 95, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
+                        <button type="button" class="btn-user-delete" onclick="app.deleteUser('${user.id}')" title="Excluir Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(181, 103, 106, 0.1); color: #b5676a; border: 1px solid rgba(181, 103, 106, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
                             <i data-lucide="trash-2"></i>
                         </button>
                     </div>
@@ -2464,7 +2464,7 @@ const app = {
 
         const theme = this.getThemeColors();
         Chart.defaults.color = theme.text;
-        Chart.defaults.font.family = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+        Chart.defaults.font.family = "'SV Roboto', 'Segoe UI', system-ui, sans-serif";
         Chart.defaults.font.size = 13;
         Chart.defaults.devicePixelRatio = window.devicePixelRatio || 2;
         Chart.defaults.responsive = true;
@@ -2484,8 +2484,8 @@ const app = {
             datasets.push({
                 label: 'Faturamento',
                 data: revenueData,
-                borderColor: '#6b92c4',
-                backgroundColor: 'rgba(107, 146, 196, 0.1)',
+                borderColor: '#c9a96e',
+                backgroundColor: 'rgba(201, 169, 110, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2496,8 +2496,8 @@ const app = {
             datasets.push({
                 label: 'Lucro',
                 data: profitData,
-                borderColor: '#7d8fa3',
-                backgroundColor: 'rgba(125, 143, 163, 0.1)',
+                borderColor: '#8a9099',
+                backgroundColor: 'rgba(138, 144, 153, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2508,8 +2508,8 @@ const app = {
             datasets.push({
                 label: 'Custo',
                 data: costData,
-                borderColor: '#c0605f',
-                backgroundColor: 'rgba(192, 96, 95, 0.1)',
+                borderColor: '#b5676a',
+                backgroundColor: 'rgba(181, 103, 106, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2672,8 +2672,8 @@ const app = {
                 datasets: [{
                     label: 'Qtd. Vendida',
                     data: data,
-                    backgroundColor: 'rgba(107, 146, 196, 0.6)',
-                    borderColor: '#6b92c4',
+                    backgroundColor: 'rgba(201, 169, 110, 0.6)',
+                    borderColor: '#c9a96e',
                     borderWidth: 1,
                     borderRadius: 6,
                     barThickness: 18
@@ -2759,11 +2759,11 @@ const app = {
                 datasets: [{
                     data: data,
                     backgroundColor: [
-                        'rgba(107, 146, 196, 0.7)', // Purple
-                        'rgba(111, 158, 138, 0.7)',  // Green
+                        'rgba(201, 169, 110, 0.7)', // Purple
+                        'rgba(127, 165, 142, 0.7)',  // Green
                         'rgba(249, 115, 22, 0.7)',  // Orange
                         'rgba(6, 182, 212, 0.7)',   // Cyan
-                        'rgba(192, 96, 95, 0.7)'    // Red
+                        'rgba(181, 103, 106, 0.7)'    // Red
                     ],
                     borderColor: theme.border,
                     borderWidth: 2,
@@ -2845,8 +2845,8 @@ const app = {
                 datasets: [{
                     label: 'Vendas',
                     data: hourlyStats,
-                    backgroundColor: 'rgba(107, 146, 196, 0.4)',
-                    borderColor: '#6b92c4',
+                    backgroundColor: 'rgba(201, 169, 110, 0.4)',
+                    borderColor: '#c9a96e',
                     borderWidth: 1,
                     borderRadius: 4
                 }]
@@ -2941,11 +2941,11 @@ const app = {
                 datasets: [{
                     label: 'Margem %',
                     data: marginData,
-                    borderColor: '#6b92c4',
-                    backgroundColor: 'rgba(107, 146, 196, 0.1)',
+                    borderColor: '#c9a96e',
+                    backgroundColor: 'rgba(201, 169, 110, 0.1)',
                     borderWidth: 2,
                     pointRadius: 3,
-                    pointBackgroundColor: '#6f9e8a',
+                    pointBackgroundColor: '#7fa58e',
                     tension: 0.4,
                     fill: true,
                     spanGaps: false
@@ -3110,10 +3110,10 @@ const app = {
                     <td>
                         <span class="badge-qty">${qtdItens}</span>
                     </td>
-                    <td style="color: #c0605f;">${this.formatCurrency(desconto)}</td>
+                    <td style="color: #b5676a;">${this.formatCurrency(desconto)}</td>
                     <td style="font-weight: 700; color: var(--accent);">${this.formatCurrency(totalFinal)}</td>
                     <td style="color: var(--text-dim);">${this.formatCurrency(custo)}</td>
-                    <td style="font-weight: 600; color: ${lucro >= 0 ? '#6f9e8a' : '#c0605f'};">${this.formatCurrency(lucro)}</td>
+                    <td style="font-weight: 600; color: ${lucro >= 0 ? '#7fa58e' : '#b5676a'};">${this.formatCurrency(lucro)}</td>
                     <td>
                         <button class="btn-action-view" onclick="app.showSaleDetails('${s.id}')" title="Ver Itens">
                             <i data-lucide="eye"></i>
@@ -4112,11 +4112,11 @@ const app = {
 
             // Cor do badge (prioridade vermelho > amarelo > azul)
             if (notifications.some(n => n.level === 'red')) {
-                badge.style.background = '#c0605f';
+                badge.style.background = '#b5676a';
             } else if (notifications.some(n => n.level === 'yellow')) {
-                badge.style.background = '#c9a25a';
+                badge.style.background = '#d4a75a';
             } else {
-                badge.style.background = '#7d8fa3';
+                badge.style.background = '#8a9099';
             }
 
             list.innerHTML = notifications.map((n, index) => `
