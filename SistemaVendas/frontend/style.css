@@ -5760,3 +5760,87 @@ i.bx {
 #history-list-labs .nested-item-labs-row .col-name { white-space: nowrap; }
 #history-list-labs .list-header-labs,
 #history-list-labs .nested-item-labs-row { min-width: 0 !important; width: 100%; }
+
+/* ===== Rodada 6: painel e tabela colados, rolagem interna com cabeçalho e paginação fixos, Saídas com colunas fixas, estado vazio ===== */
+
+/* Painel de filtros e lista formam um bloco só (mesmo padrão de Entradas) */
+#products-view .view-header-labs,
+#customers-view .view-header-labs,
+#history-view .view-header-labs,
+#entradas-view .view-header-labs {
+    background: #ffffff;
+    border-radius: 14px 14px 0 0;
+    padding: 14px 16px;
+    margin-bottom: 0;
+    box-shadow: none;
+}
+#products-list-labs, #customers-list-labs, #history-list-labs, #entradas-list-labs {
+    background: #ffffff;
+    border-radius: 0 0 14px 14px !important;
+    margin-top: 0;
+    max-height: calc(100vh - 230px);
+    min-height: 260px;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+}
+#products-list-labs.modo-cards, #entradas-list-labs.modo-cards {
+    background: #ffffff;
+    border: none;
+    overflow-y: auto !important;
+}
+
+/* Cabeçalho e paginação ficam visíveis enquanto a lista rola */
+#products-list-labs .list-header-labs,
+#customers-list-labs .list-header-labs,
+#history-list-labs .list-header-labs,
+#entradas-list-labs .list-header-labs,
+#estoque-grid .table-container-labs thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f5f8fc;
+}
+#products-list-labs .tabela-pager,
+#customers-list-labs .tabela-pager,
+#history-list-labs .tabela-pager,
+#entradas-list-labs .tabela-pager,
+#estoque-grid .tabela-pager {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+}
+
+/* Estoque em tabela: mesma rolagem interna */
+#estoque-grid .table-container-labs {
+    max-height: calc(100vh - 250px);
+    min-height: 260px;
+    overflow-y: auto;
+}
+
+/* Estado vazio: sem cabeçalho e mensagem ocupando a largura toda */
+#products-list-labs:not(:has(.nested-item-labs-row, .tabela-card)) .list-header-labs,
+#customers-list-labs:not(:has(.nested-item-labs-row)) .list-header-labs,
+#history-list-labs:not(:has(.nested-item-labs-row)) .list-header-labs,
+#entradas-list-labs:not(:has(.nested-item-labs-row, .tabela-card)) .list-header-labs {
+    display: none !important;
+}
+[id$="-items-container"] > div[style*="text-align: center"] {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #707070;
+    font-size: 14px;
+}
+
+/* Saídas: colunas com larguras fixas, para distribuir igual em qualquer tela */
+#history-list-labs .list-header-labs,
+#history-list-labs .nested-item-labs-row {
+    grid-template-columns: 56px 88px minmax(96px, 1fr) 84px 76px 84px 84px 84px 160px 96px 84px !important;
+    gap: 6px !important;
+}
+#history-list-labs .nested-item-labs-row .col-items-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+#history-list-labs .btn-itens-ver { height: 30px; padding: 0 10px; }
