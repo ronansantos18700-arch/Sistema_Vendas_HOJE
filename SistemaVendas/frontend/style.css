@@ -5316,3 +5316,98 @@ i.bx {
 .sidebar .nav-btn:hover:not(.active) {
     border-radius: 14px;
 }
+
+/* ===== Rodada: menu, tabelas, estoque e pesos de fonte ===== */
+
+/* Menu: mais espaço entre botões, peso regular e aba selecionada um pouco maior */
+.sidebar .nav-links { gap: 12px; }
+.sidebar .nav-btn { height: 50px; font-weight: 400; }
+.sidebar .nav-btn span, .sidebar .nav-btn i { font-weight: 400; }
+.sidebar .nav-btn.active,
+.light-theme .sidebar .nav-btn.active {
+    height: 54px;
+    margin: -2px -4px;
+    padding: 0 1.1rem;
+    font-weight: 400;
+    border-radius: 16px;
+    box-shadow: none;
+}
+.sidebar .nav-btn.active span, .sidebar .nav-btn.active i,
+.light-theme .sidebar .nav-btn.active span, .light-theme .sidebar .nav-btn.active i {
+    font-weight: 400;
+    color: #ffffff;
+}
+
+/* Nova venda: peso regular */
+.sidebar .btn-nova-venda, .sidebar .btn-nova-venda span { font-weight: 400; }
+
+/* Tabelas do Dashboard: fundo branco de cartão */
+.table-container-labs {
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Listas em tabela (Histórico, Clientes, Entradas, Produtos): fundo branco e cabeçalho único */
+#history-list-labs, #customers-list-labs, #entradas-list-labs, #products-list-labs, #product-exits-list-labs {
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+#history-list-labs .list-header-labs, #customers-list-labs .list-header-labs,
+#entradas-list-labs .list-header-labs, #products-list-labs .list-header-labs,
+#product-exits-list-labs .list-header-labs {
+    background: #f5f8fc;
+    border-bottom: 1px solid var(--glass-border);
+}
+#history-list-labs .nested-item-labs-row, #customers-list-labs .nested-item-labs-row,
+#entradas-list-labs .nested-item-labs-row, #products-list-labs .nested-item-labs-row,
+#product-exits-list-labs .nested-item-labs-row {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #edf1f6;
+    border-radius: 0;
+    margin: 0;
+}
+
+/* Cabeçalhos de tabela: tamanho, peso e cor únicos (sem cor por coluna) */
+.custom-table-labs th, .receipt-items-table th,
+.list-header-labs span, .list-header-labs > div,
+#history-list-labs .list-header-labs span, #customers-list-labs .list-header-labs span,
+#entradas-list-labs .list-header-labs span, #products-list-labs .list-header-labs span,
+#product-exits-list-labs .list-header-labs span {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #5b6472;
+}
+
+/* Estoque: cartão com status, quantidade e frases que explicam o estado */
+#estoque-view .estoque-status {
+    flex-shrink: 0;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    font-weight: 500;
+}
+#estoque-view .estoque-card.estoque-baixo .estoque-status { color: #c43d3d; background: rgba(214, 69, 69, 0.12); }
+#estoque-view .estoque-card.estoque-medio .estoque-status { color: #a87600; background: rgba(224, 161, 0, 0.15); }
+#estoque-view .estoque-card.estoque-ok .estoque-status { color: #1f8a5b; background: rgba(31, 138, 91, 0.12); }
+#estoque-view .estoque-principal { display: flex; align-items: baseline; gap: 0.4rem; }
+#estoque-view .estoque-principal strong { font-size: var(--fs-display); font-weight: 500; line-height: 1; color: var(--text-white); }
+#estoque-view .estoque-principal span { font-size: var(--fs-sm); color: var(--text-dim); }
+#estoque-view .estoque-frases p { margin: 0 0 0.3rem; font-size: var(--fs-sm); color: var(--text-white); }
+#estoque-view .estoque-frases p + p { color: var(--text-dim); }
+#estoque-view .estoque-rodape {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--glass-border);
+    font-size: var(--fs-xs);
+    color: var(--text-dim);
+}
+#estoque-view .estoque-rodape b { display: block; margin-top: 2px; font-size: var(--fs-sm); font-weight: 500; color: var(--text-white); }
