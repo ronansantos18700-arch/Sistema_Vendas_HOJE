@@ -1,0 +1,230 @@
+# SV Ultra — Contexto do Projeto
+# Use este arquivo para iniciar novas sessões na IDE
+
+===========================================================================
+STACK
+===========================================================================
+Frontend : HTML + CSS + JavaScript (app.js, index.html, style.css)
+Backend  : Windows Forms (.NET) + WebView2 (Chromium)
+Dados    : SQLite (%LOCALAPPDATA%\SistemaVendas_UNIQ\sistema_vendas.db) via bridge C# <-> JS
+URL      : https://app.local/index.html (Virtual Host, NÃO file://)
+Bridge   : window.chrome.webview.hostObjects.bridge
+
+===========================================================================
+COMO INICIAR UMA SESSÃO
+===========================================================================
+"Tenho um sistema PDV chamado SV Ultra em HTML/CSS/JS com comunicação
+bidirecional C# + WebView2. Vou te passar os arquivos. Após ler, [tarefa]."
+
+Arquivos a anexar sempre: app.js, index.html, style.css
+Para mudanças no Bridge: anexar também Bridge.cs
+
+===========================================================================
+OBJETO PRINCIPAL
+===========================================================================
+const app = {
+  config: {
+    loginMaxAttempts: 5, loginLockoutMs: 30000,
+    pbkdf2Iterations: 100000, backupMaxSizeMb: 100,
+    passwordMinLength: 6, auditLogMaxEntries: 1000,
+    weakPasswords: ['1234','123456','admin','password','0000','111111']
+  },
+
+  state: {
+    products: [],       // { id, name, code, cost, price, stock, image, obs, category }
+    customers: [],      // { id, name, whatsapp, email, obs, date, image }
+    sales: [],          // { id, date, cliente, valor_total, desconto, valor_final, cost, lucro, pagamento, items[] }
+    reversals: [],      // { id, sale_id, product_id, product_name, qty, date }
+    users: [],          // { id, fullname, username, password, role, isDefaultCredential }
+    categories: [],     // { id, name }
+    entradas: [],       // { id, date, fornecedor, nota, obs, items[], totalCusto }
+    caixaAtual: null,   // objeto do caixa aberto ou null
+    historicoFechamentos: [], // { id, dataAbertura, dataFechamento, operador,
+                              //   valorAbertura, valorFechamento,
+                              //   totalVendasDinheiro, totalVendasCartao, totalVendasPix,
+                              //   totalGeral, diferenca,
+                              //   sangrias:[{valor,motivo,data}],
+                              //   suprimentos:[{valor,motivo,data}] }
+    currentUser: null,
+    cart: [],
+    settings: { companyName, ownerName, whatsapp, email, address, logoUrl },
+    currentView: 'dashboard',
+    editingId: null,
+    dataLoaded: false,
+    loginAttempts: 0,
+    lockoutUntil: null,
+    mustChangePassword: false,
+    auditLog: [],
+    posState: { customer, payment, discount, paid, isDirectSale },
+    dashboardFilter: '7d'
+  },
+
+  entradaItemsTemp: []  // temporário para itens do modal de entrada
+}
+
+===========================================================================
+BRIDGE C# — TABELAS SQLITE (Database.cs)
+===========================================================================
+'products'    → tabela 'products'       cols: id,name,code,cost,price,stock,image,obs,category
+'customers'   → tabela 'customers'       cols: id,name,whatsapp,email,obs,date,image
+'sales'       → tabela 'sales'      cols: id,date,cliente,valor_total,desconto,valor_final,cost,lucro,pagamento,items
+'settings'    → tabela 'settings'  cols: companyName,ownerName,whatsapp,email,address,logoUrl
+'reversals'   → tabela 'reversals'       cols: id,sale_id,product_id,product_name,qty,date
+'users'       → tabela 'users'       cols: id,username,fullname,password,role,isDefaultCredential
+'entradas'    → tabela 'entradas'       cols: id,date,fornecedor,nota,obs,items,totalCusto
+'fechamentos' → tabela 'fechamentos'    cols: id,dataAbertura,dataFechamento,operador,valorAbertura,
+                                          valorFechamento,totalVendasDinheiro,totalVendasCartao,
+                                          totalVendasPix,totalGeral,diferenca,sangrias,suprimentos
+'categories'  → tabela 'categories'     cols: id,name
+'caixa'       → tabela 'caixa' (documento JSON, persistido pelo bridge)
+
+===========================================================================
+PERSISTÊNCIA — PADRÃO salvarDados() / carregarDados()
+===========================================================================
+Bloco 1 — Promise.all (falha se qualquer um retornar false):
+  products, customers, sales, settings, reversals,
+  entradas, fechamentos, categories
+
+Bloco 2 — try/catch individual com fallback localStorage:
+  users   → localStorage 'sv_users'
+  caixa   → localStorage 'sv_caixa'
+
+Fallback total (sem bridge):
+  localStorage: sv_products, sv_customers, sv_sales, sv_settings,
+                sv_reversals, sv_users, sv_caixa, sv_fechamentos,
+                sv_entradas, sv_categories
+
+===========================================================================
+NAVEGAÇÃO
+===========================================================================
+switchView(viewId) — views disponíveis e o que chamam ao entrar:
+  dashboard      → renderDashboard()
+  pos            → updatePOSCustomerList(), updatePOSProductList(), restaura posState
+  caixa          → renderCaixa(), updateCaixaDot()
+  products       → updateCategoryFilter(), renderProducts(query, category)
+  customers      → renderCustomers()
+  history        → renderHistory()
+  entradas       → renderEntradas()
+  settings       → renderSettings(), renderUsers(), switchSettingsSection('empresa')
+  relatorio-caixa → renderRelatorioCaixa()   ← mais recente
+
+forbiddenViews (operadores não acessam): ['products','settings','relatorio-caixa']
+
+titles{} e tags{} estão DENTRO de switchView() — ao adicionar view nova,
+sempre adicionar entrada nos dois objetos.
+
+===========================================================================
+SIDEBAR
+===========================================================================
+Nav principal (nav-links):
+  dashboard → pos → caixa → products → customers → history → entradas → relatorio-caixa
+
+sidebar-bottom:
+  settings (data-view) → btn-exit-app
+
+Indicador de caixa: #caixa-status-dot dentro do botão 'caixa'
+  classe 'aberto' = ponto verde | classe 'fechado' = ponto cinza
+
+===========================================================================
+PERMISSÕES
+===========================================================================
+applyPermissions() — oculta para operadores:
+  button[data-view="products"]
+  button[data-view="settings"]
+  button[data-view="relatorio-caixa"]
+  #btn-notifications
+
+requireAdmin(acao)       → bloqueia operadores, exibe notificação
+requirePasswordChange()  → bloqueia se senha provisória ativa
+
+===========================================================================
+MODAIS
+===========================================================================
+openModal(type) — todos os modais registrados via classList.toggle hidden:
+  product, customer, stock, receipt-confirm, generic-confirm,
+  generic-alert, tutorial, sale-details-modal, stock-alerts,
+  confirm-remove-logo, backup, confirm-import-backup,
+  user-modal, entrada-modal, entrada-details-modal,
+  fechamento-detalhes   ← mais recente
+
+closeModal() — reseta:
+  editingId = null, tutorialStep = 0
+  Textos dos botões confirm-modal-ok ('Confirmar') e confirm-modal-cancel ('Cancelar')
+  Lista hardcoded de modals[] para esconder — ao criar novo modal,
+  sempre adicionar o ID nessa lista.
+
+confirmAction(title, msg, callback, icon) → abre generic-confirm-modal
+showAlert(title, msg, icon) → abre generic-alert-modal
+
+===========================================================================
+CONFIGURAÇÕES — SEÇÕES
+===========================================================================
+switchSettingsSection(sectionName) — IDs: sv-section-{nome}
+Seções: empresa | usuarios | notificacoes | aparencia | ferramentas | categorias
+
+ferramentas contém: botão Tutorial (#start-tutorial) e Backup (#open-backup-modal)
+  (movidos do sidebar para cá)
+
+===========================================================================
+SEGURANÇA
+===========================================================================
+hashPassword(password, username):
+  PBKDF2, salt = username.toLowerCase()+'_SV2024_'+username.length
+  100k iterações, SHA-256, 256 bits → hex string
+  Fallback SHA-256 simples para migração de senhas antigas
+
+login() — lockoutInterval com contador regressivo em tempo real
+resetSystemUsers() — salva localStorage ANTES do bridge, await SaveData, reload após
+
+===========================================================================
+CAIXA — FÓRMULA
+===========================================================================
+diferenca = valorContado - (valorAbertura + totalVendasDinheiro
+            - somaSangrias + somaSuprimentos)
+
+Impressão: fecharCaixa() e reimprimirFechamento() usam os mesmos IDs:
+  #caixa-print-container > caixa-print-empresa, operador, abertura,
+  fechamento, valor-inicial, dinheiro, cartao, pix, total-vendas,
+  sangrias, suprimentos, esperado, contado, diferenca, rodape
+Ativação: document.documentElement + document.body
+          → classList.add('printing-caixa') → window.print()
+
+===========================================================================
+CLASSES CSS PRINCIPAIS
+===========================================================================
+Layout/cards  : settings-card glass-inner
+Inputs/selects: glass-input-labs
+Botões        : btn-save-labs (primário) | btn-cancel-labs (secundário)
+Tabelas       : list-header-labs (cabeçalho) | nested-item-labs-row (linha)
+Avatares      : item-avatar | item-avatar-letter (aspect-ratio:1/1, flex-shrink:0)
+Vazio         : empty-cart-msg
+Categoria     : category-badge (width:fit-content)
+Rel. Caixa    : rcaixa-filtros, rcaixa-cards-grid, rcaixa-card,
+                rcaixa-diferenca-positiva, rcaixa-diferenca-negativa
+
+Tema: glassmorphism dark | Ícones: Lucide | Fonte: Poppins | Charts: Chart.js
+
+===========================================================================
+UTILITÁRIOS DISPONÍVEIS (não recriar)
+===========================================================================
+formatCurrency(v)          → BRL
+parseDate(v)               → Date ou null (suporta ISO e OLE do Excel)
+formatWhatsApp(v)          → máscara (xx) xxxxx-xxxx
+esc(str)                   → sanitização XSS (usar em TODO innerHTML)
+validate(data, schema)     → lança Error se inválido
+logAudit(action, details)  → grava em state.auditLog e localStorage
+showNotification(type,msg) → toast (success | error | info)
+setLoading(active)         → overlay de carregamento
+initLucide()               → chama lucide.createIcons()
+getDOMRefs()               → { loginScreen, appContainer }
+
+===========================================================================
+FORMVENDAS.CS — WEBVIEW2
+===========================================================================
+- userDataFolder: AppData/Local/SistemaVendas_UNIQ
+- PreferredTrackingPreventionLevel = None
+- SetVirtualHostNameToFolderMapping('app.local', frontendPath, Allow)
+- Navigate("https://app.local/index.html")
+- AddHostObjectToScript("bridge", _bridge)
+EOF
+echo "OK"

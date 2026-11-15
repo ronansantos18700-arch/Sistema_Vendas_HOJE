@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>SistemaVendas</RootNamespace>
+    <AssemblyName>SistemaVendas</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- x64 fixo: WebView2Loader.dll e e_sqlite3.dll precisam ter a mesma arquitetura do processo.
+         Com AnyCPU os pacotes nativos não são copiados para bin\Debug\net48. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Versões exatas: sem colchetes o NuGet pega a mais nova (11.0.0, só .NET 10). -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="[1.0.3912.50]" />
+    <PackageReference Include="Newtonsoft.Json" Version="[13.0.4]" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="[8.0.11]" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="[2.1.10]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="frontend\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
