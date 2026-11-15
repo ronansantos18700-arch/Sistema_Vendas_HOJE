@@ -195,7 +195,7 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
   - `Bridge.cs`: `GetData`/`SaveData` agora usam `Database`; API do bridge e formato JSON mantidos (o frontend não mudou).
   - Projeto convertido de add-in VSTO para aplicação WinForms (`OutputType` WinExe, SDK-style), com `Program.cs` como entrada.
   - Removidos: `ThisWorkbook`, `Ribbon1/2`, `Planilha1-4` e `packages.config` (substituído por `PackageReference`).
-  - Sem importação dos dados antigos de `vendas.xlsx` (começa do zero). O arquivo foi mantido no repositório, sem uso pelo sistema.
+  - Sem importação dos dados antigos de `vendas.xlsx` (começa do zero). O arquivo foi removido do repositório (histórico do Git mantém a cópia).
   - Caixa agora é persistido no banco (antes o bridge recusava o tipo `caixa`).
   - Arquivos: `SistemaVendas/Database.cs`, `SistemaVendas/Bridge.cs`, `SistemaVendas/FormVendas.cs`, `SistemaVendas/Program.cs`, `SistemaVendas/SistemaVendas.csproj`, `SistemaVendas/PROJECT_CONTEXT.md`
 
