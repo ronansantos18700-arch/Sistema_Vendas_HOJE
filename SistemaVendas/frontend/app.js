@@ -668,6 +668,21 @@ const app = {
             });
         }
 
+        // Alternância de visualização: Produtos e Entradas
+        document.querySelectorAll('.seg-toggle[data-vista]').forEach(grupo => {
+            grupo.querySelectorAll('button[data-visao]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const vista = grupo.dataset.vista;
+                    localStorage.setItem('sv_visao_' + vista, btn.dataset.visao);
+                    if (vista === 'produtos') {
+                        this.renderProducts(document.getElementById('filter-products')?.value || '', document.getElementById('filter-category')?.value || '');
+                    } else if (vista === 'entradas') {
+                        this.renderEntradas(document.getElementById('filter-entradas')?.value || '', document.getElementById('filter-date-entradas')?.value || '');
+                    }
+                });
+            });
+        });
+
         // Estoque em tempo real: filtro e ordenação
         const filtroEstoque = document.getElementById('filter-estoque');
         if (filtroEstoque) filtroEstoque.addEventListener('input', () => this.renderEstoque());
@@ -3964,6 +3979,51 @@ const app = {
     },
 
     // --- Management Logic ---
+    visaoDe(vista) {
+        const v = localStorage.getItem('sv_visao_' + vista) === 'cards' ? 'cards' : 'tabela';
+        document.querySelectorAll('.seg-toggle[data-vista="' + vista + '"] button').forEach(b => {
+            b.classList.toggle('active', b.dataset.visao === v);
+        });
+        return v;
+    },
+
+    produtoCardHtml(p, lowLevel, mediumLevel) {
+        const inicial = p.name ? p.name.charAt(0).toUpperCase() : '?';
+        const foto = p.image
+            ? `<img src="${p.image}" alt="">`
+            : `<span class="tabela-card-letra">${inicial}</span>`;
+        const cat = this.state.categories.find(c => c.id === p.category);
+        const nivelCls = p.stock < lowLevel ? 'stock-low' : (p.stock < mediumLevel ? 'stock-medium' : '');
+        return `
+            <div class="tabela-card">
+                <div class="tabela-card-topo">
+                    <div class="tabela-card-foto">${foto}</div>
+                    <div class="tabela-card-titulo">
+                        <strong title="${this.esc(p.name)}">${this.esc(p.name)}</strong>
+                        <span>#${p.id.toString().slice(-4)} · ${this.esc(p.code) || 'N/A'}</span>
+                        ${cat ? `<span class="category-badge">${this.esc(cat.name)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="tabela-card-dados">
+                    <div><small>Custo</small><b>${this.formatCurrency(p.cost)}</b></div>
+                    <div><small>Venda</small><b>${this.formatCurrency(p.price)}</b></div>
+                    <div class="tabela-card-estoque-bloco">
+                        <small>Estoque</small>
+                        <div class="tabela-card-estoque">
+                            <button class="btn-stock-minus" onclick="app.adjustStock('${p.id}', -2)" title="Ajuste Manual — Saída"><i data-lucide="minus"></i></button>
+                            <span class="stock-val ${nivelCls}">${p.stock}</span>
+                            <button class="btn-stock-add" onclick="app.adjustStock('${p.id}', 2)" title="Ajuste Manual — Entrada"><i data-lucide="plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tabela-card-acoes">
+                    <button class="btn-action-view" onclick="app.showProductHistory('${p.id}')" title="Histórico de Estoque"><i data-lucide="history"></i></button>
+                    <button class="btn-action-edit" onclick="app.editProduct('${p.id}')" title="Editar"><i data-lucide="edit-3"></i></button>
+                    <button class="btn-action-delete" onclick="app.deleteProduct('${p.id}')" title="Excluir"><i data-lucide="trash-2"></i></button>
+                </div>
+            </div>`;
+    },
+
     renderProducts(query = '', category = '') {
         const container = document.getElementById('products-items-container');
         if (!container) return;
@@ -3986,6 +4046,15 @@ const app = {
         const lowLevel = nSettings.stockLowVal || 10;
         const mediumLevel = nSettings.stockMediumVal || 25;
 
+        const visaoProd = this.visaoDe('produtos');
+        container.dataset.visao = visaoProd;
+        const listaProd = document.getElementById('products-list-labs');
+        if (listaProd) listaProd.classList.toggle('modo-cards', visaoProd === 'cards');
+        if (visaoProd === 'cards') {
+            container.innerHTML = filtered.map(p => this.produtoCardHtml(p, lowLevel, mediumLevel)).join('');
+            this.initLucide();
+            return;
+        }
         container.innerHTML = filtered.map(p => {
             const initialLetter = p.name ? p.name.charAt(0).toUpperCase() : '?';
             const avatar = p.image
@@ -4302,6 +4371,14 @@ const app = {
             const lucro = Number(s.lucro || s.Lucro || (totalFinal - custo));
             const pagamento = this.rotuloPagamento(s);
             const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) : 0;
+            const nomesItens = (s.items || []).map(it => it.name).filter(Boolean);
+            const itensTxt = nomesItens.length
+                ? `${nomesItens.length} ${nomesItens.length === 1 ? 'produto' : 'produtos'} · ${itemsCount} un.`
+                : 'Sem itens';
+            const nomesTxt = nomesItens.length
+                ? nomesItens.slice(0, 2).map(n => this.esc(n)).join(', ') + (nomesItens.length > 2 ? ` +${nomesItens.length - 2}` : '')
+                : '';
+
 
             return `
                 <div class="nested-item-labs-row">
@@ -4314,10 +4391,11 @@ const app = {
                     <span class="col-cost" data-label="CUSTO">${this.formatCurrency(custo)}</span>
                     <span class="col-profit" data-label="LUCRO">${this.formatCurrency(lucro)}</span>
                     <div class="col-items-action" data-label="ITENS">
-                        <button class="btn-items-visualizer" onclick="app.showSaleDetails('${id}')" title="Ver Itens">
-                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
-                            <span>Itens (${itemsCount})</span>
-                        </button>
+                        <div class="itens-resumo">
+                            <strong>${itensTxt}</strong>
+                            <small>${nomesTxt}</small>
+                        </div>
+                        <button class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver todos os itens"><i class="bx bx-list-ul"></i>Ver</button>
                     </div>
                     <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
                     <div class="col-actions" data-label="AÇÕES">
@@ -5278,6 +5356,33 @@ const app = {
             return;
         }
 
+        const visaoEnt = this.visaoDe('entradas');
+        container.dataset.visao = visaoEnt;
+        const listaEnt = document.getElementById('entradas-list-labs');
+        if (listaEnt) listaEnt.classList.toggle('modo-cards', visaoEnt === 'cards');
+        if (visaoEnt === 'cards') {
+            container.innerHTML = filtered.map(e => `
+            <div class="tabela-card">
+                <div class="tabela-card-topo">
+                    <div class="tabela-card-foto tabela-card-icone"><i class="bx bx-package"></i></div>
+                    <div class="tabela-card-titulo">
+                        <strong>${this.esc(e.fornecedor || '---')}</strong>
+                        <span>#${e.id.toString().slice(-6)} · NF ${this.esc(e.nota || '---')}</span>
+                        <span>${new Date(e.date).toLocaleString()}</span>
+                    </div>
+                </div>
+                <div class="tabela-card-dados">
+                    <div><small>Itens</small><b>${e.items.length} itens</b></div>
+                    <div><small>Custo total</small><b>${this.formatCurrency(e.totalCusto)}</b></div>
+                </div>
+                <div class="tabela-card-acoes">
+                    <button class="btn-action-edit" onclick="app.showEntradaDetails('${e.id}')" title="Ver detalhes"><i data-lucide="eye"></i></button>
+                    <button class="btn-action-delete" onclick="app.deleteEntrada('${e.id}')" title="Excluir entrada"><i data-lucide="trash-2"></i></button>
+                </div>
+            </div>`).join('');
+            this.initLucide();
+            return;
+        }
         container.innerHTML = filtered.map(e => `
             <div class="nested-item-labs-row">
                 <span class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</span>
