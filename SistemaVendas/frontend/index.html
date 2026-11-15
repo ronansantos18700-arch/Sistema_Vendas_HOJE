@@ -60,10 +60,6 @@
                 <h1 id="brand-name">SV Ultra</h1>
             </div>
             <nav class="nav-links">
-                <button class="nav-btn active" data-view="dashboard">
-                    <i data-lucide="layout-dashboard"></i>
-                    <span>Dashboard</span>
-                </button>
                 <button class="nav-btn" data-view="pos">
                     <i data-lucide="shopping-bag"></i>
                     <span>PDV</span>
@@ -160,7 +156,7 @@
             <!-- Views Container -->
             <div class="view-container">
                 <!-- Dashboard View -->
-                <section id="dashboard-view" class="view active dashboard-view">
+                <section id="dashboard-view" class="view dashboard-view">
                     <div class="stats-grid-labs">
                         <div class="stat-card-labs glass-inner">
                             <div class="stat-card-header">
@@ -475,6 +471,10 @@
                                 <option value="estoque">Menor estoque primeiro</option>
                                 <option value="nome">Nome (A-Z)</option>
                             </select>
+                        </div>
+                        <div id="estoque-visao-toggle" class="seg-toggle" role="group" aria-label="Modo de visualização">
+                            <button type="button" data-visao="cards" title="Cards"><i class="bx bx-grid-alt"></i></button>
+                            <button type="button" data-visao="tabela" title="Tabela"><i class="bx bx-list-ul"></i></button>
                         </div>
                         <span id="estoque-resumo" class="estoque-resumo"></span>
                     </div>

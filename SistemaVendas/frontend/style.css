@@ -5411,3 +5411,131 @@ i.bx {
     color: var(--text-dim);
 }
 #estoque-view .estoque-rodape b { display: block; margin-top: 2px; font-size: var(--fs-sm); font-weight: 500; color: var(--text-white); }
+
+/* ===== Rodada: fontes, filtros em barra, botões, visão em tabela, menu retraído ===== */
+
+/* 1. Fontes das tabelas: corpo maior e cabeçalho único */
+.custom-table-labs td { font-size: var(--fs-base); }
+.custom-table-labs th, .receipt-items-table th,
+.list-header-labs span, .list-header-labs > div,
+#history-list-labs .list-header-labs span, #customers-list-labs .list-header-labs span,
+#entradas-list-labs .list-header-labs span, #products-list-labs .list-header-labs span,
+#product-exits-list-labs .list-header-labs span {
+    font-size: var(--fs-sm);
+}
+#history-list-labs .nested-item-labs-row, #customers-list-labs .nested-item-labs-row,
+#entradas-list-labs .nested-item-labs-row, #products-list-labs .nested-item-labs-row,
+#product-exits-list-labs .nested-item-labs-row {
+    font-size: var(--fs-base);
+}
+
+/* 2. Filtros como barra no topo da própria tabela */
+.products-view .view-header-labs, .customers-view .view-header-labs, .history-view .view-header-labs,
+.entradas-view .view-header-labs, .estoque-view .view-header-labs {
+    margin-bottom: 0;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-bottom-color: #edf1f6;
+    border-radius: 14px 14px 0 0;
+}
+.products-view .view-header-labs .glass-input-labs, .customers-view .view-header-labs .glass-input-labs,
+.history-view .view-header-labs .glass-input-labs, .entradas-view .view-header-labs .glass-input-labs,
+.estoque-view .view-header-labs .glass-input-labs, .estoque-view .view-header-labs select {
+    height: 42px;
+    padding: 0 12px;
+    background: #f5f8fc;
+    border-color: transparent;
+    border-radius: 10px;
+    font-size: var(--fs-sm);
+}
+#products-list-labs, #customers-list-labs, #history-list-labs, #entradas-list-labs {
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    margin-bottom: 0;
+}
+.estoque-view:not(.modo-tabela) .view-header-labs {
+    border-radius: 14px;
+    border-bottom-color: var(--glass-border);
+    margin-bottom: 1.25rem;
+}
+.estoque-view.modo-tabela #estoque-grid { display: block; }
+.estoque-view.modo-tabela .table-container-labs {
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+}
+
+/* 3. Botões de cadastro maiores */
+.view-header-labs .btn-save, .view-header-labs .btn-ghost-labs {
+    min-height: 44px;
+    padding: 0 1.4rem;
+    font-size: 0.9375rem;
+    border-radius: 12px;
+}
+.view-header-labs .btn-ghost-labs i.bx { font-size: 20px; }
+
+/* 4. Alternância cards / tabela (Estoque) */
+.seg-toggle {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: #f5f8fc;
+}
+.seg-toggle button {
+    width: 42px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: background var(--dur-fast), color var(--dur-fast);
+}
+.seg-toggle button i.bx { font-size: 20px; }
+.seg-toggle button:hover { color: var(--text-white); }
+.seg-toggle button.active { background: #ffffff; color: #4070f4; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.estoque-tabela td.num, .estoque-tabela th.num { text-align: right; white-space: nowrap; }
+.estoque-tabela td { vertical-align: middle; }
+.estoque-nome-tab { display: flex; flex-direction: column; gap: 2px; }
+.estoque-nome-tab strong { font-weight: 500; color: var(--text-white); }
+.estoque-nome-tab span { font-size: var(--fs-xs); color: var(--text-dim); }
+.estoque-linha.estoque-baixo td:first-child { box-shadow: inset 3px 0 0 #d64545; }
+.estoque-linha.estoque-medio td:first-child { box-shadow: inset 3px 0 0 #e0a100; }
+.estoque-linha.estoque-ok td:first-child { box-shadow: inset 3px 0 0 #1f8a5b; }
+.estoque-tabela .estoque-linha.estoque-baixo .estoque-status { color: #c43d3d; background: rgba(214, 69, 69, 0.12); }
+.estoque-tabela .estoque-linha.estoque-medio .estoque-status { color: #a87600; background: rgba(224, 161, 0, 0.15); }
+.estoque-tabela .estoque-linha.estoque-ok .estoque-status { color: #1f8a5b; background: rgba(31, 138, 91, 0.12); }
+
+/* 5. Menu retraído: ícone da aba selecionada centralizado */
+.sidebar.collapsed .nav-btn,
+.sidebar.collapsed .nav-btn.active,
+.light-theme .sidebar.collapsed .nav-btn.active {
+    margin: 0;
+    padding: 0;
+    height: 50px;
+    justify-content: center;
+}
+
+/* Tamanhos de tabela em pixels (o rem do sistema vale 14px, então os tokens ficam pequenos) */
+#products-list-labs .nested-item-labs-row span, #products-list-labs .nested-item-labs-row div,
+#customers-list-labs .nested-item-labs-row span, #customers-list-labs .nested-item-labs-row div,
+#history-list-labs .nested-item-labs-row span, #history-list-labs .nested-item-labs-row div,
+#entradas-list-labs .nested-item-labs-row span, #entradas-list-labs .nested-item-labs-row div {
+    font-size: 14px;
+}
+#products-list-labs .list-header-labs span, #customers-list-labs .list-header-labs span,
+#history-list-labs .list-header-labs span, #entradas-list-labs .list-header-labs span {
+    font-size: 12.5px;
+}
+.custom-table-labs td { font-size: 14px; }
+.custom-table-labs th { font-size: 12.5px; }
+/* Cabeçalho: cor única, vencendo a regra antiga de .col-cost com !important */
+.list-header-labs span[class*="col-"] { color: #5b6472 !important; }
+.estoque-view.modo-tabela .table-container-labs { margin-top: 0; }
