@@ -5867,3 +5867,21 @@ i.bx {
     border-radius: 0 0 14px 14px;
     box-shadow: none;
 }
+
+/* Controles de janela (minimizar e fechar), no canto direito do cabeçalho */
+.win-controls { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
+.win-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    color: #333333;
+    cursor: pointer;
+}
+.win-btn i.bx { font-size: 18px; }
+.win-btn:hover { border-color: #4070f4; color: #4070f4; }
+.win-btn-close:hover { border-color: #e5484d; background: #e5484d; color: #ffffff; }

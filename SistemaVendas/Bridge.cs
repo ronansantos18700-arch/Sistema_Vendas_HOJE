@@ -232,6 +232,21 @@ namespace SistemaVendas
             }
         }
 
+        public void MinimizeWindow()
+        {
+            try
+            {
+                _form.Invoke(new Action(() =>
+                {
+                    _form.WindowState = FormWindowState.Minimized;
+                }));
+            }
+            catch (Exception ex)
+            {
+                NotifyError("Erro ao minimizar janela: " + ex.Message);
+            }
+        }
+
         public void QuitApplication()
         {
             try
