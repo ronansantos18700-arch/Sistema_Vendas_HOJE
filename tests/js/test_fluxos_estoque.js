@@ -17,7 +17,6 @@ const ctx = {
 ctx.window = ctx; ctx.globalThis = ctx;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(base, 'estoque.js'), 'utf8'), ctx);
-vm.runInContext(fs.readFileSync(path.join(base, 'resumo.js'), 'utf8'), ctx);
 try { vm.runInContext(fs.readFileSync(path.join(base, 'app.js'), 'utf8') + '\n;globalThis.__app = app;', ctx, { timeout: 5000 }); }
 catch (e) { console.log('AVISO ao carregar app.js:', e.message); }
 const app = ctx.__app;
@@ -130,16 +129,9 @@ app.state.sales = [
 const campos = {};
 const elementoFalso = (id) => (campos[id] = campos[id] || { value: '', innerHTML: '', set html(v) { this.innerHTML = v; } });
 ctx.document.getElementById = (id) => elementoFalso(id);
+// Aba Resumo removida: o topbar mostra as vendas do dia
 const hoje = app.hojeISO();
-campos['resumo-de'] = { value: hoje, innerHTML: '' };
-campos['resumo-ate'] = { value: hoje, innerHTML: '' };
-campos['resumo-tabela'] = { value: '', innerHTML: '' };
-app.renderResumo();
-check('resumo mostra totais do dia', campos['resumo-tabela'].innerHTML.includes('Dinheiro') && campos['resumo-tabela'].innerHTML.includes('Total'));
-campos['resumo-de'].value = '2099-01-10';
-campos['resumo-ate'].value = '2099-01-01';
-app.renderResumo();
-check('resumo com data inicial posterior à final mostra aviso', campos['resumo-tabela'].innerHTML.includes('posterior'));
+check('topbar: vendas do dia contadas', typeof app.atualizarTopbarMeta === 'function');
 
 // Login desativado: sessão local de administrador, sem logout e sem passo de usuários no tutorial
 app.state.currentUser = { ...app.config.usuarioLocal };

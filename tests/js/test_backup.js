@@ -44,7 +44,7 @@ function criarApp(opcoes = {}) {
     SaveChanges: async () => opcoes.gravacaoOk !== false
   } } } };
   vm.createContext(ctx);
-  for (const arq of ['estoque.js', 'resumo.js', 'backup.js', 'app.js']) {
+  for (const arq of ['estoque.js', 'backup.js', 'app.js']) {
     const src = fs.readFileSync(path.join(base, arq), 'utf8');
     vm.runInContext(arq === 'app.js' ? src + '\n;globalThis.__app = app;' : src, ctx, { timeout: 5000 });
   }

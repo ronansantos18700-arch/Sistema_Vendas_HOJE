@@ -9,6 +9,7 @@ const app = {
         // Login e gestão de usuários. Com false, o sistema abre direto (usuário local administrador)
         // e as telas de login e de usuários ficam ocultas. Para voltar, troque para true.
         loginAtivo: false,
+        notifPorPagina: 4,
         // Tema escuro: desativado por enquanto. Com false, o sistema usa só o tema claro e os controles de tema ficam ocultos.
         // Para voltar, troque para true.
         temaEscuroAtivo: false,
@@ -164,58 +165,9 @@ const app = {
         }
     },
 
-    // --- Resumo de vendas por forma de pagamento (substitui o caixa na v1) ---
     hojeISO() {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    },
-
-    resumoHoje() {
-        const hoje = this.hojeISO();
-        document.getElementById('resumo-de').value = hoje;
-        document.getElementById('resumo-ate').value = hoje;
-        this.renderResumo();
-    },
-
-    renderResumo() {
-        const container = document.getElementById('resumo-tabela');
-        if (!container) return;
-        const deEl = document.getElementById('resumo-de');
-        const ateEl = document.getElementById('resumo-ate');
-        if (deEl && !deEl.value) deEl.value = this.hojeISO();
-        if (ateEl && !ateEl.value) ateEl.value = this.hojeISO();
-
-        const de = deEl ? deEl.value : this.hojeISO();
-        const ate = ateEl ? ateEl.value : de;
-        if (de > ate) {
-            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-dim);">A data inicial é posterior à data final.</div>';
-            return;
-        }
-
-        const p = Resumo.periodo(de, ate);
-        const r = Resumo.resumoPorPagamento(this.state.sales, p.inicio, p.fim);
-        const colunas = 'grid-template-columns: 1fr 120px 180px;';
-
-        const linhas = r.linhas.map(l => `
-            <div class="nested-item-labs-row" style="${colunas} padding: 0.75rem 0.5rem; font-size: 0.9rem; border-bottom: 1px solid var(--glass-border);">
-                <span style="font-weight: 500;">${l.rotulo}</span>
-                <span>${l.quantidade}</span>
-                <span>${this.formatCurrency(l.total)}</span>
-            </div>`).join('');
-
-        container.innerHTML = `
-            <div class="list-header-labs" style="${colunas} padding: 1rem; font-size: 0.75rem; border-bottom: 1px solid var(--glass-border);">
-                <span>FORMA DE PAGAMENTO</span>
-                <span>VENDAS</span>
-                <span>TOTAL</span>
-            </div>
-            ${linhas}
-            <div class="nested-item-labs-row" style="${colunas} padding: 0.9rem 0.5rem; font-size: 1rem; font-weight: 700;">
-                <span>Total</span>
-                <span>${r.quantidade}</span>
-                <span>${this.formatCurrency(r.total)}</span>
-            </div>`;
-        this.initLucide();
     },
 
     logAudit(action, details = {}) {
@@ -1062,6 +1014,25 @@ const app = {
         };
     },
 
+    atualizarTopbarMeta() {
+        const dataEl = document.getElementById('topbar-date');
+        const vendasEl = document.getElementById('topbar-sales-today');
+        if (dataEl) {
+            dataEl.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+        }
+        if (vendasEl) {
+            const hoje = this.hojeISO();
+            const doDia = (this.state.sales || []).filter(v => {
+                const d = new Date(v.date);
+                if (isNaN(d)) return false;
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                return iso === hoje;
+            });
+            const total = doDia.reduce((s, v) => s + (Number(v.valor_final) || 0), 0);
+            vendasEl.textContent = `${doDia.length} venda${doDia.length === 1 ? '' : 's'} hoje · ${this.formatCurrency(total)}`;
+        }
+    },
+
     initLucide() {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({
@@ -1103,7 +1074,6 @@ const app = {
         const titles = {
             dashboard: 'Visão Geral do Dashboard',
             pos: 'Ponto de Venda',
-            resumo: 'Resumo de Vendas',
             products: 'Gestão de Produtos',
             estoque: 'Estoque em Tempo Real',
             customers: 'Gestão de Clientes',
@@ -1115,7 +1085,6 @@ const app = {
         const tags = {
             dashboard: 'AO VIVO',
             pos: 'OPERACIONAL',
-            resumo: 'RELATÓRIOS',
             products: 'ESTOQUE',
             customers: 'CLIENTES',
             history: 'RELATÓRIOS',
@@ -1128,11 +1097,9 @@ const app = {
         if (titleEl) titleEl.textContent = titles[viewId] || 'Labs.';
         if (tagEl) tagEl.textContent = tags[viewId] || 'DRAFT';
 
+        this.atualizarTopbarMeta();
         if (viewId === 'dashboard') {
             this.renderDashboard();
-        }
-        if (viewId === 'resumo') {
-            this.renderResumo();
         }
         if (viewId === 'settings') {
             this.renderSettings();
@@ -2010,20 +1977,22 @@ const app = {
         if (brandEl) brandEl.textContent = settings.companyName || 'Labs.';
         if (loginBrandEl) loginBrandEl.textContent = settings.companyName || 'SV Ultra';
 
-        // Atualizar Topbar
-        if (currentUser) {
-            if (topbarProfileName) topbarProfileName.textContent = currentUser.fullname || currentUser.username;
-            if (topbarProfileRole) topbarProfileRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Operador';
-        }
+        // Topbar: logo redonda, nome da empresa, cargo e indicadores do dia
+        if (topbarProfileName) topbarProfileName.textContent = settings.companyName || 'SV Ultra';
+        if (topbarProfileRole) topbarProfileRole.textContent = !currentUser || currentUser.role === 'admin' ? 'Administrador' : 'Operador';
 
         if (topbarLogoContainer) {
-            if (settings.logoUrl) {
-                topbarLogoContainer.innerHTML = `<img src="${settings.logoUrl}" alt="User" class="avatar-topbar">`;
+            // Avatar do usuário: foto se houver, senão a inicial do nome
+            const foto = currentUser && (currentUser.photo || currentUser.image);
+            if (foto) {
+                topbarLogoContainer.innerHTML = `<img src="${foto}" alt="Usuário" class="avatar-topbar">`;
             } else {
-                const initial = settings.companyName ? settings.companyName.charAt(0).toUpperCase() : (currentUser ? currentUser.username.charAt(0).toUpperCase() : '?');
-                topbarLogoContainer.innerHTML = `<div class="item-avatar-letter" style="width: 36px; height: 36px; font-size: 0.9rem; background: var(--glass-inner); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--text-white);">${initial}</div>`;
+                const nome = (currentUser && (currentUser.fullname || currentUser.username)) || 'U';
+                const inicial = nome.charAt(0).toUpperCase();
+                topbarLogoContainer.innerHTML = `<span class="avatar-topbar avatar-topbar-letter">${this.esc(inicial)}</span>`;
             }
         }
+        this.atualizarTopbarMeta();
 
         // Atualizar permissões do menu
         this.applyPermissions();
@@ -4515,12 +4484,13 @@ const app = {
             }
         }
 
-        // Renderizar
-        if (notifications.length > 0) {
-            badge.textContent = notifications.length;
+        // Renderizar: cartões ordenados por gravidade, com paginação
+        const ordemNivel = { red: 0, yellow: 1, blue: 2 };
+        this._notifLista = notifications.slice().sort((x, y) => (ordemNivel[x.level] ?? 9) - (ordemNivel[y.level] ?? 9));
+        const total = this._notifLista.length;
+        if (total > 0) {
+            badge.textContent = total;
             badge.classList.remove('hidden');
-
-            // Cor do badge (prioridade vermelho > amarelo > azul)
             if (notifications.some(n => n.level === 'red')) {
                 badge.style.background = '#d64545';
             } else if (notifications.some(n => n.level === 'yellow')) {
@@ -4528,35 +4498,64 @@ const app = {
             } else {
                 badge.style.background = '#8a9099';
             }
-
-            list.innerHTML = notifications.map((n, index) => `
-                <div class="notification-item" id="notif-item-${index}">
-                    <div class="notif-icon ${n.level}">
-                        <i data-lucide="${n.icon}"></i>
-                    </div>
-                    <div class="notif-content">
-                        <span class="notif-title">${n.title}</span>
-                        <span class="notif-desc">${n.desc}</span>
-                    </div>
-                </div>
-            `).join('');
-
-            // Adicionar eventos de clique
-            notifications.forEach((n, index) => {
-                const el = document.getElementById(`notif-item-${index}`);
-                if (el) {
-                    el.onclick = () => {
-                        n.action();
-                        document.getElementById('notification-dropdown').classList.add('hidden');
-                    };
-                }
-            });
-
-            this.initLucide();
         } else {
             badge.classList.add('hidden');
-            list.innerHTML = '<div class="empty-notif-msg">Sem novas notificações</div>';
         }
+        this._notifPagina = this._notifPagina || 1;
+        this.renderNotifPage();
+    },
+
+    renderNotifPage() {
+        const list = document.getElementById('notification-list');
+        const pager = document.getElementById('notification-pager');
+        if (!list) return;
+        const lista = this._notifLista || [];
+        const total = lista.length;
+        if (total === 0) {
+            list.innerHTML = '<div class="empty-notif-msg">Sem novas notificações</div>';
+            if (pager) pager.innerHTML = '';
+            return;
+        }
+        const porPagina = this.config.notifPorPagina || 4;
+        const paginas = Math.max(1, Math.ceil(total / porPagina));
+        this._notifPagina = Math.min(Math.max(1, this._notifPagina), paginas);
+        const ini = (this._notifPagina - 1) * porPagina;
+        const pagina = lista.slice(ini, ini + porPagina);
+        const rotulos = { red: 'Crítico', yellow: 'Atenção', blue: 'Informação' };
+        list.innerHTML = pagina.map((n, i) => `
+            <div class="notification-item notif-${n.level}" data-notif="${ini + i}">
+                <div class="notif-icon ${n.level}"><i data-lucide="${n.icon}"></i></div>
+                <div class="notif-content">
+                    <div class="notif-topo">
+                        <span class="notif-title">${this.esc(n.title)}</span>
+                        <span class="notif-tag ${n.level}">${rotulos[n.level] || 'Aviso'}</span>
+                    </div>
+                    <span class="notif-desc">${this.esc(n.desc)}</span>
+                </div>
+            </div>
+        `).join('');
+        list.onclick = (e) => {
+            const el = e.target.closest('[data-notif]');
+            if (!el) return;
+            const n = this._notifLista[Number(el.dataset.notif)];
+            if (!n || !n.action) return;
+            n.action();
+            document.getElementById('notification-dropdown').classList.add('hidden');
+        };
+        if (pager) {
+            pager.innerHTML = paginas > 1
+                ? `<button type="button" class="notif-page-btn" data-pag="-1" ${this._notifPagina === 1 ? 'disabled' : ''}>&lsaquo; Anterior</button>
+                   <span class="notif-page-info">${this._notifPagina} de ${paginas}</span>
+                   <button type="button" class="notif-page-btn" data-pag="1" ${this._notifPagina === paginas ? 'disabled' : ''}>Próxima &rsaquo;</button>`
+                : `<span class="notif-page-info">${total} alerta${total > 1 ? 's' : ''}</span>`;
+            pager.onclick = (e) => {
+                const b = e.target.closest('[data-pag]');
+                if (!b || b.disabled) return;
+                this._notifPagina += Number(b.dataset.pag);
+                this.renderNotifPage();
+            };
+        }
+        this.initLucide();
     },
 
     // --- Utils & Modals ---
@@ -4831,7 +4830,7 @@ const app = {
             },
             {
                 title: 'Navegação (menu lateral)',
-                desc: 'Use o menu lateral para alternar entre as áreas: Dashboard, PDV, Resumo, Produtos, Clientes, Saídas e Entradas.',
+                desc: 'Use o menu lateral para alternar entre as áreas: Dashboard, PDV, Produtos, Estoque, Clientes, Saídas e Entradas.',
                 icon: 'layout-dashboard',
                 view: 'dashboard',
                 highlight: ['.sidebar .nav-links']
@@ -4912,13 +4911,6 @@ const app = {
                 icon: 'receipt',
                 view: 'history',
                 highlight: ['#history-view']
-            },
-            {
-                title: 'Resumo de vendas',
-                desc: 'Veja o total de vendas por forma de pagamento (dinheiro, cartão e Pix) em um dia ou em um período.',
-                icon: 'receipt',
-                view: 'resumo',
-                highlight: ['#resumo-content']
             },
             {
                 title: 'Configurações: visão geral',
@@ -5325,14 +5317,37 @@ const app = {
         const medio = Number(n.stockMediumVal) || 25;
         const nivel = (p) => (p.stock < baixo ? 'baixo' : p.stock < medio ? 'medio' : 'ok');
         const rotulo = { baixo: 'Baixo', medio: 'Médio', ok: 'Normal' };
+        const moeda = (v) => this.formatCurrency(Number(v) || 0);
 
         const busca = (document.getElementById('filter-estoque')?.value || '').trim().toLowerCase();
         const ordem = document.getElementById('sort-estoque')?.value || 'estoque';
 
+        // Apoio: vendas dos últimos 30 dias e data da última movimentação de cada produto
+        const limite = Date.now() - 30 * 24 * 3600 * 1000;
+        const vendido30 = {};
+        (this.state.sales || []).forEach(v => {
+            if (new Date(v.date).getTime() < limite) return;
+            (v.items || []).forEach(it => {
+                const id = String(it.id);
+                vendido30[id] = (vendido30[id] || 0) + (Number(it.qty) || 0);
+            });
+        });
+        const ultimaMov = {};
+        (this.state.movimentacoes || []).forEach(m => {
+            if (m.ignorada) return;
+            const t = new Date(m.date).getTime();
+            const id = String(m.produtoId);
+            if (!isNaN(t) && (!ultimaMov[id] || t > ultimaMov[id])) ultimaMov[id] = t;
+        });
+
         const contagem = { baixo: 0, medio: 0, ok: 0 };
-        this.state.products.forEach(p => { contagem[nivel(p)]++; });
+        let valorEstoque = 0;
+        this.state.products.forEach(p => {
+            contagem[nivel(p)]++;
+            valorEstoque += (Number(p.stock) || 0) * (Number(p.cost) || 0);
+        });
         const resumo = document.getElementById('estoque-resumo');
-        if (resumo) resumo.textContent = `${contagem.baixo} baixo · ${contagem.medio} médio · ${contagem.ok} normal`;
+        if (resumo) resumo.textContent = `${contagem.baixo} baixo · ${contagem.medio} médio · ${contagem.ok} normal · valor em estoque ${moeda(valorEstoque)}`;
 
         const lista = this.state.products
             .filter(p => !busca || (p.name || '').toLowerCase().includes(busca) || String(p.code || '').toLowerCase().includes(busca))
@@ -5347,19 +5362,36 @@ const app = {
 
         grid.innerHTML = lista.map(p => {
             const nv = nivel(p);
+            const id = String(p.id);
             const foto = p.image
                 ? `<img src="${p.image}" alt="">`
                 : `<span class="estoque-letter">${this.esc((p.name || '?').charAt(0).toUpperCase())}</span>`;
+            const vendas = vendido30[id] || 0;
+            const estoqueQtd = Number(p.stock) || 0;
+            const cobertura = vendas === 0
+                ? 'Sem vendas'
+                : estoqueQtd === 0 ? 'Zerado' : `~${Math.round(estoqueQtd / (vendas / 30))} dias`;
+            const ultima = ultimaMov[id] ? new Date(ultimaMov[id]).toLocaleDateString('pt-BR') : '—';
             return `
                 <div class="estoque-card estoque-${nv}">
-                    <div class="estoque-foto">${foto}</div>
-                    <div class="estoque-info">
-                        <span class="estoque-nome" title="${this.esc(p.name)}">${this.esc(p.name)}</span>
-                        <span class="estoque-cod">${this.esc(p.code)}</span>
+                    <div class="estoque-topo">
+                        <div class="estoque-foto">${foto}</div>
+                        <div class="estoque-info">
+                            <span class="estoque-nome" title="${this.esc(p.name)}">${this.esc(p.name)}</span>
+                            <span class="estoque-cod">${this.esc(p.code)}</span>
+                        </div>
+                        <div class="estoque-qtd">
+                            <strong>${estoqueQtd}</strong>
+                            <span>${rotulo[nv]}</span>
+                        </div>
                     </div>
-                    <div class="estoque-qtd">
-                        <strong>${p.stock}</strong>
-                        <span>${rotulo[nv]}</span>
+                    <div class="estoque-detalhes">
+                        <div><small>Custo unit.</small><b>${moeda(p.cost)}</b></div>
+                        <div><small>Preço de venda</small><b>${moeda(p.price)}</b></div>
+                        <div><small>Valor estoque</small><b>${moeda(estoqueQtd * (Number(p.cost) || 0))}</b></div>
+                        <div><small>Vendas 30d</small><b>${vendas} un.</b></div>
+                        <div><small>Cobertura</small><b>${cobertura}</b></div>
+                        <div><small>Últ. movim.</small><b>${ultima}</b></div>
                     </div>
                 </div>`;
         }).join('');

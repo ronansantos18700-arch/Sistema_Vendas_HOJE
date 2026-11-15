@@ -4714,16 +4714,6 @@ textarea:focus-visible {
     font-size: 0.7rem;
 }
 
-/* Sidebar: ação principal 'Nova venda' em destaque (sem fundo cheio) */
-.nav-btn.nav-btn-primary {
-    color: var(--accent);
-    border: 1px solid rgba(var(--accent-rgb), 0.35);
-    margin-bottom: 0.4rem;
-}
-.nav-btn.nav-btn-primary:hover {
-    background: rgba(var(--accent-rgb), 0.1);
-}
-
 /* Estoque em tempo real */
 .estoque-resumo {
     align-self: center;
@@ -4946,4 +4936,383 @@ i.bx {
     font-size: 18px;
     width: 18px;
     height: 18px;
+}
+
+/* ==========================================================================
+   Rodada de ajustes: menu, topbar, notificações, tabelas e estoque
+   ========================================================================== */
+
+/* Menu: mais espaço entre os botões */
+.sidebar .nav-links {
+    gap: 6px;
+}
+.sidebar .nav-btn {
+    height: 44px;
+}
+
+/* Nova venda: botão azul em destaque, entre Entradas e Configurações */
+.sidebar .btn-nova-venda {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    width: 100%;
+    height: 48px;
+    margin: 0.9rem 0 0.75rem;
+    padding: 0 1rem;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #4a7bff 0%, #3260e0 100%);
+    color: #ffffff;
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    box-shadow: 0 10px 24px -8px rgba(50, 96, 224, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), filter var(--dur-fast);
+}
+.sidebar .btn-nova-venda i.bx {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+}
+.sidebar .btn-nova-venda:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px -8px rgba(50, 96, 224, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    filter: brightness(1.05);
+}
+.sidebar .btn-nova-venda:active {
+    transform: translateY(0) scale(0.98);
+}
+.sidebar .btn-nova-venda:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 3px;
+}
+.sidebar.collapsed .btn-nova-venda {
+    width: 48px;
+    padding: 0;
+    margin-left: auto;
+    margin-right: auto;
+}
+.sidebar.collapsed .btn-nova-venda span {
+    display: none;
+}
+
+/* Topbar: logo redonda, nome da empresa, cargo e indicadores do dia */
+.user-profile-topbar {
+    gap: 0.75rem;
+}
+.profile-logo-container-topbar {
+    flex-shrink: 0;
+}
+.profile-logo-container-topbar .avatar-topbar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px var(--glass-border), 0 4px 12px -4px rgba(50, 96, 224, 0.35);
+}
+.avatar-topbar-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #4a7bff 0%, #3260e0 100%);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: var(--fs-base);
+}
+.user-info-topbar {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+.user-info-topbar p {
+    font-size: var(--fs-base);
+}
+.user-info-topbar span {
+    font-size: var(--fs-xs);
+    color: var(--color-3);
+}
+.topbar-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-left: 0.5rem;
+}
+.topbar-chip {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-card);
+    color: var(--text-white);
+    font-size: var(--fs-xs);
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+.topbar-chip-accent {
+    background: rgba(var(--accent-rgb), 0.12);
+    border-color: rgba(var(--accent-rgb), 0.3);
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: none;
+}
+
+/* Notificações: painel maior, um cartão por alerta, com gravidade destacada */
+.notification-dropdown {
+    width: 440px;
+    max-width: calc(100vw - 2rem);
+    border-radius: var(--radius-lg);
+    background: var(--glass-card);
+}
+.notification-header {
+    padding: 1rem 1.25rem;
+    background: transparent;
+}
+.notification-header h3 {
+    font-size: var(--fs-base);
+}
+.notification-list {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.notification-dropdown .notification-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--glass-border);
+    border-left: 4px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    background: var(--glass-inner);
+    cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast);
+}
+.notification-dropdown .notification-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.18);
+}
+.notification-dropdown .notification-item.notif-red {
+    border-left-color: #d64545;
+    background: rgba(214, 69, 69, 0.06);
+}
+.notification-dropdown .notification-item.notif-yellow {
+    border-left-color: #e0a100;
+    background: rgba(224, 161, 0, 0.08);
+}
+.notification-dropdown .notification-item.notif-blue {
+    border-left-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.06);
+}
+.notification-dropdown .notif-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.notification-dropdown .notif-icon i.bx {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+}
+.notif-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+}
+.notification-dropdown .notif-title {
+    font-size: var(--fs-base);
+    font-weight: 600;
+    color: var(--text-white);
+}
+.notification-dropdown .notif-desc {
+    font-size: var(--fs-sm);
+    color: var(--color-3);
+    line-height: 1.4;
+}
+.notif-tag {
+    flex-shrink: 0;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: #ffffff;
+}
+.notif-tag.red { background: #d64545; }
+.notif-tag.yellow { background: #e0a100; }
+.notif-tag.blue { background: var(--accent); }
+.notification-pager {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1rem;
+    border-top: 1px solid var(--glass-border);
+    font-size: var(--fs-sm);
+    color: var(--color-3);
+}
+.notification-pager:empty {
+    display: none;
+}
+.notif-page-btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-card);
+    color: var(--text-white);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+}
+.notif-page-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.notif-page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+.notif-page-info {
+    font-weight: 600;
+    color: var(--text-white);
+}
+
+/* Tabelas: painel branco próprio e texto um pouco mais forte */
+.table-container-labs {
+    background: var(--glass-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 0.25rem 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.custom-table-labs {
+    font-size: var(--fs-base);
+}
+.custom-table-labs th {
+    background: var(--glass-inner);
+    color: #5a5a5a;
+    font-size: var(--fs-xs);
+}
+.custom-table-labs th:first-child {
+    border-top-left-radius: var(--radius-md);
+}
+.custom-table-labs th:last-child {
+    border-top-right-radius: var(--radius-md);
+}
+.custom-table-labs td {
+    color: #3d3d3d;
+    border-bottom-color: var(--glass-border);
+}
+.custom-table-labs tbody tr:hover td {
+    background: var(--glass-inner);
+}
+
+/* Estoque em tempo real: cartões com mais detalhes */
+#estoque-view .estoque-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+#estoque-view .estoque-card {
+    padding: 1rem;
+    gap: 0.9rem;
+    border-radius: var(--radius-lg);
+}
+#estoque-view .estoque-topo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+#estoque-view .estoque-topo .estoque-info {
+    flex: 1;
+    min-width: 0;
+}
+#estoque-view .estoque-detalhes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem 0.9rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--glass-border);
+}
+#estoque-view .estoque-detalhes > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+#estoque-view .estoque-detalhes small {
+    font-size: var(--fs-xs);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#estoque-view .estoque-detalhes b {
+    font-size: var(--fs-base);
+    font-weight: 600;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Ajustes finos: foto pequena no cartão de estoque e data sem capitalização automática */
+#estoque-view .estoque-topo .estoque-foto {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+#estoque-view .estoque-topo .estoque-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+#estoque-view .estoque-topo .estoque-letter {
+    font-size: var(--fs-lg);
+}
+#estoque-view .estoque-topo .estoque-qtd {
+    flex-shrink: 0;
+    text-align: right;
+}
+.topbar-chip {
+    text-transform: none;
+}
+
+/* Aba selecionada: retângulo arredondado #4070F4, texto e ícone brancos, sem barra */
+.sidebar .nav-btn.active,
+.light-theme .sidebar .nav-btn.active {
+    background: #4070f4;
+    color: #ffffff;
+    font-weight: 500;
+    border-radius: 14px;
+    box-shadow: 0 8px 18px -10px rgba(64, 112, 244, 0.7);
+}
+.sidebar .nav-btn.active i,
+.sidebar .nav-btn.active i.bx,
+.sidebar .nav-btn.active span,
+.light-theme .sidebar .nav-btn.active i,
+.light-theme .sidebar .nav-btn.active span {
+    color: #ffffff;
+}
+.sidebar .nav-btn::before,
+.sidebar .nav-btn.active::before {
+    display: none;
+}
+.sidebar .nav-btn:hover:not(.active) {
+    border-radius: 14px;
 }
