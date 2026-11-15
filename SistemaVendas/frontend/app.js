@@ -823,9 +823,34 @@ const app = {
         if (paymentSelect) {
             paymentSelect.addEventListener('change', () => {
                 this.state.posState.payment = paymentSelect.value;
+                this.state.posState.split = false;
                 this.updatePaidVisibility();
             });
             this.updatePaidVisibility();
+        }
+        const btnSplit = document.getElementById('btn-split-pay');
+        if (btnSplit) btnSplit.addEventListener('click', () => this.toggleSplitPay());
+        const btnSplitAdd = document.getElementById('btn-split-add');
+        if (btnSplitAdd) btnSplitAdd.addEventListener('click', () => this.addSplitRow());
+        const splitRows = document.getElementById('pos-split-rows');
+        if (splitRows) {
+            splitRows.addEventListener('change', (e) => {
+                if (!e.target.classList.contains('pos-split-forma')) return;
+                this.state.posState.splitRows[Number(e.target.dataset.idx)].forma = e.target.value;
+                this.updateSplitSummary();
+            });
+            splitRows.addEventListener('input', (e) => {
+                if (!e.target.classList.contains('pos-split-valor')) return;
+                this.state.posState.splitRows[Number(e.target.dataset.idx)].valor = parseFloat(e.target.value) || 0;
+                this.updateSplitSummary();
+            });
+            splitRows.addEventListener('click', (e) => {
+                const btn = e.target.closest('.pos-split-remove');
+                if (!btn) return;
+                this.state.posState.splitRows.splice(Number(btn.dataset.idx), 1);
+                this.renderSplitRows();
+                this.updateSplitSummary();
+            });
         }
         if (paidInput) {
             paidInput.addEventListener('input', () => {
@@ -3361,6 +3386,13 @@ const app = {
 
     // --- POS Logic ---
     updatePaidVisibility() {
+        const split = !!this.state.posState.split;
+        this.setSplitLayout(split);
+        if (split) {
+            this.renderSplitRows();
+            this.updateSplitSummary();
+            return;
+        }
         const payment = document.getElementById('pos-payment') ? document.getElementById('pos-payment').value : '';
         document.querySelectorAll('.pos-pay-btn').forEach(b => b.classList.toggle('active', b.dataset.pay === payment));
         const paidInput = document.getElementById('pos-paid');
@@ -3652,6 +3684,10 @@ const app = {
     },
 
     calculateChange() {
+        if (this.state.posState.split) {
+            this.updateSplitSummary();
+            return;
+        }
         const totalEl = document.getElementById('pos-total-val');
         const paidEl = document.getElementById('pos-paid');
         const changeEl = document.getElementById('pos-change-val');
@@ -3678,6 +3714,114 @@ const app = {
         }
     },
 
+    // ---- Pagamento dividido: uma venda paga em mais de uma forma ----
+    setSplitLayout(split) {
+        const botoes = document.querySelector('.pos-pay-buttons');
+        const box = document.getElementById('pos-split');
+        const toggle = document.getElementById('btn-split-pay');
+        if (botoes) botoes.classList.toggle('hidden', split);
+        if (box) box.classList.toggle('hidden', !split);
+        if (split) {
+            const paidGroup = document.getElementById('pos-paid-group');
+            const changeRow = document.getElementById('pos-change-row');
+            if (paidGroup) paidGroup.classList.add('hidden');
+            if (changeRow) changeRow.classList.add('hidden');
+        }
+        if (toggle) {
+            toggle.classList.toggle('active', split);
+            toggle.textContent = split ? 'Voltar para uma forma' : 'Dividir pagamento';
+        }
+    },
+
+    toggleSplitPay() {
+        const ps = this.state.posState;
+        ps.split = !ps.split;
+        if (ps.split && (!ps.splitRows || ps.splitRows.length === 0)) {
+            ps.splitRows = [{ forma: 'dinheiro', valor: 0 }, { forma: 'pix', valor: 0 }];
+        }
+        this.updatePaidVisibility();
+    },
+
+    addSplitRow() {
+        const ps = this.state.posState;
+        const usada = new Set(ps.splitRows.map(l => l.forma));
+        const livre = ['cartao', 'pix', 'dinheiro'].find(f => !usada.has(f)) || 'cartao';
+        ps.splitRows.push({ forma: livre, valor: 0 });
+        this.renderSplitRows();
+        this.updateSplitSummary();
+    },
+
+    renderSplitRows() {
+        const box = document.getElementById('pos-split-rows');
+        if (!box) return;
+        const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
+        box.innerHTML = this.state.posState.splitRows.map((l, i) => `
+            <div class="pos-split-row">
+                <select class="pos-split-forma" data-idx="${i}">
+                    ${Object.entries(nomes).map(([v, t]) => `<option value="${v}"${v === l.forma ? ' selected' : ''}>${t}</option>`).join('')}
+                </select>
+                <input type="number" class="pos-split-valor" data-idx="${i}" inputmode="decimal" placeholder="0,00" autocomplete="off" value="${l.valor ? l.valor : ''}">
+                <button type="button" class="pos-split-remove" data-idx="${i}" title="Remover">&times;</button>
+            </div>`).join('');
+    },
+
+    totaisVenda() {
+        const subtotal = this.state.cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        const desconto = this.descontoReais(subtotal);
+        const total = Math.max(0, Math.round((subtotal - desconto) * 100) / 100);
+        return { subtotal, desconto, total };
+    },
+
+    // Confere as linhas do pagamento dividido contra o total. Dinheiro é o único que gera troco.
+    calcularPagamentoMisto(total) {
+        const r2 = (v) => Math.round(v * 100) / 100;
+        const T = r2(total);
+        const validas = (this.state.posState.splitRows || []).filter(l => (Number(l.valor) || 0) > 0);
+        if (validas.length === 0) return { ok: false, motivo: 'Informe o valor de cada forma de pagamento.' };
+
+        const caixa = validas.filter(l => l.forma === 'dinheiro');
+        const outras = validas.filter(l => l.forma !== 'dinheiro');
+        if (caixa.length > 1) return { ok: false, motivo: 'Use uma única linha em dinheiro.' };
+
+        const somaOutras = r2(outras.reduce((acc, l) => acc + Number(l.valor), 0));
+        if (somaOutras > T) return { ok: false, motivo: 'Cartão e Pix passam do total da venda.' };
+        const restante = r2(T - somaOutras);
+        const pagamentos = outras.map(l => ({ forma: l.forma, valor: r2(Number(l.valor)) }));
+
+        if (caixa.length === 0) {
+            if (restante > 0) return { ok: false, motivo: `Falta ${this.formatCurrency(restante)}` };
+            return { ok: true, pagamentos, troco: 0 };
+        }
+        if (restante <= 0) return { ok: false, motivo: 'O total já está coberto. Remova a linha de dinheiro.' };
+
+        const recebido = r2(Number(caixa[0].valor));
+        if (recebido < restante) return { ok: false, motivo: `Falta ${this.formatCurrency(r2(restante - recebido))}` };
+        pagamentos.push({ forma: 'dinheiro', valor: restante });
+        return { ok: true, pagamentos, troco: r2(recebido - restante) };
+    },
+
+    updateSplitSummary() {
+        const el = document.getElementById('pos-split-summary');
+        if (!el) return;
+        const pg = this.calcularPagamentoMisto(this.totaisVenda().total);
+        if (pg.ok) {
+            el.textContent = pg.troco > 0 ? `Troco ${this.formatCurrency(pg.troco)}` : 'Pagamento completo';
+        } else {
+            el.textContent = pg.motivo;
+        }
+        el.classList.toggle('is-ok', pg.ok);
+        el.classList.toggle('is-error', !pg.ok);
+    },
+
+    // Texto da forma de pagamento para histórico e recibo
+    rotuloPagamento(sale) {
+        if (Array.isArray(sale.pagamentos) && sale.pagamentos.length) {
+            const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
+            return 'Misto: ' + sale.pagamentos.map(p => `${nomes[p.forma] || p.forma} ${this.formatCurrency(p.valor)}`).join(' + ');
+        }
+        return sale.pagamento || sale["Forma de Pagamento"] || 'N/A';
+    },
+
     async finishSale() {
         if (this.requirePasswordChange()) return;
         if (this.state.cart.length === 0) return;
@@ -3693,7 +3837,15 @@ const app = {
         const totalFinal = Math.max(0, subtotal - desconto);
         const lucro = totalFinal - custoTotal;
         const paymentEl = document.getElementById('pos-payment');
-        const pagamento = paymentEl ? paymentEl.value : 'N/A';
+        let pagamentoVenda = { pagamento: paymentEl ? paymentEl.value : 'N/A' };
+        if (this.state.posState.split) {
+            const pg = this.calcularPagamentoMisto(totalFinal);
+            if (!pg.ok) {
+                this.showNotification('error', pg.motivo);
+                return;
+            }
+            pagamentoVenda = { pagamento: 'misto', pagamentos: pg.pagamentos, troco: pg.troco };
+        }
         const customerEl = document.getElementById('pos-customer');
         let cliente = (customerEl && customerEl.value) || 'Consumidor Final';
 
@@ -3707,7 +3859,7 @@ const app = {
             valor_final: totalFinal,
             cost: custoTotal,
             lucro: lucro,
-            pagamento: pagamento,
+            ...pagamentoVenda,
             items: itensVenda
         };
 
@@ -3748,7 +3900,9 @@ const app = {
                 payment: 'dinheiro',
                 discount: '',
                 paid: '',
-                isDirectSale: false
+                isDirectSale: false,
+                split: false,
+                splitRows: []
             };
             this.updatePaidVisibility();
 
@@ -3787,7 +3941,7 @@ const app = {
         const saleId = sale.id || sale.ID || '';
         const saleDate = sale.date || sale.Data || new Date().toISOString();
         const saleCustomer = sale.cliente || sale.Cliente || 'Consumidor Final';
-        const salePayment = sale.pagamento || sale["Forma de Pagamento"] || 'N/A';
+        const salePayment = this.rotuloPagamento(sale);
 
         document.getElementById('receipt-sale-id').textContent = `#${saleId.toString().slice(-6)}`;
         document.getElementById('receipt-sale-date').textContent = new Date(saleDate).toLocaleString('pt-BR');
@@ -4180,7 +4334,7 @@ const app = {
             const totalFinal = subtotal - desconto;
             const custo = Number(s.cost || s.custo || s.Custo || s.custoTotal || 0);
             const lucro = Number(s.lucro || s.Lucro || (totalFinal - custo));
-            const pagamento = s.pagamento || s["Forma de Pagamento"] || 'N/A';
+            const pagamento = this.rotuloPagamento(s);
             const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) : 0;
 
             return `
@@ -4842,7 +4996,7 @@ const app = {
             },
             {
                 title: 'PDV: pagamento e finalização',
-                desc: 'Informe pagamento, desconto e finalize a venda. Em dinheiro, informe o valor pago para calcular o troco.',
+                desc: 'Informe pagamento, desconto e finalize a venda. Em dinheiro, informe o valor pago para calcular o troco. Para pagar em mais de uma forma, use Dividir pagamento.',
                 icon: 'printer',
                 view: 'pos',
                 highlight: ['.pos-pay-buttons', '#pos-discount', '#pos-paid-group', '#btn-finish-sale']

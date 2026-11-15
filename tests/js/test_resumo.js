@@ -65,5 +65,18 @@ teste('período com intervalo de dias inclui o último dia inteiro', () => {
   assert.strictEqual(r.total, 3);
 });
 
+teste('venda dividida entra em cada forma, sem contar duas vezes a venda', () => {
+  const vendas = [
+    { date: dentro(10), pagamento: 'misto', valor_final: 50, pagamentos: [{ forma: 'cartao', valor: 30 }, { forma: 'dinheiro', valor: 20 }] },
+    { date: dentro(11), pagamento: 'pix', valor_final: 10 }
+  ];
+  const r = R.resumoPorPagamento(vendas, dia.inicio, dia.fim);
+  assert.deepStrictEqual(r.linhas.map(l => [l.forma, l.quantidade, l.total]), [
+    ['dinheiro', 1, 20], ['cartao', 1, 30], ['pix', 1, 10], ['outros', 0, 0]
+  ]);
+  assert.strictEqual(r.quantidade, 2);
+  assert.strictEqual(r.total, 60);
+});
+
 if (falhas > 0) { console.log('\n' + falhas + ' falha(s).'); process.exit(1); }
 console.log('\nTodos os testes passaram.');
