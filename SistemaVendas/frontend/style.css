@@ -5539,3 +5539,224 @@ i.bx {
 /* Cabeçalho: cor única, vencendo a regra antiga de .col-cost com !important */
 .list-header-labs span[class*="col-"] { color: #5b6472 !important; }
 .estoque-view.modo-tabela .table-container-labs { margin-top: 0; }
+
+/* ===== Rodada: Nova venda, pagamento dividido, tabelas, cards, paginação e ordenação ===== */
+
+/* Nova venda: mesma altura da aba selecionada, em verde para destacar */
+.sidebar .btn-nova-venda {
+    height: 54px;
+    margin: 1rem 0 0.9rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #2fa872 0%, #1f8a5b 100%);
+    box-shadow: 0 10px 22px -10px rgba(31, 138, 91, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    font-size: 0.9375rem;
+}
+.sidebar .btn-nova-venda:hover {
+    box-shadow: 0 14px 26px -10px rgba(31, 138, 91, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Pagamento dividido: campos com respiro */
+#pos-view .pos-split-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+#pos-view .pos-split-row { grid-template-columns: 140px minmax(0, 1fr) 36px; gap: 0.75rem; }
+#pos-view .pos-split-forma, #pos-view .pos-split-valor { height: 40px; }
+#pos-view .pos-split-remove { width: 36px; height: 36px; }
+
+/* Cabeçalhos quadrados */
+.list-header-labs { border-radius: 0; }
+.custom-table-labs th:first-child, .custom-table-labs th:last-child { border-radius: 0; }
+
+/* Listas crescem com os registros, sem área vazia */
+#products-list-labs, #customers-list-labs, #history-list-labs, #entradas-list-labs {
+    flex: 0 0 auto;
+    height: auto;
+}
+
+/* Modo cards (Produtos e Entradas) */
+#products-items-container[data-visao="cards"],
+#entradas-items-container[data-visao="cards"] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+    padding: 14px;
+}
+#products-list-labs.modo-cards, #entradas-list-labs.modo-cards {
+    background: transparent;
+    border: none;
+    overflow: visible;
+}
+#products-list-labs.modo-cards .list-header-labs,
+#entradas-list-labs.modo-cards .list-header-labs { display: none; }
+.tabela-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.tabela-card-topo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tabela-card-foto {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    border-radius: 12px;
+    background: #f5f8fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.tabela-card-foto img { width: 100%; height: 100%; object-fit: cover; }
+.tabela-card-letra { font-size: 20px; font-weight: 500; color: #4070f4; }
+.tabela-card-icone i.bx { font-size: 26px; color: #4070f4; }
+.tabela-card-titulo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tabela-card-titulo strong {
+    font-size: 15px;
+    font-weight: 500;
+    color: #333333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tabela-card-titulo > span {
+    font-size: 12.5px;
+    color: #707070;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tabela-card-dados {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--glass-border);
+}
+.tabela-card-dados small {
+    display: block;
+    font-size: 12px;
+    color: #707070;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.tabela-card-dados b { display: block; font-size: 14px; font-weight: 500; color: #333333; }
+.tabela-card-estoque-bloco { grid-column: 1 / -1; }
+.tabela-card-estoque { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tabela-card-estoque .stock-val { min-width: 40px; text-align: center; font-size: 15px; font-weight: 500; }
+.tabela-card-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid #edf1f6;
+}
+
+/* Paginação */
+.tabela-item[hidden] { display: none !important; }
+.tabela-pager {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-top: 1px solid #edf1f6;
+    font-size: 13px;
+    color: #707070;
+}
+#products-list-labs.modo-cards .tabela-pager,
+#entradas-list-labs.modo-cards .tabela-pager {
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    margin-top: 12px;
+}
+.tabela-pager-controles { display: flex; align-items: center; gap: 10px; }
+.tabela-pager-num { min-width: 56px; text-align: center; color: #333333; font-size: 13px; }
+.tabela-pager-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    color: #333333;
+    cursor: pointer;
+}
+.tabela-pager-btn i.bx { font-size: 18px; }
+.tabela-pager-btn:not(:disabled):hover { border-color: #4070f4; color: #4070f4; }
+.tabela-pager-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Ordenação por coluna */
+.sortable { cursor: pointer; user-select: none; }
+.sort-ico { font-size: 14px !important; margin-left: 4px; opacity: 0.45; vertical-align: -2px; }
+.sortable:hover .sort-ico { opacity: 0.9; }
+.sortable.sorted .sort-ico { opacity: 1; color: #4070f4; }
+
+/* Ações: alinhadas à direita, com o mesmo tamanho */
+.nested-item-labs-row .col-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.list-header-labs > :last-child { text-align: right; justify-content: flex-end; }
+.btn-action-edit, .btn-action-delete, .btn-action-view { width: 34px; height: 34px; }
+
+/* Saídas: coluna Itens com resumo e botão próprio */
+#history-list-labs .list-header-labs,
+#history-list-labs .nested-item-labs-row {
+    grid-template-columns: 52px 84px minmax(90px, 1fr) 78px 70px 80px 78px 78px minmax(170px, 1.4fr) 92px 92px !important;
+    gap: 0.5rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+}
+#history-list-labs .nested-item-labs-row .col-items-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+#history-list-labs .itens-resumo { min-width: 0; }
+#history-list-labs .itens-resumo strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#history-list-labs .itens-resumo small {
+    display: block;
+    font-size: 12px;
+    color: #707070;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#history-list-labs .btn-itens-ver {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid #cfdcf7;
+    background: #f0f5ff;
+    color: #4070f4;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+#history-list-labs .btn-itens-ver:hover { background: #4070f4; border-color: #4070f4; color: #ffffff; }
+#history-list-labs .btn-itens-ver i.bx { font-size: 16px; }
+
+/* Saídas: células podem encolher, sem forçar largura da tabela */
+#history-list-labs .nested-item-labs-row > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#history-list-labs .nested-item-labs-row .col-actions { overflow: visible; }
+#history-list-labs .nested-item-labs-row .col-items-action { overflow: visible; }
+#history-list-labs .nested-item-labs-row .col-name { white-space: nowrap; }
+#history-list-labs .list-header-labs,
+#history-list-labs .nested-item-labs-row { min-width: 0 !important; width: 100%; }
