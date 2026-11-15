@@ -4830,3 +4830,63 @@ textarea:focus-visible {
     gap: 0.35rem;
 }
 #pos-view .pos-clear-btn:hover { color: var(--text-white); border-color: var(--accent); }
+
+/* PDV: pagamento dividido */
+#pos-view .pos-split-toggle {
+    align-self: flex-start;
+    background: transparent;
+    border: none;
+    padding: 0.2rem 0;
+    color: var(--accent);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+#pos-view .pos-split-toggle.active { color: var(--text-dim); }
+#pos-view .pos-split { display: flex; flex-direction: column; gap: 0.5rem; }
+#pos-view .pos-split-row {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr) 32px;
+    gap: 0.5rem;
+    align-items: center;
+}
+#pos-view .pos-split-forma,
+#pos-view .pos-split-valor {
+    height: 36px;
+    background: var(--input-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
+    padding: 0 0.6rem;
+    font-size: var(--fs-sm);
+}
+#pos-view .pos-split-valor { text-align: right; }
+#pos-view .pos-split-remove {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+#pos-view .pos-split-remove:hover { color: var(--color-danger); border-color: var(--color-danger); }
+#pos-view .pos-split-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+#pos-view .pos-split-add {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    padding: 0;
+}
+#pos-view .pos-split-summary { font-size: var(--fs-sm); color: var(--text-dim); text-align: right; }
+#pos-view .pos-split-summary.is-ok { color: var(--color-success); }
+#pos-view .pos-split-summary.is-error { color: var(--color-warning); }

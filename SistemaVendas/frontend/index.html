@@ -414,6 +414,14 @@
                                     <button type="button" class="pos-pay-btn" data-pay="cartao">Cartão</button>
                                     <button type="button" class="pos-pay-btn" data-pay="pix">PIX</button>
                                 </div>
+                                <button type="button" id="btn-split-pay" class="pos-split-toggle">Dividir pagamento</button>
+                                <div id="pos-split" class="pos-split hidden">
+                                    <div id="pos-split-rows" class="pos-split-rows"></div>
+                                    <div class="pos-split-actions">
+                                        <button type="button" id="btn-split-add" class="pos-split-add">+ Adicionar forma</button>
+                                        <span id="pos-split-summary" class="pos-split-summary"></span>
+                                    </div>
+                                </div>
                                 <select id="pos-payment" class="hidden">
                                     <option value="dinheiro">Dinheiro</option>
                                     <option value="cartao">Cartão</option>

@@ -41,23 +41,33 @@
         return Math.round((valor + Number.EPSILON) * 100) / 100;
     }
 
-    /** Totais por forma de pagamento para as vendas dentro do período. */
+    /** Totais por forma de pagamento para as vendas dentro do período. Vendas divididas entram em cada forma. */
     function resumoPorPagamento(vendas, inicio, fim) {
         const linhas = FORMAS.map(f => ({ forma: f.id, rotulo: f.rotulo, quantidade: 0, total: 0 }));
+        let quantidade = 0;
 
         for (const venda of vendas || []) {
             const data = new Date(venda.date);
             if (isNaN(data) || data < inicio || data > fim) continue;
+            quantidade += 1;
 
-            const forma = formaDePagamento(venda.pagamento);
-            const linha = linhas.find(l => l.forma === forma);
-            linha.quantidade += 1;
-            linha.total = arredondar(linha.total + (Number(venda.valor_final) || 0));
+            const partes = Array.isArray(venda.pagamentos) && venda.pagamentos.length
+                ? venda.pagamentos.map(p => ({ forma: formaDePagamento(p.forma), valor: Number(p.valor) || 0 }))
+                : [{ forma: formaDePagamento(venda.pagamento), valor: Number(venda.valor_final) || 0 }];
+
+            const formasDaVenda = new Set();
+            for (const parte of partes) {
+                const linha = linhas.find(l => l.forma === parte.forma);
+                if (!linha) continue;
+                linha.total = arredondar(linha.total + parte.valor);
+                formasDaVenda.add(linha);
+            }
+            formasDaVenda.forEach(linha => { linha.quantidade += 1; });
         }
 
         return {
             linhas: linhas,
-            quantidade: linhas.reduce((s, l) => s + l.quantidade, 0),
+            quantidade: quantidade,
             total: arredondar(linhas.reduce((s, l) => s + l.total, 0))
         };
     }
