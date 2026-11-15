@@ -683,6 +683,20 @@ const app = {
             });
         });
 
+        // Controles de janela (minimizar e fechar): só no app desktop, pela ponte do WebView2
+        const winControls = document.getElementById('win-controls');
+        const hostBridge = window.chrome?.webview?.hostObjects?.bridge;
+        if (winControls && !hostBridge) winControls.style.display = 'none';
+        if (hostBridge) {
+            document.getElementById('btn-win-min')?.addEventListener('click', () => {
+                Promise.resolve(hostBridge.MinimizeWindow()).catch(err => console.error('Falha ao minimizar', err));
+            });
+            // O FormClosing do C# já pede confirmação antes de fechar
+            document.getElementById('btn-win-close')?.addEventListener('click', () => {
+                Promise.resolve(hostBridge.QuitApplication()).catch(err => console.error('Falha ao fechar', err));
+            });
+        }
+
         // Estoque em tempo real: filtro e ordenação
         const filtroEstoque = document.getElementById('filter-estoque');
         if (filtroEstoque) filtroEstoque.addEventListener('input', () => this.renderEstoque());
