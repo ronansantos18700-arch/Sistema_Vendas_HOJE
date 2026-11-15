@@ -895,7 +895,9 @@ const app = {
         }
 
         document.addEventListener('click', (e) => {
-            if (notifDropdown && !notifDropdown.contains(e.target) && e.target !== btnNotif) {
+            // composedPath: o alvo da paginação pode sair do DOM antes do fim do clique
+            const caminho = e.composedPath ? e.composedPath() : [];
+            if (notifDropdown && !caminho.includes(notifDropdown) && !caminho.includes(btnNotif)) {
                 notifDropdown.classList.add('hidden');
             }
         });
@@ -1015,22 +1017,7 @@ const app = {
     },
 
     atualizarTopbarMeta() {
-        const dataEl = document.getElementById('topbar-date');
-        const vendasEl = document.getElementById('topbar-sales-today');
-        if (dataEl) {
-            dataEl.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-        }
-        if (vendasEl) {
-            const hoje = this.hojeISO();
-            const doDia = (this.state.sales || []).filter(v => {
-                const d = new Date(v.date);
-                if (isNaN(d)) return false;
-                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                return iso === hoje;
-            });
-            const total = doDia.reduce((s, v) => s + (Number(v.valor_final) || 0), 0);
-            vendasEl.textContent = `${doDia.length} venda${doDia.length === 1 ? '' : 's'} hoje · ${this.formatCurrency(total)}`;
-        }
+        // Data e vendas do dia foram removidas do topbar
     },
 
     initLucide() {
@@ -5372,6 +5359,13 @@ const app = {
                 ? 'Sem vendas'
                 : estoqueQtd === 0 ? 'Zerado' : `~${Math.round(estoqueQtd / (vendas / 30))} dias`;
             const ultima = ultimaMov[id] ? new Date(ultimaMov[id]).toLocaleDateString('pt-BR') : '—';
+            const diasCobertura = vendas > 0 && estoqueQtd > 0 ? Math.round(estoqueQtd / (vendas / 30)) : 0;
+            const frase = estoqueQtd === 0
+                ? 'Zerado: repor para voltar a vender'
+                : vendas === 0
+                    ? 'Sem giro nos últimos 30 dias'
+                    : 'Dura cerca de ' + diasCobertura + ' dias no ritmo atual';
+            const capital = estoqueQtd * (Number(p.cost) || 0);
             return `
                 <div class="estoque-card estoque-${nv}">
                     <div class="estoque-topo">
@@ -5380,18 +5374,19 @@ const app = {
                             <span class="estoque-nome" title="${this.esc(p.name)}">${this.esc(p.name)}</span>
                             <span class="estoque-cod">${this.esc(p.code)}</span>
                         </div>
-                        <div class="estoque-qtd">
-                            <strong>${estoqueQtd}</strong>
-                            <span>${rotulo[nv]}</span>
-                        </div>
+                        <span class="estoque-status">${rotulo[nv]}</span>
                     </div>
-                    <div class="estoque-detalhes">
-                        <div><small>Custo unit.</small><b>${moeda(p.cost)}</b></div>
-                        <div><small>Preço de venda</small><b>${moeda(p.price)}</b></div>
-                        <div><small>Valor estoque</small><b>${moeda(estoqueQtd * (Number(p.cost) || 0))}</b></div>
-                        <div><small>Vendas 30d</small><b>${vendas} un.</b></div>
-                        <div><small>Cobertura</small><b>${cobertura}</b></div>
-                        <div><small>Últ. movim.</small><b>${ultima}</b></div>
+                    <div class="estoque-principal">
+                        <strong>${estoqueQtd}</strong>
+                        <span>unidades em estoque</span>
+                    </div>
+                    <div class="estoque-frases">
+                        <p>${frase}</p>
+                        <p>Vendeu ${vendas} un. em 30 dias</p>
+                    </div>
+                    <div class="estoque-rodape">
+                        <span>Capital parado<b>${moeda(capital)}</b></span>
+                        <span>Última movimentação<b>${ultima}</b></span>
                     </div>
                 </div>`;
         }).join('');
