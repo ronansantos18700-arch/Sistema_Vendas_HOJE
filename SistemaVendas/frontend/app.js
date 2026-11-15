@@ -44,7 +44,7 @@ const app = {
             address: '',
             logoUrl: ''
         },
-        currentView: 'dashboard',
+        currentView: 'pos',
         editingId: null,
         charts: {
             line: null,
@@ -209,7 +209,7 @@ const app = {
 
         // Se já houver um usuário logado no estado (ex: após refresh), tenta restaurar
         if (this.state.currentUser) {
-            const initialView = this.state.currentUser.role === 'operador' ? 'pos' : 'dashboard';
+            const initialView = this.state.currentUser.role === 'operador' ? 'pos' : 'pos';
             this.switchView(initialView);
             if (loginScreen) loginScreen.classList.add('hidden');
             if (appContainer) appContainer.classList.remove('hidden');
@@ -315,7 +315,7 @@ const app = {
             this.updateBrand();
 
             // Inicializar view padrão
-            const initialView = user.role === 'operador' ? 'pos' : 'dashboard';
+            const initialView = user.role === 'operador' ? 'pos' : 'pos';
             this.switchView(initialView);
 
             // Se for o admin padrão ou senha provisória, obriga a trocar
@@ -673,6 +673,12 @@ const app = {
         if (filtroEstoque) filtroEstoque.addEventListener('input', () => this.renderEstoque());
         const ordemEstoque = document.getElementById('sort-estoque');
         if (ordemEstoque) ordemEstoque.addEventListener('change', () => this.renderEstoque());
+        document.querySelectorAll('#estoque-visao-toggle button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                localStorage.setItem('sv_estoque_visao', btn.dataset.visao);
+                this.renderEstoque();
+            });
+        });
 
         // Nova venda: abre o PDV (o switchView já foca o código de barras). Não limpa o carrinho atual.
         const btnNovaVenda = document.getElementById('btn-nova-venda');
@@ -4812,35 +4818,35 @@ const app = {
                 title: 'Bem-vindo ao SV Ultra',
                 desc: 'Este tutorial passa por todas as áreas do sistema e pelos recursos principais. Clique em "Começar" para iniciar.',
                 icon: 'help-circle',
-                view: 'dashboard',
-                highlight: ['button[data-view="dashboard"]']
+                view: 'pos',
+                highlight: ['button[data-view="pos"]']
             },
             {
                 title: 'Navegação (menu lateral)',
-                desc: 'Use o menu lateral para alternar entre as áreas: Dashboard, PDV, Produtos, Estoque, Clientes, Saídas e Entradas.',
+                desc: 'Use o menu lateral para alternar entre as áreas: PDV, Produtos, Estoque, Clientes, Saídas e Entradas.',
                 icon: 'layout-dashboard',
-                view: 'dashboard',
+                view: 'pos',
                 highlight: ['.sidebar .nav-links']
             },
             {
                 title: 'Barra superior (tema e alertas)',
                 desc: 'Aqui você alterna o tema e vê notificações do sistema (ex.: estoque baixo e alertas de configuração).',
                 icon: 'sun',
-                view: 'dashboard',
+                view: 'pos',
                 highlight: ['#btn-theme-toggle', '#btn-notifications']
             },
             {
                 title: 'Dashboard: leitura rápida',
                 desc: 'Acompanhe os indicadores principais e a evolução do negócio em tempo real.',
                 icon: 'layout-grid',
-                view: 'dashboard',
+                view: 'pos',
                 highlight: ['#dashboard-view .stats-grid-labs']
             },
             {
                 title: 'Dashboard: filtros do gráfico',
                 desc: 'No gráfico "Evolução de Vendas", alterne o conjunto de dados (Faturamento/Lucro/Custo) e o período para comparar resultados.',
                 icon: 'line-chart',
-                view: 'dashboard',
+                view: 'pos',
                 highlight: ['.chart-dataset-toggles', '.dash-filter-group']
             },
             {
@@ -4949,7 +4955,7 @@ const app = {
                 title: 'Encerrar o sistema',
                 desc: 'Ao finalizar suas atividades, use o botão "Sair" para fechar com segurança.',
                 icon: 'log-out',
-                view: 'dashboard',
+                view: 'pos',
                 highlight: ['#btn-exit-app']
             }
         ];
@@ -5295,6 +5301,31 @@ const app = {
     },
 
     // Estoque em tempo real: cards com foto, quantidade e nível (mesmos limites das notificações).
+    estoqueTabelaHtml(lista, vendido30, ultimaMov, nivel, rotulo, moeda) {
+        const linhas = lista.map(p => {
+            const nv = nivel(p);
+            const id = String(p.id);
+            const vendas = vendido30[id] || 0;
+            const qtd = Number(p.stock) || 0;
+            const dias = vendas > 0 && qtd > 0 ? Math.round(qtd / (vendas / 30)) : 0;
+            const cobertura = qtd === 0 ? 'Zerado' : vendas === 0 ? 'Sem giro' : 'Cerca de ' + dias + ' dias';
+            const ultima = ultimaMov[id] ? new Date(ultimaMov[id]).toLocaleDateString('pt-BR') : '—';
+            const capital = qtd * (Number(p.cost) || 0);
+            return '<tr class="estoque-linha estoque-' + nv + '">'
+                + '<td><div class="estoque-nome-tab"><strong>' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
+                + '<td class="num">' + qtd + '</td>'
+                + '<td><span class="estoque-status">' + rotulo[nv] + '</span></td>'
+                + '<td>' + cobertura + '</td>'
+                + '<td class="num">' + vendas + ' un.</td>'
+                + '<td class="num">' + moeda(capital) + '</td>'
+                + '<td>' + ultima + '</td>'
+                + '</tr>';
+        }).join('');
+        return '<div class="table-container-labs"><table class="custom-table-labs estoque-tabela">'
+            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th>Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Capital parado</th><th>Última movimentação</th></tr></thead>'
+            + '<tbody>' + linhas + '</tbody></table></div>';
+    },
+
     renderEstoque() {
         const grid = document.getElementById('estoque-grid');
         if (!grid) return;
@@ -5341,6 +5372,17 @@ const app = {
             .sort(ordem === 'nome'
                 ? (a, b) => (a.name || '').localeCompare(b.name || '')
                 : (a, b) => (a.stock - b.stock) || (a.name || '').localeCompare(b.name || ''));
+
+        const visao = localStorage.getItem('sv_estoque_visao') === 'tabela' ? 'tabela' : 'cards';
+        const secaoEstoque = document.getElementById('estoque-view');
+        if (secaoEstoque) secaoEstoque.classList.toggle('modo-tabela', visao === 'tabela');
+        document.querySelectorAll('#estoque-visao-toggle button').forEach(b => b.classList.toggle('active', b.dataset.visao === visao));
+        if (visao === 'tabela') {
+            grid.innerHTML = lista.length === 0
+                ? '<div class="pos-empty">Nenhum produto encontrado.</div>'
+                : this.estoqueTabelaHtml(lista, vendido30, ultimaMov, nivel, rotulo, moeda);
+            return;
+        }
 
         if (lista.length === 0) {
             grid.innerHTML = '<div class="pos-empty">Nenhum produto encontrado.</div>';
