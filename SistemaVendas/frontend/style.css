@@ -5844,3 +5844,6 @@ i.bx {
     gap: 6px;
 }
 #history-list-labs .btn-itens-ver { height: 30px; padding: 0 10px; }
+
+/* Produtos, Clientes e Saídas: painel e tabela sem espaço entre eles (igual a Entradas) */
+.products-view.active, .customers-view.active, .history-view.active { gap: 0; }
