@@ -4916,3 +4916,34 @@ textarea:focus-visible {
 .btn-icon-toggle {
     display: none !important;
 }
+
+/* ---------- Ícones (Boxicons, fonte local) ---------- */
+i.bx {
+    font-size: 20px;
+    line-height: 1;
+    width: 1em;
+    height: 1em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+/* Menu lateral: ícones maiores, no mesmo tamanho com menu aberto ou retraído */
+.nav-btn i.bx,
+.sidebar.collapsed .nav-btn i.bx {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+}
+.btn-sidebar-toggle i.bx {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+}
+.btn-action-edit i.bx,
+.btn-action-delete i.bx {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
