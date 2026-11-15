@@ -20,7 +20,6 @@ function criarApp() {
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(base, 'estoque.js'), 'utf8'), ctx);
-  vm.runInContext(fs.readFileSync(path.join(base, 'resumo.js'), 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(path.join(base, 'app.js'), 'utf8') + '\n;globalThis.__app = app;', ctx, { timeout: 5000 });
   const app = ctx.__app;
   Object.assign(app, {

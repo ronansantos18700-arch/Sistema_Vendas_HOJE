@@ -57,7 +57,6 @@
                 <button id="btn-toggle-sidebar-mini" class="btn-sidebar-toggle">
                     <i data-lucide="menu"></i>
                 </button>
-                <span class="brand-mark" aria-hidden="true">SV</span>
                 <h1 id="brand-name">SV Ultra</h1>
             </div>
             <nav class="nav-links">
@@ -65,17 +64,9 @@
                     <i data-lucide="layout-dashboard"></i>
                     <span>Dashboard</span>
                 </button>
-                <button class="nav-btn nav-btn-primary" id="btn-nova-venda" title="Nova venda (abre o PDV com foco no código de barras)">
-                    <i data-lucide="plus-circle"></i>
-                    <span>Nova venda</span>
-                </button>
                 <button class="nav-btn" data-view="pos">
                     <i data-lucide="shopping-bag"></i>
                     <span>PDV</span>
-                </button>
-                <button class="nav-btn" data-view="resumo">
-                    <i data-lucide="receipt"></i>
-                    <span>Resumo</span>
                 </button>
                 <button class="nav-btn" data-view="products">
                     <i data-lucide="box"></i>
@@ -96,6 +87,10 @@
                 <button class="nav-btn" data-view="entradas">
                     <i data-lucide="package-plus"></i>
                     <span>Entradas</span>
+                </button>
+                <button class="btn-nova-venda" id="btn-nova-venda" title="Nova venda (abre o PDV com foco no código de barras)">
+                    <i data-lucide="plus-circle"></i>
+                    <span>Nova venda</span>
                 </button>
             </nav>
             
@@ -145,19 +140,22 @@
                                 <div id="notification-list" class="notification-list">
                                     <div class="empty-notif-msg">Sem novas notificações</div>
                                 </div>
+                                <div id="notification-pager" class="notification-pager"></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="topbar-separator"></div>
 
-                    <div id="topbar-user-profile" class="user-profile-topbar requer-login">
-                        <div class="profile-logo-container-topbar">
-                            <img id="topbar-profile-logo" src="" alt="User" class="avatar-topbar">
-                        </div>
+                    <div id="topbar-user-profile" class="user-profile-topbar">
+                        <div class="profile-logo-container-topbar"></div>
                         <div class="user-info-topbar">
-                            <p id="topbar-profile-name">Nome</p>
+                            <p id="topbar-profile-name">SV Ultra</p>
                             <span id="topbar-profile-role">Administrador</span>
+                        </div>
+                        <div class="topbar-meta">
+                            <span id="topbar-date" class="topbar-chip"></span>
+                            <span id="topbar-sales-today" class="topbar-chip topbar-chip-accent"></span>
                         </div>
                     </div>
                 </div>
@@ -566,28 +564,7 @@
                     </div>
                 </section>
 
-                <!-- Resumo de Vendas (substitui o caixa na v1) -->
-                <section id="resumo-view" class="view resumo-view">
-                    <div id="resumo-content" class="glass" style="padding: 1.5rem; border-radius: 12px;">
-                        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.25rem;">
-                            <label style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: var(--text-dim);">
-                                De
-                                <input type="date" id="resumo-de" class="glass-input-labs" onchange="app.renderResumo()" autocomplete="off">
-                            </label>
-                            <label style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: var(--text-dim);">
-                                Até
-                                <input type="date" id="resumo-ate" class="glass-input-labs" onchange="app.renderResumo()" autocomplete="off">
-                            </label>
-                            <button type="button" class="btn-save-labs" onclick="app.resumoHoje()">Hoje</button>
-                        </div>
-                        <div id="resumo-tabela">
-                            <!-- Preenchido por app.renderResumo() -->
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Settings View -->
-                <section id="settings-view" class="view settings-view">
+<section id="settings-view" class="view settings-view">
                     <div class="sv-settings-layout">
                         <!-- Menu Lateral de Configurações -->
                         <aside class="sv-settings-menu">
@@ -1381,7 +1358,6 @@
     </div>
 
     <script src="estoque.js"></script>
-    <script src="resumo.js"></script>
     <script src="backup.js"></script>
     <script src="app.js"></script>
     
