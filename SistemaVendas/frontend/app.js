@@ -9,6 +9,9 @@ const app = {
         // Login e gestão de usuários. Com false, o sistema abre direto (usuário local administrador)
         // e as telas de login e de usuários ficam ocultas. Para voltar, troque para true.
         loginAtivo: false,
+        // Tema escuro: desativado por enquanto. Com false, o sistema usa só o tema claro e os controles de tema ficam ocultos.
+        // Para voltar, troque para true.
+        temaEscuroAtivo: false,
         usuarioLocal: { id: 'local', fullname: 'Administrador', username: 'local', role: 'admin' },
         loginMaxAttempts: 5,
         loginLockoutMs: 30000,
@@ -1009,6 +1012,7 @@ const app = {
     },
 
     toggleTheme() {
+        if (!this.config.temaEscuroAtivo) return;
         const isLight = document.body.classList.toggle('light-theme');
         localStorage.setItem('sv_theme', isLight ? 'light' : 'dark');
         this.updateThemeIcon();
@@ -1017,7 +1021,7 @@ const app = {
 
     loadTheme() {
         const savedTheme = localStorage.getItem('sv_theme');
-        if (savedTheme === 'light') {
+        if (!this.config.temaEscuroAtivo || savedTheme === 'light') {
             document.body.classList.add('light-theme');
         } else {
             document.body.classList.remove('light-theme');
@@ -4946,14 +4950,6 @@ const app = {
                 view: 'settings',
                 settingsSection: 'notificacoes',
                 highlight: ['#sv-section-notificacoes']
-            },
-            {
-                title: 'Configurações: Aparência',
-                desc: 'Alterne entre tema claro e escuro. O tema também impacta a leitura do dashboard e gráficos.',
-                icon: 'monitor',
-                view: 'settings',
-                settingsSection: 'aparencia',
-                highlight: ['#sv-section-aparencia', '#appearance-theme-toggle']
             },
             {
                 title: 'Configurações: Ferramentas (tutorial e backup)',

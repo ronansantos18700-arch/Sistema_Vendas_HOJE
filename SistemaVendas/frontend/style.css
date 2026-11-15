@@ -4890,3 +4890,10 @@ textarea:focus-visible {
 #pos-view .pos-split-summary { font-size: var(--fs-sm); color: var(--text-dim); text-align: right; }
 #pos-view .pos-split-summary.is-ok { color: var(--color-success); }
 #pos-view .pos-split-summary.is-error { color: var(--color-warning); }
+
+/* Tema escuro desativado (config.temaEscuroAtivo). Garante que os controles de tema fiquem ocultos. */
+#btn-theme-toggle[hidden],
+#sv-section-aparencia[hidden],
+.sv-settings-menu-item[hidden] {
+    display: none !important;
+}
