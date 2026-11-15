@@ -5847,3 +5847,23 @@ i.bx {
 
 /* Produtos, Clientes e Saídas: painel e tabela sem espaço entre eles (igual a Entradas) */
 .products-view.active, .customers-view.active, .history-view.active { gap: 0; }
+
+/* Estoque em tabela: painel e tabela formam um bloco só, sem faixas laterais */
+.estoque-view.modo-tabela.active { gap: 0; }
+.estoque-view.modo-tabela .view-header-labs { border-bottom: 0; }
+.estoque-view.modo-tabela #estoque-grid {
+    padding: 0;
+    gap: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+.estoque-view.modo-tabela #estoque-grid .table-container-labs {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-top: 0;
+    border-radius: 0 0 14px 14px;
+    box-shadow: none;
+}
