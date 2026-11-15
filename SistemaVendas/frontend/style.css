@@ -5867,3 +5867,36 @@ i.bx {
     border-radius: 0 0 14px 14px;
     box-shadow: none;
 }
+
+/* PDV em telas baixas (até 820px de altura): cliente e desconto recolhíveis e blocos mais compactos */
+.pos-more-toggle { display: none; }
+@media (max-height: 820px) {
+    #pos-view .pos-more-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        border-radius: 8px;
+        border: 1px solid var(--glass-border);
+        background: var(--input-bg);
+        color: var(--text-white);
+        cursor: pointer;
+    }
+    #pos-view .pos-more-toggle i.bx { font-size: 16px; }
+    #pos-view .pos-more-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+    #pos-view .pos-more { display: none; }
+    #pos-view.pos-more-open .pos-customer.pos-more { display: flex; }
+    #pos-view.pos-more-open .pos-line.pos-more { display: flex; }
+    #pos-view .pos-pay-btn { height: 36px; }
+    #pos-view .pos-finish-btn { height: 46px; }
+}
+
+/* PDV em telas baixas: itens e total um pouco mais compactos, para caber mais linhas no carrinho */
+@media (max-height: 820px) {
+    #pos-view .pos-cart-item { padding: 0.35rem 0.45rem; }
+    #pos-view .pos-ci-qty button { width: 26px; height: 26px; }
+    #pos-view .pos-total-row strong { font-size: 22px; }
+    #pos-view .pos-paid-group input { height: 34px; }
+}

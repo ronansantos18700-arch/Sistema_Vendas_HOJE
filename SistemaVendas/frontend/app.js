@@ -683,6 +683,15 @@ const app = {
             });
         });
 
+        // PDV em telas baixas: mostra ou esconde cliente e desconto
+        const btnPosMore = document.getElementById('btn-pos-more');
+        if (btnPosMore) {
+            btnPosMore.addEventListener('click', () => {
+                const aberto = document.getElementById('pos-view').classList.toggle('pos-more-open');
+                btnPosMore.setAttribute('aria-expanded', String(aberto));
+            });
+        }
+
         // Estoque em tempo real: filtro e ordenação
         const filtroEstoque = document.getElementById('filter-estoque');
         if (filtroEstoque) filtroEstoque.addEventListener('input', () => this.renderEstoque());
