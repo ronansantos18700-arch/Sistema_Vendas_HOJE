@@ -553,7 +553,7 @@ const app = {
                     label: 'Lucro Total',
                     data: data,
                     backgroundColor: 'rgba(127, 165, 142, 0.6)',
-                    borderColor: '#7fa58e',
+                    borderColor: '#2e9e6a',
                     borderWidth: 1,
                     borderRadius: 6,
                     barThickness: 18
@@ -1279,10 +1279,10 @@ const app = {
                         </div>
                     </div>
                     <div class="sv-user-actions">
-                        <button type="button" class="btn-user-edit" onclick="app.editUser('${user.id}')" title="Editar Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(201, 169, 110, 0.1); color: var(--accent); border: 1px solid rgba(201, 169, 110, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
+                        <button type="button" class="btn-user-edit" onclick="app.editUser('${user.id}')" title="Editar Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(64, 112, 244, 0.1); color: var(--accent); border: 1px solid rgba(64, 112, 244, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
                             <i data-lucide="edit-3"></i>
                         </button>
-                        <button type="button" class="btn-user-delete" onclick="app.deleteUser('${user.id}')" title="Excluir Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(181, 103, 106, 0.1); color: #b5676a; border: 1px solid rgba(181, 103, 106, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
+                        <button type="button" class="btn-user-delete" onclick="app.deleteUser('${user.id}')" title="Excluir Usuário" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(214, 69, 69, 0.1); color: #d64545; border: 1px solid rgba(214, 69, 69, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);">
                             <i data-lucide="trash-2"></i>
                         </button>
                     </div>
@@ -2567,7 +2567,7 @@ const app = {
 
         const theme = this.getThemeColors();
         Chart.defaults.color = theme.text;
-        Chart.defaults.font.family = "'SV Roboto', 'Segoe UI', system-ui, sans-serif";
+        Chart.defaults.font.family = "'SV Poppins', 'Segoe UI', system-ui, sans-serif";
         Chart.defaults.font.size = 13;
         Chart.defaults.devicePixelRatio = window.devicePixelRatio || 2;
         Chart.defaults.responsive = true;
@@ -2587,8 +2587,8 @@ const app = {
             datasets.push({
                 label: 'Faturamento',
                 data: revenueData,
-                borderColor: '#c9a96e',
-                backgroundColor: 'rgba(201, 169, 110, 0.1)',
+                borderColor: '#4070f4',
+                backgroundColor: 'rgba(64, 112, 244, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2611,8 +2611,8 @@ const app = {
             datasets.push({
                 label: 'Custo',
                 data: costData,
-                borderColor: '#b5676a',
-                backgroundColor: 'rgba(181, 103, 106, 0.1)',
+                borderColor: '#d64545',
+                backgroundColor: 'rgba(214, 69, 69, 0.1)',
                 tension: 0.4,
                 fill: true,
                 pointRadius: 4,
@@ -2775,8 +2775,8 @@ const app = {
                 datasets: [{
                     label: 'Qtd. Vendida',
                     data: data,
-                    backgroundColor: 'rgba(201, 169, 110, 0.6)',
-                    borderColor: '#c9a96e',
+                    backgroundColor: 'rgba(64, 112, 244, 0.6)',
+                    borderColor: '#4070f4',
                     borderWidth: 1,
                     borderRadius: 6,
                     barThickness: 18
@@ -2862,11 +2862,11 @@ const app = {
                 datasets: [{
                     data: data,
                     backgroundColor: [
-                        'rgba(201, 169, 110, 0.7)', // Purple
+                        'rgba(64, 112, 244, 0.7)', // Purple
                         'rgba(127, 165, 142, 0.7)',  // Green
                         'rgba(249, 115, 22, 0.7)',  // Orange
                         'rgba(6, 182, 212, 0.7)',   // Cyan
-                        'rgba(181, 103, 106, 0.7)'    // Red
+                        'rgba(214, 69, 69, 0.7)'    // Red
                     ],
                     borderColor: theme.border,
                     borderWidth: 2,
@@ -2948,8 +2948,8 @@ const app = {
                 datasets: [{
                     label: 'Vendas',
                     data: hourlyStats,
-                    backgroundColor: 'rgba(201, 169, 110, 0.4)',
-                    borderColor: '#c9a96e',
+                    backgroundColor: 'rgba(64, 112, 244, 0.4)',
+                    borderColor: '#4070f4',
                     borderWidth: 1,
                     borderRadius: 4
                 }]
@@ -3044,11 +3044,11 @@ const app = {
                 datasets: [{
                     label: 'Margem %',
                     data: marginData,
-                    borderColor: '#c9a96e',
-                    backgroundColor: 'rgba(201, 169, 110, 0.1)',
+                    borderColor: '#4070f4',
+                    backgroundColor: 'rgba(64, 112, 244, 0.1)',
                     borderWidth: 2,
                     pointRadius: 3,
-                    pointBackgroundColor: '#7fa58e',
+                    pointBackgroundColor: '#2e9e6a',
                     tension: 0.4,
                     fill: true,
                     spanGaps: false
@@ -3214,10 +3214,10 @@ const app = {
                     <td>
                         <span class="badge-qty">${qtdItens}</span>
                     </td>
-                    <td style="color: #b5676a;">${this.formatCurrency(desconto)}</td>
+                    <td style="color: #d64545;">${this.formatCurrency(desconto)}</td>
                     <td style="font-weight: 700; color: var(--accent);">${this.formatCurrency(totalFinal)}</td>
                     <td style="color: var(--text-dim);">${this.formatCurrency(custo)}</td>
-                    <td style="font-weight: 600; color: ${lucro >= 0 ? '#7fa58e' : '#b5676a'};">${this.formatCurrency(lucro)}</td>
+                    <td style="font-weight: 600; color: ${lucro >= 0 ? '#2e9e6a' : '#d64545'};">${this.formatCurrency(lucro)}</td>
                     <td>
                         <button class="btn-action-view" onclick="app.showSaleDetails('${s.id}')" title="Ver Itens">
                             <i data-lucide="eye"></i>
@@ -4522,9 +4522,9 @@ const app = {
 
             // Cor do badge (prioridade vermelho > amarelo > azul)
             if (notifications.some(n => n.level === 'red')) {
-                badge.style.background = '#b5676a';
+                badge.style.background = '#d64545';
             } else if (notifications.some(n => n.level === 'yellow')) {
-                badge.style.background = '#d4a75a';
+                badge.style.background = '#e0a100';
             } else {
                 badge.style.background = '#8a9099';
             }
