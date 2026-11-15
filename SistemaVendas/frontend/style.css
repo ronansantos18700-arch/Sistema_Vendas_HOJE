@@ -4788,3 +4788,10 @@ textarea:focus-visible {
 #estoque-view .estoque-card.estoque-baixo .estoque-qtd span { color: var(--color-danger); }
 #estoque-view .estoque-card.estoque-medio .estoque-qtd span { color: var(--color-warning); }
 #estoque-view .estoque-card.estoque-ok .estoque-qtd span { color: var(--color-success); }
+
+/* PDV: linha separando Subtotal/Desconto do Total */
+#pos-view .pos-total-divider {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 0.35rem 0 0.15rem;
+}
