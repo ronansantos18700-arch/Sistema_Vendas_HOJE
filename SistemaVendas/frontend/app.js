@@ -840,6 +840,11 @@ const app = {
                 this.calculateTotals();
             });
         }
+        document.querySelectorAll('.pos-disc-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.setDiscountType(btn.getAttribute('data-disc')));
+        });
+        const btnClear = document.getElementById('btn-clear-sale');
+        if (btnClear) btnClear.addEventListener('click', () => this.limparVenda());
         const customerEl = document.getElementById('pos-customer');
         if (customerEl) {
             customerEl.addEventListener('change', () => {
@@ -856,6 +861,9 @@ const app = {
             if (e.key === 'F2') {
                 e.preventDefault();
                 barcodeInput?.focus();
+            } else if (e.key === 'F3') {
+                e.preventDefault();
+                this.limparVenda();
             } else if (e.key === 'F4') {
                 e.preventDefault();
                 this.finishSale();
@@ -1116,6 +1124,7 @@ const app = {
             if (paymentEl) paymentEl.value = this.state.posState.payment;
             if (discountInput) discountInput.value = this.state.posState.discount;
             if (paidInput) paidInput.value = this.state.posState.paid;
+            this.setDiscountType(this.state.posState.discountType || 'reais');
 
             this.updatePaidVisibility();
             this.calculateTotals();
@@ -3053,8 +3062,9 @@ const app = {
         const body = document.getElementById('critical-stock-body');
         if (!body) return;
 
-        const lowLevel = Number(this.state.settings.notifStockLow) || 10;
-        const mediumLevel = Number(this.state.settings.notifStockMedium) || 25;
+        const nCfg = this.state.settings.notifications || {};
+        const lowLevel = Number(nCfg.stockLowVal) || 10;
+        const mediumLevel = Number(nCfg.stockMediumVal) || 25;
 
         // Filtrar produtos com estoque baixo ou médio
         const criticalProducts = this.state.products
@@ -3590,10 +3600,50 @@ const app = {
         this.renderCart();
     },
 
+    // Desconto em R$ ou em % do subtotal. Sempre devolve o valor em reais.
+    descontoReais(subtotal) {
+        const input = document.getElementById('pos-discount');
+        const valor = input ? Math.max(0, parseFloat(input.value) || 0) : 0;
+        if (this.state.posState.discountType === 'percent') {
+            const pct = Math.min(valor, 100);
+            return Math.round(subtotal * pct) / 100;
+        }
+        return valor;
+    },
+
+    setDiscountType(tipo) {
+        this.state.posState.discountType = tipo === 'percent' ? 'percent' : 'reais';
+        document.querySelectorAll('.pos-disc-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-disc') === this.state.posState.discountType);
+        });
+        const input = document.getElementById('pos-discount');
+        if (input) input.placeholder = this.state.posState.discountType === 'percent' ? '0%' : '0,00';
+        this.calculateTotals();
+    },
+
+    // Limpa itens e desconto da venda atual (pede confirmação se houver algo).
+    limparVenda() {
+        const desconto = document.getElementById('pos-discount');
+        if (this.state.cart.length === 0 && !(desconto && desconto.value)) return;
+        this.confirmAction(
+            'Limpar venda',
+            'Remover todos os itens e o desconto desta venda?',
+            () => {
+                this.state.cart = [];
+                if (desconto) desconto.value = '';
+                this.state.posState.discount = '';
+                const paid = document.getElementById('pos-paid');
+                if (paid) paid.value = '';
+                this.state.posState.paid = '';
+                this.renderCart();
+            },
+            'trash-2'
+        );
+    },
+
     calculateTotals() {
         const subtotal = this.state.cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const discountInput = document.getElementById('pos-discount');
-        const desconto = discountInput ? parseFloat(discountInput.value) || 0 : 0;
+        const desconto = this.descontoReais(subtotal);
         const totalFinal = Math.max(0, subtotal - desconto);
         const subEl = document.getElementById('pos-subtotal');
         if (subEl) subEl.textContent = this.formatCurrency(subtotal);
@@ -3639,8 +3689,7 @@ const app = {
         });
         const subtotal = itensVenda.reduce((acc, item) => acc + (item.price * item.qty), 0);
         const custoTotal = itensVenda.reduce((acc, item) => acc + (item.cost * item.qty), 0);
-        const discountInput = document.getElementById('pos-discount');
-        const desconto = discountInput ? parseFloat(discountInput.value) || 0 : 0;
+        const desconto = this.descontoReais(subtotal);
         const totalFinal = Math.max(0, subtotal - desconto);
         const lucro = totalFinal - custoTotal;
         const paymentEl = document.getElementById('pos-payment');

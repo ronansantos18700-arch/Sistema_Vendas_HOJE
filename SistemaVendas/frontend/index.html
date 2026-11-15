@@ -378,6 +378,7 @@
                             <div class="pos-cart-head">
                                 <h4>Itens da venda</h4>
                                 <span id="pos-cart-count" class="pos-cart-count">0</span>
+                                <button type="button" id="btn-clear-sale" class="pos-clear-btn" title="Limpar venda (F3)">Limpar <kbd>F3</kbd></button>
                             </div>
 
                             <div id="pos-cart-items" class="pos-items">
@@ -390,8 +391,14 @@
                                     <span id="pos-subtotal">R$ 0,00</span>
                                 </div>
                                 <div class="pos-line">
-                                    <span>Desconto (R$)</span>
-                                    <input type="number" id="pos-discount" inputmode="decimal" placeholder="0,00" autocomplete="off">
+                                    <span>Desconto</span>
+                                    <div class="pos-discount-field">
+                                        <div class="pos-disc-type" role="group" aria-label="Tipo de desconto">
+                                            <button type="button" class="pos-disc-btn active" data-disc="reais">R$</button>
+                                            <button type="button" class="pos-disc-btn" data-disc="percent">%</button>
+                                        </div>
+                                        <input type="number" id="pos-discount" inputmode="decimal" placeholder="0,00" autocomplete="off">
+                                    </div>
                                 </div>
                                 <div class="pos-total-divider" aria-hidden="true"></div>
                                 <div class="pos-total-row">

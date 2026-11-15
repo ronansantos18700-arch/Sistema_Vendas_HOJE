@@ -4795,3 +4795,38 @@ textarea:focus-visible {
     background: var(--glass-border);
     margin: 0.35rem 0 0.15rem;
 }
+
+/* PDV: desconto em R$ ou %, e botão Limpar */
+#pos-view .pos-discount-field { display: flex; align-items: center; gap: 0.4rem; }
+#pos-view .pos-disc-type {
+    display: flex;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+#pos-view .pos-disc-btn {
+    height: 36px;
+    min-width: 36px;
+    padding: 0 0.5rem;
+    background: var(--input-bg);
+    border: none;
+    color: var(--text-dim);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+}
+#pos-view .pos-disc-btn.active { background: var(--accent); color: var(--bg-dark); font-weight: 600; }
+#pos-view .pos-clear-btn {
+    margin-left: auto;
+    height: 30px;
+    padding: 0 0.6rem;
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-dim);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+#pos-view .pos-clear-btn:hover { color: var(--text-white); border-color: var(--accent); }
