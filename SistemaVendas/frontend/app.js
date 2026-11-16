@@ -5382,7 +5382,7 @@ const app = {
                     <div class="tabela-card-titulo">
                         <strong>${this.esc(e.fornecedor || '---')}</strong>
                         <span>#${e.id.toString().slice(-6)} · NF ${this.esc(e.nota || '---')}</span>
-                        <span>${new Date(e.date).toLocaleString()}</span>
+                        <span>${new Date(e.date).toLocaleDateString('pt-BR')}</span>
                     </div>
                 </div>
                 <div class="tabela-card-dados">
@@ -5400,7 +5400,7 @@ const app = {
         container.innerHTML = filtered.map(e => `
             <div class="nested-item-labs-row">
                 <span class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</span>
-                <span class="col-date" data-label="DATA">${new Date(e.date).toLocaleString()}</span>
+                <span class="col-date" data-label="DATA">${new Date(e.date).toLocaleDateString('pt-BR')}</span>
                 <span class="col-name" data-label="FORNECEDOR">${this.esc(e.fornecedor || '---')}</span>
                 <span class="col-code" data-label="Nº NOTA">${this.esc(e.nota || '---')}</span>
                 <span class="col-qty-sum" data-label="ITENS">${e.items.length} itens</span>
