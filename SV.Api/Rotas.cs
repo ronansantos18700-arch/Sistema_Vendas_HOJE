@@ -53,7 +53,14 @@ namespace SV.Api
                     return Results.Json(new
                     {
                         token = token,
-                        usuario = publico,
+                        usuario = new
+                        {
+                            id = (string)publico["id"],
+                            fullname = (string)publico["fullname"],
+                            username = (string)publico["username"],
+                            role = (string)publico["role"],
+                            isDefaultCredential = (bool)publico["isDefaultCredential"]
+                        },
                         trocarSenha = (bool)publico["isDefaultCredential"]
                     });
                 }
