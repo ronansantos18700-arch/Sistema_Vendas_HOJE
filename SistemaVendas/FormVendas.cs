@@ -62,54 +62,66 @@ namespace SistemaVendas
                 // Bridge com JS
                 webView21.CoreWebView2.AddHostObjectToScript("bridge", _bridge);
 
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-
-                // Ambiente de desenvolvimento
-                if (baseDir.Contains("\\bin\\Debug") || baseDir.Contains("\\bin\\Release"))
+                // O frontend vem do servidor central (mesmos arquivos, http://IP:5080/).
+                // Sem servidor, o sistema não abre: os dados ficam só no servidor.
+                // A falha é detectada pelo próprio WebView2 (sem outra conexão de teste),
+                // e o aviso mostra o motivo que o navegador informou.
+                string url = LerUrlServidor();
+                webView21.CoreWebView2.NavigationCompleted += (s, e) =>
                 {
-                    string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", ".."));
-                    if (Directory.Exists(Path.Combine(projectRoot, "frontend")))
-                    {
-                        baseDir = projectRoot;
-                    }
-                }
+                    if (e.IsSuccess) return;
 
-                string frontendPath = Path.Combine(baseDir, "frontend");
+                    DialogResult resposta = MessageBox.Show(
+                        "Não foi possível abrir o sistema em " + url + ".\n\n" +
+                        "Motivo: " + e.WebErrorStatus + "\n\n" +
+                        "Verifique se o servidor está ligado e se o endereço no arquivo servidor.txt está certo.\n\n" +
+                        "Tentar de novo?",
+                        "Servidor indisponível",
+                        MessageBoxButtons.RetryCancel, MessageBoxIcon.Warning);
+                    if (resposta == DialogResult.Retry) webView21.CoreWebView2.Navigate(url + "/");
+                    else Close();
+                };
 
-                // Fallback
-                if (!Directory.Exists(frontendPath))
-                {
-                    string assemblyDir = Path.GetDirectoryName(
-                        new Uri(System.Reflection.Assembly.GetExecutingAssembly().CodeBase).LocalPath);
-
-                    baseDir = assemblyDir;
-                    frontendPath = Path.Combine(baseDir, "frontend");
-                }
-
-                // Mapeia domínio virtual para a pasta frontend
-                // Elimina erros de "file: URLs are treated as unique origins"
-                webView21.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                    "app.local",
-                    frontendPath,
-                    CoreWebView2HostResourceAccessKind.Allow);
-
-                string filepath = Path.Combine(frontendPath, "index.html");
-               
-                if (File.Exists(filepath))
-                {
-                    // Navega pelo domínio virtual em vez de file://
-                    webView21.CoreWebView2.Navigate("https://app.local/index.html");
-                }
-                else
-                {
-                    MessageBox.Show("Arquivo index.html não encontrado.", "Erro",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                webView21.CoreWebView2.Navigate(url + "/");
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Erro ao iniciar WebView2:\n" + ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Endereço do servidor: linha de %LOCALAPPDATA%\SistemaVendas_UNIQ\servidor.txt
+        /// (ex.: http://192.168.0.10:5080). Sem o arquivo, usa http://localhost:5080.
+        /// </summary>
+        private static string LerUrlServidor()
+        {
+            string url = "http://localhost:5080";
+            try
+            {
+                string arquivo = Path.Combine(Path.GetDirectoryName(Database.Caminho), "servidor.txt");
+                if (File.Exists(arquivo))
+                {
+                    foreach (string linha in File.ReadAllLines(arquivo))
+                    {
+                        string texto = linha.Trim();
+                        if (texto.Length == 0 || texto.StartsWith("#")) continue;
+                        url = texto;
+                        break;
+                    }
+                }
+            }
+            catch (IOException)
+            {
+                // Arquivo em uso ou ilegível: segue com o endereço padrão.
+            }
+
+            if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                url = "http://" + url;
+            }
+            return url.TrimEnd('/');
         }
 
         public void SendNotification(string type, string message)

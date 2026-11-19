@@ -8,7 +8,7 @@ const app = {
     config: {
         // Login e gestão de usuários. Com false, o sistema abre direto (usuário local administrador)
         // e as telas de login e de usuários ficam ocultas. Para voltar, troque para true.
-        loginAtivo: false,
+        loginAtivo: true,
         notifPorPagina: 4,
         // Tema escuro: desativado por enquanto. Com false, o sistema usa só o tema claro e os controles de tema ficam ocultos.
         // Para voltar, troque para true.
@@ -192,7 +192,240 @@ const app = {
     },
 
     // --- Initialization ---
+    // --- Servidor central ---
+    emModoServidor() {
+        return !!(this.servidor && this.servidor.logado);
+    },
+
+    origemDeDados() {
+        // Com servidor configurado, os dados só vão para o servidor, mesmo sem sessão.
+        // Nunca cair na ponte: ela grava no banco local da máquina e separaria os dados.
+        if (this.servidor && window.SvServidor) return window.SvServidor.origemDeDados(this.servidor);
+        if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.bridge) {
+            return window.chrome.webview.hostObjects.bridge;
+        }
+        return null;
+    },
+
+    // --- Monitor do servidor ---
+    // Se o servidor cai, o sistema para (tela bloqueada com aviso). Quando volta, confere a sessão,
+    // grava o que ficou pendente e recarrega os dados (inclui o que outros computadores gravaram).
+    iniciarMonitorServidor() {
+        if (!this.servidor || this.monitorServidor) return;
+        this.monitorServidor = setInterval(() => this.verificarServidor(), 4000);
+    },
+
+    async verificarServidor() {
+        if (this.verificandoServidor) return;
+        this.verificandoServidor = true;
+        try {
+            const ok = await this.servidor.verificarConexao();
+            if (!ok) {
+                if (!this.servidorCaido) {
+                    this.servidorCaido = true;
+                    this.mostrarServidorIndisponivel(true);
+                }
+                return;
+            }
+            if (this.servidorCaido) {
+                this.servidorCaido = false;
+                this.mostrarServidorIndisponivel(false);
+                await this.servidorVoltou();
+            }
+        } finally {
+            this.verificandoServidor = false;
+        }
+    },
+
+    async servidorVoltou() {
+        if (!this.emModoServidor()) return; // ninguém logado: a tela de login volta ao normal
+        let valida = true;
+        try {
+            valida = await this.servidor.sessaoValida();
+        } catch (_) {
+            return; // caiu de novo: o monitor detecta na próxima verificação
+        }
+        if (!valida) {
+            // Sessão perdida (o servidor reiniciou ou expirou): volta para o login.
+            this.logout();
+            this.showLoginError('O servidor foi reiniciado. Entre novamente.');
+            return;
+        }
+        try {
+            // Grava o que ficou pendente antes de recarregar; se falhar, não recarrega (não perde nada).
+            const gravou = await this.salvarDados();
+            if (gravou === false) return;
+            await this.carregarDados();
+        } catch (err) {
+            this.showNotification('error', err.message);
+        }
+    },
+
+    mostrarServidorIndisponivel(ativo) {
+        let aviso = document.getElementById('servidor-indisponivel');
+        if (!ativo) {
+            if (aviso) aviso.remove();
+            return;
+        }
+        if (aviso) return;
+
+        aviso = document.createElement('div');
+        aviso.id = 'servidor-indisponivel';
+        aviso.setAttribute('role', 'alertdialog');
+        aviso.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.92);color:#fff;' +
+            'display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;';
+
+        const caixa = document.createElement('div');
+        caixa.style.cssText = 'max-width:460px;';
+
+        const titulo = document.createElement('h2');
+        titulo.textContent = 'Servidor indisponível';
+        titulo.style.cssText = 'margin:0 0 12px;font-size:1.4rem;';
+
+        const texto = document.createElement('p');
+        texto.textContent = 'A conexão com o servidor de vendas caiu. O sistema está pausado para não perder dados.';
+        texto.style.cssText = 'margin:0 0 8px;';
+
+        const endereco = document.createElement('p');
+        endereco.textContent = 'Endereço: ' + (this.servidor.url || '(não definido)');
+        endereco.style.cssText = 'margin:0 0 16px;opacity:0.85;';
+
+        const rodape = document.createElement('p');
+        rodape.textContent = 'Esta tela some sozinha quando o servidor voltar. Não feche o programa.';
+        rodape.style.cssText = 'margin:0;opacity:0.85;';
+
+        caixa.append(titulo, texto, endereco, rodape);
+        aviso.appendChild(caixa);
+        document.body.appendChild(aviso);
+    },
+
+    async loginServidor(username, password) {
+        this.setLoading(true);
+        try {
+            const usuario = await this.servidor.login(username, password);
+            this.state.loginAttempts = 0;
+            this.state.lockoutUntil = null;
+            localStorage.removeItem('sv_login_security');
+            this.state.currentUser = usuario;
+            this.hideLoginError();
+
+            await this.carregarDados();
+            this.logAudit('LOGIN_SUCCESS', { username: usuario.username });
+
+            const { loginScreen, appContainer } = this.getDOMRefs();
+            if (loginScreen) loginScreen.classList.add('hidden');
+            if (appContainer) appContainer.classList.remove('hidden');
+            this.updateBrand();
+            this.switchView('pos');
+
+            if (usuario.trocarSenha) {
+                this.state.mustChangePassword = true;
+                setTimeout(() => {
+                    this.showAlert(
+                        '🔐 Troca de Senha Obrigatória',
+                        'Senha provisória detectada. Defina uma nova senha em Configurações > Usuários antes de continuar.',
+                        'shield-alert'
+                    );
+                    this.switchView('settings');
+                    setTimeout(() => this.switchSettingsSection('usuarios'), 300);
+                }, 500);
+            }
+        } catch (err) {
+            this.showLoginError(err.message);
+        } finally {
+            this.setLoading(false);
+        }
+    },
+
+    async recarregarUsuariosServidor() {
+        let lista = [];
+        try {
+            lista = await this.servidor.listarUsuarios();
+        } catch (err) {
+            if (err.status !== 403) throw err;
+        }
+        this.state.users = lista.map(u => ({
+            id: String(u.id || ''),
+            fullname: String(u.fullname || ''),
+            username: String(u.username || ''),
+            password: '',
+            role: String(u.role || 'operador'),
+            isDefaultCredential: !!u.isDefaultCredential
+        }));
+    },
+
+    async salvarUsuarioServidor(e, editingId, fullname, username, role, password) {
+        const campoAtual = document.getElementById('user-current-password');
+        const senhaAtual = campoAtual ? campoAtual.value : '';
+        const euMesmo = !!editingId && !!this.state.currentUser && this.state.currentUser.id === editingId;
+        const mudouLogin = euMesmo && this.state.currentUser.username !== username;
+
+        this.setLoading(true);
+        try {
+            if (!editingId) {
+                if (!password) {
+                    this.showNotification('error', 'A senha é obrigatória para novos usuários.');
+                    return;
+                }
+                await this.servidor.criarUsuario({ fullname, username, role, senha: password });
+                this.showNotification('success', 'Usuário criado com sucesso!');
+            } else {
+                if (euMesmo && password) {
+                    if (!senhaAtual) {
+                        this.showNotification('error', 'Informe a senha atual para trocar a sua senha.');
+                        return;
+                    }
+                    await this.servidor.trocarMinhaSenha(senhaAtual, password);
+                }
+                // Operador só troca a própria senha; nome, login e perfil são editados pelo admin.
+                const podeEditarCadastro = !euMesmo || this.state.currentUser.role === 'admin';
+                if (podeEditarCadastro) {
+                    // Para o próprio usuário, a senha já foi trocada acima; só repete se o login mudou (o hash usa o login).
+                    const senhaParaEnviar = euMesmo ? (mudouLogin ? password : '') : password;
+                    await this.servidor.atualizarUsuario(editingId, { fullname, username, role, senha: senhaParaEnviar });
+                }
+                this.showNotification('success', 'Usuário atualizado com sucesso!');
+            }
+
+            await this.recarregarUsuariosServidor();
+            if (euMesmo) {
+                const eu = this.state.users.find(u => u.id === editingId);
+                this.state.currentUser = { ...this.state.currentUser, ...(eu || {}) };
+                if (password) {
+                    this.state.mustChangePassword = false;
+                    this.state.currentUser.isDefaultCredential = false;
+                }
+                this.updateBrand();
+            }
+            this.renderUsers();
+            this.closeModal();
+            e.target.reset();
+            document.getElementById('user-password').required = true;
+            document.getElementById('user-confirm-password').required = true;
+        } catch (err) {
+            this.showNotification('error', err.message);
+        } finally {
+            this.setLoading(false);
+        }
+    },
+
+    // Foto escolhida no PC vai para o servidor; a URL do servidor é o que fica gravado no produto/cliente.
+    async escolherFoto(bridge) {
+        const caminhoLocal = await bridge.SelectFile();
+        if (!caminhoLocal || !this.emModoServidor()) return caminhoLocal;
+        try {
+            const dataUrl = await bridge.GetFileBase64(caminhoLocal);
+            if (!dataUrl) throw new Error('Não foi possível ler a foto escolhida.');
+            const base64 = String(dataUrl).split(',').pop();
+            return await this.servidor.enviarImagem(caminhoLocal.split('/').pop(), base64);
+        } catch (err) {
+            this.showNotification('error', 'Foto não enviada: ' + err.message);
+            return null;
+        }
+    },
+
     async init() {
+        this.servidor = window.SvServidor ? new window.SvServidor.ServidorAPI() : null;
         if (!this.config.loginAtivo) {
             this.state.currentUser = { ...this.config.usuarioLocal };
             document.body.classList.add('sem-login');
@@ -201,7 +434,9 @@ const app = {
         this.loadLoginSecurityState();
         this.setupGlobalHandlers();
         this.setupBridge();
-        await this.carregarDados();
+        // Com login, os dados são carregados depois de entrar (o servidor exige sessão).
+        if (!this.config.loginAtivo) await this.carregarDados();
+        this.iniciarMonitorServidor();
         this.setupEventListeners();
         this.initLucide();
 
@@ -251,6 +486,7 @@ const app = {
     },
 
     async login(username, password) {
+        if (this.servidor) return this.loginServidor(username, password);
         // Mensagem de lockout atualiza em tempo real
         if (this.state.lockoutUntil && Date.now() < this.state.lockoutUntil) {
             if (this.lockoutInterval) clearInterval(this.lockoutInterval);
@@ -374,6 +610,7 @@ const app = {
     logout() {
         if (!this.config.loginAtivo) return; // sem login, não há sessão para encerrar
         this.logAudit('LOGOUT', {});
+        if (this.servidor) this.servidor.sair();
         this.state.currentUser = null;
         const { loginScreen, appContainer } = this.getDOMRefs();
         if (loginScreen) loginScreen.classList.remove('hidden');
@@ -575,7 +812,7 @@ const app = {
     async handlePhotoSelection() {
         if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
             const bridge = window.chrome.webview.hostObjects.bridge;
-            const photoPath = await bridge.SelectFile();
+            const photoPath = await this.escolherFoto(bridge);
             if (photoPath) {
                 document.getElementById('prod-image-url').value = photoPath;
                 this.updatePhotoPreview(photoPath);
@@ -1344,6 +1581,11 @@ const app = {
             }
         }
 
+        if (this.emModoServidor()) {
+            await this.salvarUsuarioServidor(e, editingId, fullname, username, role, password);
+            return;
+        }
+
         let hashedPassword = null;
         if (password) {
             this.setLoading(true);
@@ -1418,6 +1660,17 @@ const app = {
             'Excluir Usuário',
             `Deseja realmente excluir o usuário ${user.fullname}?`,
             async () => {
+                if (this.emModoServidor()) {
+                    try {
+                        await this.servidor.excluirUsuario(userId);
+                        await this.recarregarUsuariosServidor();
+                        this.renderUsers();
+                        this.showNotification('success', 'Usuário excluído.');
+                    } catch (err) {
+                        this.showNotification('error', err.message);
+                    }
+                    return;
+                }
                 this.logAudit('DELETE_USER', { targetId: userId, targetUsername: user.username });
                 this.state.users = this.state.users.filter(u => u.id !== userId);
                 await this.salvarDados();
@@ -1430,6 +1683,10 @@ const app = {
 
     async resetSystemUsers() {
         if (!this.requireAdmin('resetar usuários')) return;
+        if (this.emModoServidor()) {
+            this.showNotification('info', 'No modo servidor, os usuários são gerenciados um a um, na lista de usuários.');
+            return;
+        }
         this.logAudit('RESET_USERS', {});
         this.confirmAction(
             'Resetar Todos os Usuários?',
@@ -1507,7 +1764,7 @@ const app = {
     async handleLogoSelection() {
         if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
             const bridge = window.chrome.webview.hostObjects.bridge;
-            const photoPath = await bridge.SelectFile();
+            const photoPath = await this.escolherFoto(bridge);
             if (photoPath) {
                 const settingsLogoUrl = document.getElementById('settings-logo-url-page');
                 if (settingsLogoUrl) settingsLogoUrl.value = photoPath;
@@ -1779,6 +2036,10 @@ const app = {
 
     async generateChecksum(data) {
         const content = JSON.stringify(data);
+        // Em http:// (outro PC na rede) não existe crypto.subtle: usa o SHA-256 em JS (mesmo resultado).
+        if (!(window.crypto && window.crypto.subtle) && window.SvSha256) {
+            return window.SvSha256.sha256Hex(content);
+        }
         const encoder = new TextEncoder();
         const hashBuffer = await crypto.subtle.digest(
             'SHA-256',
@@ -2137,11 +2398,13 @@ const app = {
 
         this.setLoading(true);
         try {
-            if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
-                const bridge = window.chrome.webview.hostObjects.bridge;
+            const bridge = this.origemDeDados();
+            if (bridge) {
 
                 // Grava somente o que mudou desde a última gravação bem-sucedida (uma transação).
                 const colecoes = this.colecoesParaSalvar();
+                // Usuários têm rotas próprias no servidor: ficam fora desta gravação.
+                if (this.emModoServidor()) delete colecoes.users;
                 const anterior = this.snapshotSalvo;
                 const payload = {};
 
@@ -2188,8 +2451,8 @@ const app = {
         this.snapshotSalvo = null; // estado recém-lido: próxima gravação compara com o banco inteiro
         this.setLoading(true);
         try {
-            if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.bridge) {
-                const bridge = window.chrome.webview.hostObjects.bridge;
+            const bridge = this.origemDeDados();
+            if (bridge) {
 
                 // Carregar dados principais
                 const [productsData, customersData, salesData, settingsData, reversalsData, entradasData, categoriesData, movimentacoesData] = await Promise.all([
@@ -2211,7 +2474,7 @@ const app = {
                     console.warn("Bridge 'users' falhou no carregamento.");
                 }
 
-                if (!usersData || usersData === "[]" || usersData === "") {
+                if (!this.emModoServidor() && (!usersData || usersData === "[]" || usersData === "")) {
                     usersData = localStorage.getItem('sv_users');
                 }
 
@@ -2267,6 +2530,9 @@ const app = {
                         cost: parseFloat(s.cost || s.custo || s.Custo || s.custoTotal || 0) || 0,
                         lucro: parseFloat(s.lucro || s.Lucro || 0) || 0,
                         pagamento: String(s.pagamento || s["Forma de Pagamento"] || 'N/A'),
+                        // Venda paga em mais de uma forma: mantém a divisão (vem de _extra no banco)
+                        pagamentos: Array.isArray(s.pagamentos) ? s.pagamentos : undefined,
+                        troco: s.troco !== undefined ? (Number(s.troco) || 0) : undefined,
                         items: items
                     };
                 });
@@ -2331,8 +2597,8 @@ const app = {
                     role: String(u.role || 'operador')
                 }));
 
-                // Criar usuário admin padrão se não houver usuários
-                if (this.state.users.length === 0) {
+                // Criar usuário admin padrão se não houver usuários (somente sem servidor)
+                if (this.state.users.length === 0 && !this.emModoServidor()) {
                     const hashedPassword = await this.hashPassword('1234', 'admin');
                     this.state.users.push({
                         id: 'U' + Date.now(),
@@ -2359,8 +2625,8 @@ const app = {
                 this.state.categories = JSON.parse(localStorage.getItem('sv_categories') || '[]');
                 this.state.movimentacoes = JSON.parse(localStorage.getItem('sv_movimentacoes') || '[]');
 
-                // Criar usuário admin padrão se não houver usuários (fallback)
-                if (this.state.users.length === 0) {
+                // Criar usuário admin padrão se não houver usuários (fallback, somente sem servidor)
+                if (this.state.users.length === 0 && !this.emModoServidor()) {
                     const hashedPassword = await this.hashPassword('1234', 'admin');
                     this.state.users.push({
                         id: 'U' + Date.now(),
@@ -4413,6 +4679,7 @@ const app = {
                     </div>
                     <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
                     <div class="col-actions" data-label="AÇÕES">
+                        <button class="btn-action-edit" title="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
                         <button class="btn-action-edit" title="Gerar Recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
                         <button class="btn-action-delete" title="Excluir Venda" onclick="app.deleteSale('${id}')"><i data-lucide="trash-2"></i></button>
                     </div>
@@ -4457,6 +4724,153 @@ const app = {
             },
             'trash-2'
         );
+    },
+
+    // ===== Edição de venda registrada (regras puras em edicao_venda.js) =====
+    vendaEmEdicao() {
+        const id = this.state.saleEditId;
+        if (!id) return null;
+        return this.state.sales.find(s => String(s.id || s.ID) === String(id)) || null;
+    },
+
+    openSaleEdit(saleId) {
+        const sale = this.state.sales.find(s => String(s.id || s.ID) === String(saleId));
+        if (!sale || !Array.isArray(sale.items) || sale.items.length === 0) {
+            this.showNotification('error', 'Venda não encontrada ou sem itens.');
+            return;
+        }
+        this.state.saleEditId = String(sale.id || sale.ID);
+
+        const nomesCliente = ['Consumidor Final', ...this.state.customers.map(c => c.name)];
+        if (sale.cliente && !nomesCliente.includes(sale.cliente)) nomesCliente.push(sale.cliente);
+        const clienteSel = document.getElementById('sale-edit-cliente');
+        clienteSel.innerHTML = [...new Set(nomesCliente)]
+            .map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
+        clienteSel.value = sale.cliente || 'Consumidor Final';
+
+        const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
+        const misto = Array.isArray(sale.pagamentos) && sale.pagamentos.length > 0;
+        const pagSel = document.getElementById('sale-edit-pagamento');
+        pagSel.innerHTML = (misto ? '<option value="manter">Manter pagamento dividido</option>' : '')
+            + EdicaoVenda.FORMAS.map(f => `<option value="${f}">${nomesForma[f]}</option>`).join('');
+        pagSel.value = misto ? 'manter' : (EdicaoVenda.FORMAS.includes(sale.pagamento) ? sale.pagamento : 'dinheiro');
+
+        document.getElementById('sale-edit-desconto').value = Number(sale.desconto) || 0;
+        document.getElementById('sale-edit-title').textContent = `Editar venda #${String(sale.id || sale.ID).slice(-6)}`;
+
+        document.getElementById('sale-edit-items').innerHTML = sale.items.map((item, i) => `
+            <div class="sale-edit-row">
+                <div class="sale-edit-nome">
+                    ${this.esc(item.name || 'Produto')}
+                    <small>${this.formatCurrency(Number(item.price) || 0)} cada</small>
+                </div>
+                <input type="number" class="glass-input-labs sale-edit-qty" min="0" step="1" inputmode="numeric"
+                       value="${Number(item.qty) || 0}" data-idx="${i}" oninput="app.atualizarTotaisEdicaoVenda()">
+                <div class="sale-edit-sub" data-sub="${i}"></div>
+            </div>`).join('');
+
+        this.mostrarErroEdicaoVenda('');
+        this.atualizarTotaisEdicaoVenda();
+        this.openModal('sale-edit-modal');
+        this.initLucide();
+    },
+
+    mostrarErroEdicaoVenda(msg) {
+        const el = document.getElementById('sale-edit-erro');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.classList.toggle('hidden', !msg);
+    },
+
+    lerQuantidadesEdicao() {
+        return Array.from(document.querySelectorAll('#sale-edit-items .sale-edit-qty'))
+            .map(inp => (inp.value === '' ? NaN : Number(inp.value)));
+    },
+
+    atualizarTotaisEdicaoVenda() {
+        const sale = this.vendaEmEdicao();
+        const totaisEl = document.getElementById('sale-edit-totais');
+        if (!sale || !totaisEl) return;
+
+        const qtds = this.lerQuantidadesEdicao();
+        qtds.forEach((q, i) => {
+            const sub = document.querySelector(`#sale-edit-items [data-sub="${i}"]`);
+            const price = Number(sale.items[i].price) || 0;
+            if (sub) sub.textContent = this.formatCurrency(price * (Number.isFinite(q) ? q : 0));
+        });
+
+        const desconto = Number(document.getElementById('sale-edit-desconto').value) || 0;
+        try {
+            const t = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
+            totaisEl.innerHTML = `
+                <div><span>Subtotal</span><span>${this.formatCurrency(t.valor_total)}</span></div>
+                <div><span>Desconto</span><span>- ${this.formatCurrency(t.desconto)}</span></div>
+                <div class="total"><span>Total da venda</span><span>${this.formatCurrency(t.valor_final)}</span></div>`;
+        } catch (e) {
+            totaisEl.innerHTML = `<div class="sale-edit-aviso">${this.esc(e.message)}</div>`;
+        }
+    },
+
+    async salvarEdicaoVenda() {
+        const sale = this.vendaEmEdicao();
+        if (!sale) {
+            this.mostrarErroEdicaoVenda('Venda não encontrada.');
+            return;
+        }
+
+        const qtds = this.lerQuantidadesEdicao();
+        const desconto = Number(document.getElementById('sale-edit-desconto').value) || 0;
+        const cliente = document.getElementById('sale-edit-cliente').value || 'Consumidor Final';
+        const escolha = document.getElementById('sale-edit-pagamento').value;
+
+        let totais, pag, plano;
+        try {
+            totais = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
+            pag = EdicaoVenda.pagamentoAposEdicao(sale, totais.valor_final, escolha);
+            plano = EdicaoVenda.planejarEdicao(this.state.movimentacoes, sale, qtds);
+        } catch (e) {
+            this.mostrarErroEdicaoVenda(e.message);
+            return;
+        }
+
+        if (!plano.ok) {
+            const lista = plano.problemas.map(p => `${p.nome}: faltam ${p.falta} un.`).join(' · ');
+            this.mostrarErroEdicaoVenda('Estoque insuficiente para aumentar esta venda. ' + lista);
+            return;
+        }
+
+        const itensAntes = sale.items.map(it => ({ id: it.id, qty: it.qty }));
+        const saleId = sale.id || sale.ID;
+
+        // Tudo validado: aplica estoque (movimentações) e a venda
+        this.registrarMovimentacoes(plano.novas);
+        Object.assign(sale, {
+            items: totais.items,
+            valor_total: totais.valor_total,
+            desconto: totais.desconto,
+            valor_final: totais.valor_final,
+            cost: totais.cost,
+            lucro: totais.lucro,
+            cliente: cliente
+        });
+        delete sale.pagamentos;
+        delete sale.troco;
+        Object.assign(sale, pag);
+
+        this.logAudit('EDIT_SALE', {
+            saleId: saleId,
+            itensAntes: itensAntes,
+            itensDepois: totais.items.map(it => ({ id: it.id, qty: it.qty })),
+            desconto: totais.desconto,
+            pagamento: pag.pagamento
+        });
+
+        this.state.saleEditId = null;
+        this.closeModal();
+        await this.salvarDados();
+        this.showNotification('success', 'Venda editada e estoque ajustado.');
+        this.renderHistory();
+        this.updateDashboardStats();
     },
 
     openStockAlerts() {
@@ -4762,6 +5176,9 @@ const app = {
         const saleDetailsModal = document.getElementById('sale-details-modal');
         if (saleDetailsModal) saleDetailsModal.classList.toggle('hidden', type !== 'sale-details-modal');
 
+        const saleEditModal = document.getElementById('sale-edit-modal');
+        if (saleEditModal) saleEditModal.classList.toggle('hidden', type !== 'sale-edit-modal');
+
         const alertsModal = document.getElementById('stock-alerts-modal');
         if (alertsModal) alertsModal.classList.toggle('hidden', type !== 'stock-alerts');
 
@@ -4841,7 +5258,7 @@ const app = {
         }
 
         // Garantir que todos os modais internos estejam escondidos
-        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'confirm-remove-logo', 'backup-modal', 'categories-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
+        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'sale-edit-modal', 'confirm-remove-logo', 'backup-modal', 'categories-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
         modals.forEach(id => {
             document.getElementById(id)?.classList.add('hidden');
         });
@@ -5382,7 +5799,7 @@ const app = {
                     <div class="tabela-card-titulo">
                         <strong>${this.esc(e.fornecedor || '---')}</strong>
                         <span>#${e.id.toString().slice(-6)} · NF ${this.esc(e.nota || '---')}</span>
-                        <span>${new Date(e.date).toLocaleString()}</span>
+                        <span>${new Date(e.date).toLocaleDateString('pt-BR')}</span>
                     </div>
                 </div>
                 <div class="tabela-card-dados">
@@ -5400,7 +5817,7 @@ const app = {
         container.innerHTML = filtered.map(e => `
             <div class="nested-item-labs-row">
                 <span class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</span>
-                <span class="col-date" data-label="DATA">${new Date(e.date).toLocaleString()}</span>
+                <span class="col-date" data-label="DATA">${new Date(e.date).toLocaleDateString('pt-BR')}</span>
                 <span class="col-name" data-label="FORNECEDOR">${this.esc(e.fornecedor || '---')}</span>
                 <span class="col-code" data-label="Nº NOTA">${this.esc(e.nota || '---')}</span>
                 <span class="col-qty-sum" data-label="ITENS">${e.items.length} itens</span>

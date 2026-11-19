@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Banco de dados local do servidor (SV.Api)
+SV.Api/dados/

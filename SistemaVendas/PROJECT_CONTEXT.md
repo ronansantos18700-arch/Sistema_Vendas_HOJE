@@ -264,3 +264,46 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Dados antigos de caixa e fechamentos continuam nas tabelas `caixa` e `fechamentos` do banco, mas o app não lê nem grava mais. Backups deixam de incluir `fechamentos`; backups antigos com essa chave são ignorados na restauração.
 - Não verificado no Windows: a tela Resumo e os filtros de data.
 
+### 2026-11-14 (edição de venda registrada)
+
+- Na tela Saídas, o botão de lápis abre o modal "Editar venda". É possível alterar: quantidade de cada item (0 remove o item), desconto em R$, cliente e forma de pagamento. Data e número da venda não mudam. Não é possível adicionar produto novo a uma venda existente.
+- Estoque: a diferença de quantidade vira movimentação, sem apagar o histórico. Mais unidades = movimentação de venda (com o custo do item na venda); menos unidades = estorno. Se faltar estoque para aumentar a venda, a edição é recusada e nada muda.
+- Venda paga em mais de uma forma: a divisão só é mantida se a soma continuar batendo com o novo total; caso contrário, é preciso escolher uma forma única.
+- Correção junto: a normalização das vendas ao carregar descartava `pagamentos` e `troco`, então a divisão de pagamento sumia após reiniciar. Agora esses campos são mantidos.
+- Regras puras em `frontend/edicao_venda.js`. Testes: `node tests/js/test_edicao_venda.js`.
+- Saídas: coluna AÇÕES com três botões (editar, recibo, excluir) e larguras ajustadas para caber em 1366 px sem cortar. A regra efetiva da grade é a do bloco "Saídas: colunas com larguras fixas".
+- Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
+- Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
+
+### 2026-11-19 (servidor central — etapa 2)
+
+- Usuários pelo servidor: criar, editar e excluir (`POST /api/usuarios`, `PUT /api/usuarios/{id}`, `DELETE /api/usuarios/{id}`), só admin. Operador troca só a própria senha (`POST /api/senha`).
+- Regras no servidor: não excluir o próprio usuário; não excluir nem rebaixar o último admin; trocar o login exige nova senha (o hash usa o login como salt).
+- Sessão relê o usuário do banco a cada requisição: papel alterado ou usuário excluído valem na hora.
+- Fotos: `POST /api/imagens` (base64, até 5 MB, JPG/PNG/BMP) grava na pasta `imagens` ao lado do banco e devolve a URL. `GET /api/imagens/{arquivo}` serve a foto (nome aleatório). Produtos e clientes gravam a URL completa.
+- Frontend: `frontend/api.js` (cliente do servidor e adaptador com a forma do `Bridge`). Login obrigatório (`loginAtivo: true`); no modo servidor os usuários ficam fora do `SaveChanges`.
+- Frontend servido pelo próprio servidor: `http://IP:5080/`. O `SV.Api.csproj` copia `SistemaVendas/frontend` para a pasta `frontend` ao lado do exe (sem `images`). A janela do desktop (`FormVendas.cs`) abre esse endereço, em vez de `https://app.local`. Assim não há conteúdo misto entre PCs.
+- Endereço do servidor no desktop: arquivo `%LOCALAPPDATA%\SistemaVendas_UNIQ\servidor.txt`, com uma linha (ex.: `http://192.168.0.10:5080`). Sem o arquivo, usa `http://localhost:5080`. Se o WebView2 não conseguir abrir o servidor, o desktop mostra o motivo informado pelo navegador e pergunta se quer tentar de novo (sem teste de conexão separado).
+- Queda do servidor com a tela aberta: o monitor do frontend (a cada 4 s) bloqueia o sistema com o aviso "Servidor indisponível". Ao voltar: confere a sessão; se o servidor reiniciou, volta ao login; senão, grava o pendente e recarrega os dados.
+- Dados nunca vão para a ponte (banco local) quando o servidor está configurado. Antes, uma sessão expirada podia gravar no SQLite local.
+- SHA-256 do backup em JS puro (`sha256.js`), usado quando `crypto.subtle` não existe (http). Mesmo valor do navegador (testado em `tests/js/test_sha256.js`).
+- Pendência: o desktop ainda inicializa o SQLite local ao abrir (`Database.Initialize`). Não é mais usado para dados, mas pode ser removido depois.
+- Pendência: backup em modo servidor não inclui as fotos do servidor (só `images/` locais).
+- Firewall: o PC do servidor precisa liberar a porta 5080 na rede (entrada TCP).
+- Fotos antigas (caminho local `images/...`) não são migradas para o servidor.
+- Não compilado no sandbox: `dotnet build` e teste no Windows são obrigatórios.
+
+### 2026-11-19 (servidor central — etapa 1)
+
+- Decisão: três computadores com dados compartilhados. Servidor central em C# (.NET 10), projeto `SV.Api`, com banco SQLite no servidor.
+- Reaproveitado: `SistemaVendas/Database.cs` por link de arquivo (sem cópia). O caminho do banco virou configurável (`Database.Caminho`); o desktop continua usando `%LOCALAPPDATA%`.
+- Login: a senha é verificada no servidor, com o mesmo hash PBKDF2 do `app.js` (100.000 iterações, salt `usuario_SV2024_tamanho`). Por isso usuários já gravados continuam válidos.
+- Primeiro uso: se não houver usuários, o servidor cria `admin` com senha `1234` e `isDefaultCredential = true`. O login avisa que a troca é obrigatória.
+- Rotas: `GET /api/saude`, `POST /api/login`, `GET /api/eu`, `POST /api/sair`, `POST /api/senha`, `GET /api/usuarios` (admin), `GET /api/dados/{tipo}`, `POST /api/dados/alteracoes` (mesmo formato do `SaveChanges` do desktop). Autenticação por `Authorization: Bearer <token>`.
+- Usuários ficam fora da rota genérica de dados. O servidor recusa o tipo `users` em `alteracoes`, para o cliente nunca gravar hash de senha.
+- Sessões em memória, 12 horas de validade. Bloqueio de login após 5 tentativas erradas, por 30 segundos.
+- CORS liberado para `https://app.local` (WebView2 do desktop). Porta padrão 5080, em HTTP simples. HTTPS ainda não configurado.
+- Ainda não feito: o frontend continua usando a ponte local. A troca para a API é a etapa 2. Gravação por registro e validação de estoque no servidor são as etapas 3 e 4.
+- Não compilado: o sandbox não tem .NET nem acesso ao NuGet. A sintaxe foi verificada com o parser tree-sitter; tipos e referências ainda precisam de `dotnet build` no Windows.
+- Valor de referência do hash: `admin` / `1234` → `d1f098152e97b7542feffd65fe27620905e804b5fd594d5db98aa82fda903e71`.
+
