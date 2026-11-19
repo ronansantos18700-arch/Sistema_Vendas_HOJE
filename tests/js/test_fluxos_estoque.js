@@ -127,19 +127,18 @@ app.state.sales = [
   { id: 'V2', date: new Date().toISOString(), pagamento: 'PIX', valor_final: 5 },
 ];
 const campos = {};
-const elementoFalso = (id) => (campos[id] = campos[id] || { value: '', innerHTML: '', set html(v) { this.innerHTML = v; } });
+const elementoFalso = (id) => (campos[id] = campos[id] || { value: '', innerHTML: '', classList: { add: noop, remove: noop, toggle: noop, contains: () => false }, set html(v) { this.innerHTML = v; } });
 ctx.document.getElementById = (id) => elementoFalso(id);
 // Aba Resumo removida: o topbar mostra as vendas do dia
 const hoje = app.hojeISO();
 check('topbar: vendas do dia contadas', typeof app.atualizarTopbarMeta === 'function');
 
-// Login desativado: sessão local de administrador, sem logout e sem passo de usuários no tutorial
-app.state.currentUser = { ...app.config.usuarioLocal };
-check('login desativado por padrão', app.config.loginAtivo === false);
-check('usuário local é administrador', app.state.currentUser.role === 'admin');
-check('requireAdmin passa com usuário local', app.requireAdmin('teste') === true);
+// Login ativo: logout encerra a sessão; sem sessão, requireAdmin recusa
+app.state.currentUser = { ...app.config.usuarioLocal, role: 'admin' };
+check('login ativo por padrão', app.config.loginAtivo === true);
+check('requireAdmin passa com administrador', app.requireAdmin('teste') === true);
 app.logout();
-check('logout não encerra a sessão local', app.state.currentUser !== null);
+check('logout encerra a sessão', app.state.currentUser === null);
 const passos = app.getTutorialDefinition().steps;
 check('tutorial sem passo de usuários', passos.every(s => s.settingsSection !== 'usuarios'));
 

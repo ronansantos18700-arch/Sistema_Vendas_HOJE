@@ -8,7 +8,7 @@ const app = {
     config: {
         // Login e gestão de usuários. Com false, o sistema abre direto (usuário local administrador)
         // e as telas de login e de usuários ficam ocultas. Para voltar, troque para true.
-        loginAtivo: false,
+        loginAtivo: true,
         notifPorPagina: 4,
         // Tema escuro: desativado por enquanto. Com false, o sistema usa só o tema claro e os controles de tema ficam ocultos.
         // Para voltar, troque para true.
@@ -192,7 +192,159 @@ const app = {
     },
 
     // --- Initialization ---
+    // --- Servidor central ---
+    emModoServidor() {
+        return !!(this.servidor && this.servidor.logado);
+    },
+
+    origemDeDados() {
+        if (this.emModoServidor()) return window.SvServidor.origemDeDados(this.servidor);
+        if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.bridge) {
+            return window.chrome.webview.hostObjects.bridge;
+        }
+        return null;
+    },
+
+    preencherServidorNoLogin() {
+        const campo = document.getElementById('login-servidor');
+        if (campo && this.servidor) campo.value = this.servidor.url || 'http://localhost:5080';
+    },
+
+    async loginServidor(username, password) {
+        const campo = document.getElementById('login-servidor');
+        try {
+            this.servidor.definirUrl(campo ? campo.value : this.servidor.url);
+        } catch (err) {
+            this.showLoginError(err.message);
+            return;
+        }
+
+        this.setLoading(true);
+        try {
+            const usuario = await this.servidor.login(username, password);
+            this.state.loginAttempts = 0;
+            this.state.lockoutUntil = null;
+            localStorage.removeItem('sv_login_security');
+            this.state.currentUser = usuario;
+            this.hideLoginError();
+
+            await this.carregarDados();
+            this.logAudit('LOGIN_SUCCESS', { username: usuario.username });
+
+            const { loginScreen, appContainer } = this.getDOMRefs();
+            if (loginScreen) loginScreen.classList.add('hidden');
+            if (appContainer) appContainer.classList.remove('hidden');
+            this.updateBrand();
+            this.switchView('pos');
+
+            if (usuario.trocarSenha) {
+                this.state.mustChangePassword = true;
+                setTimeout(() => {
+                    this.showAlert(
+                        '🔐 Troca de Senha Obrigatória',
+                        'Senha provisória detectada. Defina uma nova senha em Configurações > Usuários antes de continuar.',
+                        'shield-alert'
+                    );
+                    this.switchView('settings');
+                    setTimeout(() => this.switchSettingsSection('usuarios'), 300);
+                }, 500);
+            }
+        } catch (err) {
+            this.showLoginError(err.message);
+        } finally {
+            this.setLoading(false);
+        }
+    },
+
+    async recarregarUsuariosServidor() {
+        let lista = [];
+        try {
+            lista = await this.servidor.listarUsuarios();
+        } catch (err) {
+            if (err.status !== 403) throw err;
+        }
+        this.state.users = lista.map(u => ({
+            id: String(u.id || ''),
+            fullname: String(u.fullname || ''),
+            username: String(u.username || ''),
+            password: '',
+            role: String(u.role || 'operador'),
+            isDefaultCredential: !!u.isDefaultCredential
+        }));
+    },
+
+    async salvarUsuarioServidor(e, editingId, fullname, username, role, password) {
+        const campoAtual = document.getElementById('user-current-password');
+        const senhaAtual = campoAtual ? campoAtual.value : '';
+        const euMesmo = !!editingId && !!this.state.currentUser && this.state.currentUser.id === editingId;
+        const mudouLogin = euMesmo && this.state.currentUser.username !== username;
+
+        this.setLoading(true);
+        try {
+            if (!editingId) {
+                if (!password) {
+                    this.showNotification('error', 'A senha é obrigatória para novos usuários.');
+                    return;
+                }
+                await this.servidor.criarUsuario({ fullname, username, role, senha: password });
+                this.showNotification('success', 'Usuário criado com sucesso!');
+            } else {
+                if (euMesmo && password) {
+                    if (!senhaAtual) {
+                        this.showNotification('error', 'Informe a senha atual para trocar a sua senha.');
+                        return;
+                    }
+                    await this.servidor.trocarMinhaSenha(senhaAtual, password);
+                }
+                // Operador só troca a própria senha; nome, login e perfil são editados pelo admin.
+                const podeEditarCadastro = !euMesmo || this.state.currentUser.role === 'admin';
+                if (podeEditarCadastro) {
+                    // Para o próprio usuário, a senha já foi trocada acima; só repete se o login mudou (o hash usa o login).
+                    const senhaParaEnviar = euMesmo ? (mudouLogin ? password : '') : password;
+                    await this.servidor.atualizarUsuario(editingId, { fullname, username, role, senha: senhaParaEnviar });
+                }
+                this.showNotification('success', 'Usuário atualizado com sucesso!');
+            }
+
+            await this.recarregarUsuariosServidor();
+            if (euMesmo) {
+                const eu = this.state.users.find(u => u.id === editingId);
+                this.state.currentUser = { ...this.state.currentUser, ...(eu || {}) };
+                if (password) {
+                    this.state.mustChangePassword = false;
+                    this.state.currentUser.isDefaultCredential = false;
+                }
+                this.updateBrand();
+            }
+            this.renderUsers();
+            this.closeModal();
+            e.target.reset();
+            document.getElementById('user-password').required = true;
+            document.getElementById('user-confirm-password').required = true;
+        } catch (err) {
+            this.showNotification('error', err.message);
+        } finally {
+            this.setLoading(false);
+        }
+    },
+
+    // Foto escolhida no PC vai para o servidor; a URL do servidor é o que fica gravado no produto/cliente.
+    async escolherFoto(bridge) {
+        const caminhoLocal = await bridge.SelectFile();
+        if (!caminhoLocal || !this.emModoServidor()) return caminhoLocal;
+        try {
+            const dataUrl = await bridge.GetFileBase64(caminhoLocal);
+            if (!dataUrl) throw new Error('Não foi possível ler a foto escolhida.');
+            const base64 = String(dataUrl).split(',').pop();
+            return await this.servidor.enviarImagem(caminhoLocal.split('/').pop(), base64);
+        } catch (err) {
+            this.showNotification('error', 'Foto não enviada: ' + err.message);
+            return null;
+        }
+    },
+
     async init() {
+        this.servidor = window.SvServidor ? new window.SvServidor.ServidorAPI() : null;
         if (!this.config.loginAtivo) {
             this.state.currentUser = { ...this.config.usuarioLocal };
             document.body.classList.add('sem-login');
@@ -201,7 +353,9 @@ const app = {
         this.loadLoginSecurityState();
         this.setupGlobalHandlers();
         this.setupBridge();
-        await this.carregarDados();
+        // Com login, os dados são carregados depois de entrar (o servidor exige sessão).
+        if (!this.config.loginAtivo) await this.carregarDados();
+        this.preencherServidorNoLogin();
         this.setupEventListeners();
         this.initLucide();
 
@@ -251,6 +405,7 @@ const app = {
     },
 
     async login(username, password) {
+        if (this.servidor) return this.loginServidor(username, password);
         // Mensagem de lockout atualiza em tempo real
         if (this.state.lockoutUntil && Date.now() < this.state.lockoutUntil) {
             if (this.lockoutInterval) clearInterval(this.lockoutInterval);
@@ -374,6 +529,7 @@ const app = {
     logout() {
         if (!this.config.loginAtivo) return; // sem login, não há sessão para encerrar
         this.logAudit('LOGOUT', {});
+        if (this.servidor) this.servidor.sair();
         this.state.currentUser = null;
         const { loginScreen, appContainer } = this.getDOMRefs();
         if (loginScreen) loginScreen.classList.remove('hidden');
@@ -575,7 +731,7 @@ const app = {
     async handlePhotoSelection() {
         if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
             const bridge = window.chrome.webview.hostObjects.bridge;
-            const photoPath = await bridge.SelectFile();
+            const photoPath = await this.escolherFoto(bridge);
             if (photoPath) {
                 document.getElementById('prod-image-url').value = photoPath;
                 this.updatePhotoPreview(photoPath);
@@ -1344,6 +1500,11 @@ const app = {
             }
         }
 
+        if (this.emModoServidor()) {
+            await this.salvarUsuarioServidor(e, editingId, fullname, username, role, password);
+            return;
+        }
+
         let hashedPassword = null;
         if (password) {
             this.setLoading(true);
@@ -1418,6 +1579,17 @@ const app = {
             'Excluir Usuário',
             `Deseja realmente excluir o usuário ${user.fullname}?`,
             async () => {
+                if (this.emModoServidor()) {
+                    try {
+                        await this.servidor.excluirUsuario(userId);
+                        await this.recarregarUsuariosServidor();
+                        this.renderUsers();
+                        this.showNotification('success', 'Usuário excluído.');
+                    } catch (err) {
+                        this.showNotification('error', err.message);
+                    }
+                    return;
+                }
                 this.logAudit('DELETE_USER', { targetId: userId, targetUsername: user.username });
                 this.state.users = this.state.users.filter(u => u.id !== userId);
                 await this.salvarDados();
@@ -1430,6 +1602,10 @@ const app = {
 
     async resetSystemUsers() {
         if (!this.requireAdmin('resetar usuários')) return;
+        if (this.emModoServidor()) {
+            this.showNotification('info', 'No modo servidor, os usuários são gerenciados um a um, na lista de usuários.');
+            return;
+        }
         this.logAudit('RESET_USERS', {});
         this.confirmAction(
             'Resetar Todos os Usuários?',
@@ -1507,7 +1683,7 @@ const app = {
     async handleLogoSelection() {
         if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
             const bridge = window.chrome.webview.hostObjects.bridge;
-            const photoPath = await bridge.SelectFile();
+            const photoPath = await this.escolherFoto(bridge);
             if (photoPath) {
                 const settingsLogoUrl = document.getElementById('settings-logo-url-page');
                 if (settingsLogoUrl) settingsLogoUrl.value = photoPath;
@@ -2137,11 +2313,13 @@ const app = {
 
         this.setLoading(true);
         try {
-            if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects.bridge) {
-                const bridge = window.chrome.webview.hostObjects.bridge;
+            const bridge = this.origemDeDados();
+            if (bridge) {
 
                 // Grava somente o que mudou desde a última gravação bem-sucedida (uma transação).
                 const colecoes = this.colecoesParaSalvar();
+                // Usuários têm rotas próprias no servidor: ficam fora desta gravação.
+                if (this.emModoServidor()) delete colecoes.users;
                 const anterior = this.snapshotSalvo;
                 const payload = {};
 
@@ -2188,8 +2366,8 @@ const app = {
         this.snapshotSalvo = null; // estado recém-lido: próxima gravação compara com o banco inteiro
         this.setLoading(true);
         try {
-            if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.bridge) {
-                const bridge = window.chrome.webview.hostObjects.bridge;
+            const bridge = this.origemDeDados();
+            if (bridge) {
 
                 // Carregar dados principais
                 const [productsData, customersData, salesData, settingsData, reversalsData, entradasData, categoriesData, movimentacoesData] = await Promise.all([
@@ -2211,7 +2389,7 @@ const app = {
                     console.warn("Bridge 'users' falhou no carregamento.");
                 }
 
-                if (!usersData || usersData === "[]" || usersData === "") {
+                if (!this.emModoServidor() && (!usersData || usersData === "[]" || usersData === "")) {
                     usersData = localStorage.getItem('sv_users');
                 }
 
@@ -2334,8 +2512,8 @@ const app = {
                     role: String(u.role || 'operador')
                 }));
 
-                // Criar usuário admin padrão se não houver usuários
-                if (this.state.users.length === 0) {
+                // Criar usuário admin padrão se não houver usuários (somente sem servidor)
+                if (this.state.users.length === 0 && !this.emModoServidor()) {
                     const hashedPassword = await this.hashPassword('1234', 'admin');
                     this.state.users.push({
                         id: 'U' + Date.now(),

@@ -24,6 +24,10 @@
             </div>
             <form id="login-form">
                 <div class="input-group-labs">
+                    <label class="input-label-labs">SERVIDOR</label>
+                    <input type="text" id="login-servidor" class="glass-input-labs" placeholder="http://192.168.0.10:5080" required autocomplete="off">
+                </div>
+                <div class="input-group-labs">
                     <label class="input-label-labs">USUÁRIO</label>
                     <input type="text" id="login-username" class="glass-input-labs" placeholder="Digite seu usuário" required autocomplete="username">
                 </div>
@@ -1247,6 +1251,10 @@
                             <input type="password" id="user-confirm-password" placeholder="••••••" class="glass-input-labs" required autocomplete="off">
                         </div>
                     </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label class="input-label-labs">SENHA ATUAL (só para trocar a sua própria senha)</label>
+                        <input type="password" id="user-current-password" placeholder="••••••" class="glass-input-labs" autocomplete="off">
+                    </div>
                     <div style="margin-bottom: 1.5rem;">
                         <label class="input-label-labs">PERFIL DE ACESSO</label>
                         <select id="user-role" class="glass-input-labs" required>
@@ -1401,6 +1409,7 @@
     </div>
 
     <script src="estoque.js"></script>
+    <script src="api.js"></script>
     <script src="edicao_venda.js"></script>
     <script src="backup.js"></script>
     <script src="app.js"></script>

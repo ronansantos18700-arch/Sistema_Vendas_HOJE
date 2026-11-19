@@ -275,6 +275,17 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
+### 2026-11-19 (servidor central — etapa 2)
+
+- Usuários pelo servidor: criar, editar e excluir (`POST /api/usuarios`, `PUT /api/usuarios/{id}`, `DELETE /api/usuarios/{id}`), só admin. Operador troca só a própria senha (`POST /api/senha`).
+- Regras no servidor: não excluir o próprio usuário; não excluir nem rebaixar o último admin; trocar o login exige nova senha (o hash usa o login como salt).
+- Sessão relê o usuário do banco a cada requisição: papel alterado ou usuário excluído valem na hora.
+- Fotos: `POST /api/imagens` (base64, até 5 MB, JPG/PNG/BMP) grava na pasta `imagens` ao lado do banco e devolve a URL. `GET /api/imagens/{arquivo}` serve a foto (nome aleatório). Produtos e clientes gravam a URL completa.
+- Frontend: `frontend/api.js` (cliente do servidor e adaptador com a forma do `Bridge`). Login obrigatório (`loginAtivo: true`); no modo servidor os usuários ficam fora do `SaveChanges`.
+- Pendência: o WebView2 roda em `https://app.local`. Chamadas para `http://` de outro PC podem ser bloqueadas como conteúdo misto. Com o servidor no mesmo PC (`localhost`) funciona. Decidir antes da etapa 3 (HTTPS ou servir o frontend pelo servidor).
+- Fotos antigas (caminho local `images/...`) não são migradas para o servidor.
+- Não compilado no sandbox: `dotnet build` e teste no Windows são obrigatórios.
+
 ### 2026-11-19 (servidor central — etapa 1)
 
 - Decisão: três computadores com dados compartilhados. Servidor central em C# (.NET 10), projeto `SV.Api`, com banco SQLite no servidor.
