@@ -1,6 +1,28 @@
-@SV.Api_HostAddress = http://localhost:5295
+@host = http://localhost:5080
 
-GET {{SV.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Saúde do servidor
+GET {{host}}/api/saude
 
-###
+### Login (admin / 1234 na primeira execução; troca obrigatória)
+POST {{host}}/api/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "1234" }
+
+### Troca de senha (cole o token do login em Authorization)
+POST {{host}}/api/senha
+Authorization: Bearer COLE_O_TOKEN
+Content-Type: application/json
+
+{ "senhaAtual": "1234", "novaSenha": "nova123" }
+
+### Dados de um tipo
+GET {{host}}/api/dados/products
+Authorization: Bearer COLE_O_TOKEN
+
+### Alterações (mesmo formato do Bridge.SaveChanges)
+POST {{host}}/api/dados/alteracoes
+Authorization: Bearer COLE_O_TOKEN
+Content-Type: application/json
+
+{ "settings": { "full": [ { "companyName": "Minha loja" } ] } }

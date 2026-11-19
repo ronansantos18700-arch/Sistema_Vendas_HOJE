@@ -101,7 +101,7 @@ namespace SistemaVendas
         };
 
         /// <summary>Caminho do arquivo do banco (mesma pasta de dados do WebView2).</summary>
-        public static readonly string Caminho = Path.Combine(
+        public static string Caminho = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SistemaVendas_UNIQ",
             "sistema_vendas.db");

@@ -1,34 +1,46 @@
+using System;
+using System.IO;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using SV.Api;
+using SV.Api.Servicos;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Banco: caminho configurado (Banco:Caminho ou Banco__Caminho no ambiente);
+// se vazio, fica em ./dados/sistema_vendas.db ao lado do executável.
+string caminhoBanco = builder.Configuration["Banco:Caminho"];
+if (string.IsNullOrWhiteSpace(caminhoBanco))
+{
+    caminhoBanco = Path.Combine(builder.Environment.ContentRootPath, "dados", "sistema_vendas.db");
+}
+
+// Origens que podem chamar a API (o WebView2 do desktop usa https://app.local).
+string[] origens = builder.Configuration.GetSection("Cors:Origens").Get<string[]>();
+if (origens == null || origens.Length == 0)
+{
+    origens = new[] { "https://app.local" };
+}
+
+builder.WebHost.UseUrls(builder.Configuration["Servidor:Url"] ?? "http://0.0.0.0:5080");
+
+builder.Services.AddCors(opcoes =>
+{
+    opcoes.AddDefaultPolicy(politica =>
+    {
+        politica.WithOrigins(origens).AllowAnyHeader().AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseCors();
 
-app.UseHttpsRedirection();
+Dados.Iniciar(caminhoBanco);
+Dados.GarantirAdministrador();
+Console.WriteLine("Banco: " + caminhoBanco);
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-});
+Rotas.Mapear(app);
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

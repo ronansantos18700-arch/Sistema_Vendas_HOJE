@@ -275,3 +275,17 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
+### 2026-11-19 (servidor central — etapa 1)
+
+- Decisão: três computadores com dados compartilhados. Servidor central em C# (.NET 10), projeto `SV.Api`, com banco SQLite no servidor.
+- Reaproveitado: `SistemaVendas/Database.cs` por link de arquivo (sem cópia). O caminho do banco virou configurável (`Database.Caminho`); o desktop continua usando `%LOCALAPPDATA%`.
+- Login: a senha é verificada no servidor, com o mesmo hash PBKDF2 do `app.js` (100.000 iterações, salt `usuario_SV2024_tamanho`). Por isso usuários já gravados continuam válidos.
+- Primeiro uso: se não houver usuários, o servidor cria `admin` com senha `1234` e `isDefaultCredential = true`. O login avisa que a troca é obrigatória.
+- Rotas: `GET /api/saude`, `POST /api/login`, `GET /api/eu`, `POST /api/sair`, `POST /api/senha`, `GET /api/usuarios` (admin), `GET /api/dados/{tipo}`, `POST /api/dados/alteracoes` (mesmo formato do `SaveChanges` do desktop). Autenticação por `Authorization: Bearer <token>`.
+- Usuários ficam fora da rota genérica de dados. O servidor recusa o tipo `users` em `alteracoes`, para o cliente nunca gravar hash de senha.
+- Sessões em memória, 12 horas de validade. Bloqueio de login após 5 tentativas erradas, por 30 segundos.
+- CORS liberado para `https://app.local` (WebView2 do desktop). Porta padrão 5080, em HTTP simples. HTTPS ainda não configurado.
+- Ainda não feito: o frontend continua usando a ponte local. A troca para a API é a etapa 2. Gravação por registro e validação de estoque no servidor são as etapas 3 e 4.
+- Não compilado: o sandbox não tem .NET nem acesso ao NuGet. A sintaxe foi verificada com o parser tree-sitter; tipos e referências ainda precisam de `dotnet build` no Windows.
+- Valor de referência do hash: `admin` / `1234` → `d1f098152e97b7542feffd65fe27620905e804b5fd594d5db98aa82fda903e71`.
+
