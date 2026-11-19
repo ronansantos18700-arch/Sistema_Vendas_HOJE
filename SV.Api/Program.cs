@@ -39,9 +39,9 @@ var app = builder.Build();
 
 app.UseCors();
 
-// Frontend (mesmos arquivos do desktop), copiados para wwwroot na compilação.
+// Frontend (mesmos arquivos do desktop), copiados para a pasta "frontend" ao lado do exe na compilação.
 // Caminho explícito: com "dotnet run", a raiz de conteúdo é a pasta do projeto.
-var arquivosSite = new PhysicalFileProvider(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
+var arquivosSite = new PhysicalFileProvider(Path.Combine(AppContext.BaseDirectory, "frontend"));
 app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = arquivosSite });
 app.UseStaticFiles(new StaticFileOptions { FileProvider = arquivosSite });
 
