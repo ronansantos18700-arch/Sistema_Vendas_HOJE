@@ -299,13 +299,9 @@ namespace SV.Api
 
                 try
                 {
-                    bool gravou = Dados.AplicarComValidacao(alteracoes.ToString(Formatting.None));
+                    bool gravou = Dados.Aplicar(alteracoes.ToString(Formatting.None));
                     if (!gravou) return Erro(400, "Alterações inválidas. Nada foi gravado.");
                     return Results.Json(new { ok = true });
-                }
-                catch (RegraNegocioException ex)
-                {
-                    return Erro(400, ex.Message);
                 }
                 catch (Exception ex)
                 {

@@ -347,16 +347,6 @@
                             </div>
                         </div>
                     </div>
-                    <div class="glass-inner dash-destaques">
-                        <div class="dash-destaque">
-                            <h4>Alertas de estoque</h4>
-                            <div id="dash-alertas"></div>
-                        </div>
-                        <div class="dash-destaque">
-                            <h4>Mais vendidos no período</h4>
-                            <div id="dash-top-produtos"></div>
-                        </div>
-                    </div>
                     <!-- Respiro final para alinhamento com a sidebar -->
                     <div class="dashboard-footer-spacer" style="height: 15px; flex-shrink: 0;"></div>
                 </section>
@@ -529,27 +519,6 @@
                         <div style="display: flex; gap: 1rem;">
                             <input type="text" id="filter-history" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por cliente ou ID..." autocomplete="off">
                             <input type="date" id="filter-date-history" class="glass-input-labs" style="width: 200px;" autocomplete="off">
-                        </div>
-                    </div>
-                    <div id="relatorios-panel" class="glass-inner relatorios-panel">
-                        <div class="relatorios-linha">
-                            <strong>Exportar relatórios</strong>
-                            <label>De <input type="date" id="rel-inicio" class="glass-input-labs" autocomplete="off"></label>
-                            <label>Até <input type="date" id="rel-fim" class="glass-input-labs" autocomplete="off"></label>
-                        </div>
-                        <div class="relatorios-opcoes">
-                            <label><input type="checkbox" id="rel-vendas" checked> Vendas por</label>
-                            <select id="rel-agrupar" class="glass-input-labs" autocomplete="off">
-                                <option value="dia">dia</option>
-                                <option value="mes">mês</option>
-                            </select>
-                            <label><input type="checkbox" id="rel-lucro" checked> Lucro por produto</label>
-                            <label><input type="checkbox" id="rel-estoque" checked> Estoque atual</label>
-                            <label><input type="checkbox" id="rel-pagamentos" checked> Recebimentos por forma de pagamento</label>
-                        </div>
-                        <div class="relatorios-linha">
-                            <button type="button" class="btn-save-labs" onclick="app.exportarRelatorios('csv')">Exportar CSV</button>
-                            <button type="button" class="btn-save-labs" onclick="app.exportarRelatorios('pdf')">Exportar PDF</button>
                         </div>
                     </div>
                     <div id="history-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
@@ -1436,7 +1405,6 @@
     </div>
 
     <script src="estoque.js"></script>
-    <script src="relatorios.js"></script>
     <script src="sha256.js"></script>
     <script src="api.js"></script>
     <script src="edicao_venda.js"></script>

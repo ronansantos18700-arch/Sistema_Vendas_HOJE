@@ -56,8 +56,6 @@ function criarApp(opcoes = {}) {
   app.state.products = [{ id: 'P1', name: 'Café', cost: 20, price: 30, stock: 80 }];
   app.state.customers = []; app.state.sales = []; app.state.reversals = []; app.state.entradas = [];
   app.state.movimentacoes = []; app.state.categories = []; app.state.settings = { companyName: 'Loja Atual' };
-  // Simula dados já carregados (carregarDados): sem snapshot, salvarDados recusa gravar.
-  app.snapshotSalvo = app.criarSnapshot(app.colecoesDeGravacao());
   return { app, notificacoes, timers, erros };
 }
 

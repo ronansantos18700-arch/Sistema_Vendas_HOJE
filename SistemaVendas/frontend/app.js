@@ -1715,6 +1715,7 @@ const app = {
 
                     if (window.chrome?.webview?.hostObjects?.bridge) {
                         const bridge = window.chrome.webview.hostObjects.bridge;
+                        this.snapshotSalvo = null; // gravação direta: próxima gravação compara com o banco inteiro
                         // Aguarda o SaveData terminar completamente antes de continuar
                         const saved = await bridge.SaveData(
                             'users',
@@ -1723,8 +1724,6 @@ const app = {
                         if (!saved) {
                             console.warn('Bridge users falhou no reset. Dados mantidos no localStorage.');
                         }
-                        // Só os usuários foram gravados: atualiza só essa parte do snapshot.
-                        if (saved && this.snapshotSalvo) this.snapshotSalvo.colecoes.users = this.snapshotDaLista(this.state.users);
                     }
 
                     this.setLoading(false);
@@ -2052,114 +2051,6 @@ const app = {
     },
 
     // --- Backup Logic ---
-    // --- Relatórios (exportação CSV e PDF) ---
-
-    /** Monta as seções pedidas. Cada seção vem com o id do relatório. */
-    montarSecoesRelatorio(ids, inicio, fim) {
-        const R = window.Relatorios;
-        const vendas = R.filtrarVendas(this.state.sales, inicio, fim);
-        const { nivelBaixo, nivelMedio } = this.niveisEstoque();
-        const agrupar = (document.getElementById('rel-agrupar') || {}).value === 'mes' ? 'mes' : 'dia';
-        const construtores = {
-            vendas: () => R.secaoVendasPorPeriodo(vendas, agrupar),
-            lucro: () => R.secaoLucroPorProduto(vendas),
-            estoque: () => R.secaoEstoqueAtual(this.state.products, nivelBaixo, nivelMedio),
-            pagamentos: () => R.secaoRecebimentos(vendas)
-        };
-        return ids.map((id) => construtores[id]());
-    },
-
-    niveisEstoque() {
-        const cfg = (this.state.settings && this.state.settings.notifications) || {};
-        return {
-            nivelBaixo: Number(cfg.stockLowVal) || 10,
-            nivelMedio: Number(cfg.stockMediumVal) || 25
-        };
-    },
-
-    baixarArquivo(conteudo, tipo, nome) {
-        const blob = new Blob([conteudo], { type: tipo });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = nome;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    },
-
-    exportarRelatorios(formato) {
-        const ids = ['vendas', 'lucro', 'estoque', 'pagamentos'].filter((id) => {
-            const el = document.getElementById('rel-' + id);
-            return !!(el && el.checked);
-        });
-        if (ids.length === 0) {
-            this.showNotification('error', 'Marque pelo menos um relatório.');
-            return;
-        }
-
-        const inicio = (document.getElementById('rel-inicio') || {}).value || '';
-        const fim = (document.getElementById('rel-fim') || {}).value || '';
-        if (inicio && fim && inicio > fim) {
-            this.showNotification('error', 'A data inicial é depois da data final.');
-            return;
-        }
-
-        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
-        const periodoTexto = (inicio || 'início') + ' a ' + (fim || 'hoje');
-        const sufixo = (inicio || 'inicio') + '_a_' + (fim || 'hoje');
-
-        try {
-            const secoes = this.montarSecoesRelatorio(ids, inicio, fim);
-            if (formato === 'csv') {
-                secoes.forEach((s) => {
-                    this.baixarArquivo(window.Relatorios.csv(s), 'text/csv;charset=utf-8', 'relatorio_' + s.id + '_' + sufixo + '.csv');
-                });
-            } else {
-                const bytes = window.Relatorios.pdf({
-                    titulo: 'Relatórios',
-                    empresa: (this.state.settings || {}).companyName || '',
-                    periodo: 'Período: ' + (inicio ? dataBr(inicio) : 'início') + ' a ' + (fim ? dataBr(fim) : 'hoje'),
-                    geradoEm: 'Gerado em ' + new Date().toLocaleString('pt-BR') + ' por ' + (this.state.currentUser?.username || 'sistema')
-                }, secoes);
-                this.baixarArquivo(bytes, 'application/pdf', 'relatorios_' + sufixo + '.pdf');
-            }
-        } catch (err) {
-            this.showNotification('error', 'Erro ao gerar o relatório: ' + err.message);
-            return;
-        }
-
-        // Quem exportou e o quê, para o registro de ações.
-        this.logAudit('RELATORIO_EXPORT', { formato, relatorios: ids, inicio, fim });
-        this.showNotification('success', 'Relatório exportado (' + formato.toUpperCase() + ', ' + periodoTexto + ').');
-    },
-
-    /** Painel de alertas de estoque e produtos mais vendidos no período do dashboard. */
-    renderDashboardAlertas() {
-        const R = window.Relatorios;
-        const elAlertas = document.getElementById('dash-alertas');
-        const elTop = document.getElementById('dash-top-produtos');
-        if (!R || (!elAlertas && !elTop)) return;
-
-        if (elAlertas) {
-            const { nivelBaixo, nivelMedio } = this.niveisEstoque();
-            const a = R.alertasEstoque(this.state.products, nivelBaixo, nivelMedio);
-            const itens = [
-                ...a.semEstoque.map((x) => `<li class="dash-alerta-zero">${R.escaparHtml(x.produto)}: sem estoque</li>`),
-                ...a.estoqueBaixo.map((x) => `<li class="dash-alerta-baixo">${R.escaparHtml(x.produto)}: ${x.saldo} un.</li>`)
-            ];
-            elAlertas.innerHTML = itens.length ? '<ul>' + itens.join('') + '</ul>' : '<p>Nenhum produto em alerta.</p>';
-        }
-
-        if (elTop) {
-            const lista = R.topProdutos(this.getFilteredSales(), 5);
-            elTop.innerHTML = lista.length
-                ? '<ol>' + lista.map((p) => `<li>${R.escaparHtml(p.produto)}: ${p.quantidade} un.</li>`).join('') + '</ol>'
-                : '<p>Sem vendas no período.</p>';
-        }
-    },
-
     async exportBackup() {
         if (this.requirePasswordChange()) return;
         if (!this.requireAdmin('exportar backups')) return;
@@ -2449,13 +2340,6 @@ const app = {
         };
     },
 
-    // Coleções que vão para o banco. No modo servidor, usuários ficam de fora (rotas próprias).
-    colecoesDeGravacao() {
-        const colecoes = this.colecoesParaSalvar();
-        if (this.emModoServidor()) delete colecoes.users;
-        return colecoes;
-    },
-
     // Mapa id -> JSON do registro, na ordem da lista. Retorna null se houver id ausente ou repetido.
     snapshotDaLista(lista) {
         const ids = [];
@@ -2472,8 +2356,9 @@ const app = {
     criarSnapshot(colecoes) {
         const resultado = {};
         for (const [nome, lista] of Object.entries(colecoes)) {
-            // Lista com id ausente ou repetido fica sem snapshot: essa coleção é regravada inteira.
-            resultado[nome] = this.snapshotDaLista(lista);
+            const snap = this.snapshotDaLista(lista);
+            if (!snap) return null; // próxima gravação regrava tudo
+            resultado[nome] = snap;
         }
         return { colecoes: resultado };
     },
@@ -2500,16 +2385,7 @@ const app = {
         return mudanca;
     },
 
-    // Uma gravação por vez: a seguinte só começa depois da anterior, para não enviar a mesma mudança duas vezes.
-    salvarDados() {
-        const anterior = this.filaGravacao || Promise.resolve();
-        const atual = anterior.then(() => this.executarSalvarDados());
-        this.filaGravacao = atual.catch(() => {});
-        return atual;
-    },
-
-    async executarSalvarDados() {
-        this.gravacaoRecusada = false; // true só se o servidor recusou (400); falha de conexão não conta
+    async salvarDados() {
         // Forçar dataLoaded se tivermos itens no estado (indica que o sistema está operacional)
         if (!this.state.dataLoaded && (this.state.products.length > 0 || this.state.sales.length > 0)) {
             this.state.dataLoaded = true;
@@ -2526,32 +2402,29 @@ const app = {
             if (bridge) {
 
                 // Grava somente o que mudou desde a última gravação bem-sucedida (uma transação).
-                const colecoes = this.colecoesDeGravacao();
+                const colecoes = this.colecoesParaSalvar();
+                // Usuários têm rotas próprias no servidor: ficam fora desta gravação.
+                if (this.emModoServidor()) delete colecoes.users;
                 const anterior = this.snapshotSalvo;
-                // Sem snapshot (dados não carregados), não dá para saber o que mudou: não grava nada.
-                if (!anterior) {
-                    throw new Error("Os dados ainda não foram carregados. Recarregue a tela antes de gravar.");
-                }
                 const payload = {};
 
                 for (const [nome, lista] of Object.entries(colecoes)) {
-                    const mudanca = this.montarMudancas(lista, anterior.colecoes[nome]);
+                    const mudanca = anterior
+                        ? this.montarMudancas(lista, anterior.colecoes[nome])
+                        : { full: lista };
                     if (mudanca) payload[nome] = mudanca;
                 }
 
                 // Configurações são pequenas: sempre regravadas por inteiro.
                 payload.settings = { full: [this.state.settings] };
 
-                // Snapshot do que está sendo enviado, criado antes do await: mudanças feitas enquanto
-                // grava continuam pendentes e vão na próxima gravação.
-                const enviado = this.criarSnapshot(colecoes);
                 const saved = await bridge.SaveChanges(JSON.stringify(payload));
                 if (!saved) {
                     // Mantém o snapshot antigo: a próxima gravação tenta as mesmas mudanças de novo.
                     throw new Error("Não foi possível salvar os dados. Nenhuma alteração foi gravada.");
                 }
 
-                this.snapshotSalvo = enviado;
+                this.snapshotSalvo = this.criarSnapshot(colecoes);
             } else {
                 localStorage.setItem('sv_products', JSON.stringify(this.state.products));
                 localStorage.setItem('sv_customers', JSON.stringify(this.state.customers));
@@ -2567,16 +2440,7 @@ const app = {
             return true;
         } catch (err) {
             console.error("Erro ao salvar dados:", err);
-            if (err && err.status === 400) {
-                // O servidor recusou a gravação (ex.: estoque insuficiente por outro PC). Nada foi gravado.
-                // Sem recarregar, a mesma gravação seria reenviada para sempre. Recarrega após esta
-                // gravação terminar (carregarDados também pode gravar, então não pode rodar dentro da fila).
-                this.gravacaoRecusada = true;
-                this.showNotification('error', err.message + " Os dados foram atualizados do servidor.");
-                setTimeout(() => this.carregarDados(), 0);
-            } else {
-                this.showNotification('error', "Erro crítico ao salvar dados: " + err.message);
-            }
+            this.showNotification('error', "Erro crítico ao salvar dados: " + err.message);
             return false;
         } finally {
             this.setLoading(false);
@@ -2604,7 +2468,6 @@ const app = {
 
                 // Tenta carregar usuários via bridge, com fallback para localStorage
                 let usersData = null;
-                let usersVeioDoLocal = false;
                 try {
                     usersData = await bridge.GetData('users');
                 } catch (e) {
@@ -2612,7 +2475,6 @@ const app = {
                 }
 
                 if (!this.emModoServidor() && (!usersData || usersData === "[]" || usersData === "")) {
-                    usersVeioDoLocal = true;
                     usersData = localStorage.getItem('sv_users');
                 }
 
@@ -2734,11 +2596,6 @@ const app = {
                     password: String(u.password || ''),
                     role: String(u.role || 'operador')
                 }));
-
-                // O que foi lido é o que está no banco: a próxima gravação envia só as mudanças.
-                // Usuários vindos do localStorage (fallback) não estão no banco: regrava inteiro.
-                this.snapshotSalvo = this.criarSnapshot(this.colecoesDeGravacao());
-                if (usersVeioDoLocal && this.snapshotSalvo) this.snapshotSalvo.colecoes.users = null;
 
                 // Criar usuário admin padrão se não houver usuários (somente sem servidor)
                 if (this.state.users.length === 0 && !this.emModoServidor()) {
@@ -3781,7 +3638,6 @@ const app = {
         const prevTicketMedio = prevNumVendas > 0 ? previousTotals.faturamento / prevNumVendas : 0;
         this.updateVariation('dash-ticket-var', ticketMedio, prevTicketMedio);
 
-        this.renderDashboardAlertas();
         this.initCharts();
     },
 
@@ -4283,8 +4139,6 @@ const app = {
 
         // Se a venda ainda não está no histórico (é uma venda nova do PDV)
         if (!this.state.sales.find(s => (s.id || s.ID) === sale.id)) {
-            const carrinhoAnterior = this.state.cart;
-
             // Atualiza o estoque
             this.registrarMovimentacoes(Estoque.movimentosDaVenda(sale));
 
@@ -4292,25 +4146,7 @@ const app = {
             this.state.sales.push(sale);
             this.state.cart = [];
 
-            // A venda só é confirmada depois que o servidor grava. Sem isso, a tela dizia "sucesso"
-            // mesmo quando o servidor recusava (ex.: estoque insuficiente por outro PC).
-            const gravou = await this.salvarDados();
-            if (!gravou) {
-                this.closeModal();
-                this.state.pendingSale = null;
-                if (this.gravacaoRecusada) {
-                    // Recusada pelo servidor: a venda não existe lá. Tira da tela e devolve o carrinho para ajustar.
-                    this.state.sales = this.state.sales.filter(s => (s.id || s.ID) !== sale.id);
-                    this.state.cart = carrinhoAnterior;
-                    this.renderCart();
-                    this.updateDashboardStats();
-                    this.renderHistory();
-                } else {
-                    // Falha de conexão: a venda continua pendente e será enviada quando o servidor voltar.
-                    this.showNotification('error', 'Venda não confirmada pelo servidor. Ela será gravada quando a conexão voltar.');
-                }
-                return;
-            }
+            await this.salvarDados();
             this.showNotification('success', 'Venda finalizada com sucesso!');
 
             // Limpar campos do PDV
