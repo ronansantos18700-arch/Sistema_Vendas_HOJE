@@ -304,7 +304,8 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Frontend: quando o servidor recusa, mostra o motivo e recarrega os dados do servidor. Antes, a gravação recusada ficava pendente e era reenviada a cada salvamento.
 - Testes: `tests/db/test_estoque_servidor.py` (espelho da regra em Python) e `tests/js/test_gravacao_registro.js` (recusa e recarregamento). O C# ainda não foi compilado no sandbox; validado por `dotnet build` no Windows.
 - Venda no PDV: "Venda finalizada" só aparece depois que o servidor confirma. Se ele recusar, a venda sai da tela e o carrinho volta. Se a conexão cair, a venda fica pendente e o aviso diz que ainda não foi confirmada.
-- Pendência conhecida: o `stock` do produto enviado pelo cliente pode ficar desatualizado (o app só recalcula ao registrar movimentação ou editar o produto). O saldo que vale para a validação é o das movimentações, então não há venda acima do estoque, mas o número mostrado no cadastro pode divergir.
+- Estoque corrigido no servidor: em cada gravação, o `stock` de todo produto com movimentações recebe o saldo do livro, na mesma transação. Assim, um PC com número antigo não sobrescreve o estoque real. Produto sem movimentação não muda.
+- Pendência: o `cost` do produto (custo médio) ainda vem do cliente e pode ficar desatualizado do mesmo jeito. Mesma correção, a fazer.
 - Pendência: backup em modo servidor não inclui as fotos do servidor (só `images/` locais).
 - Firewall: o PC do servidor precisa liberar a porta 5080 na rede (entrada TCP).
 - Fotos antigas (caminho local `images/...`) não são migradas para o servidor.

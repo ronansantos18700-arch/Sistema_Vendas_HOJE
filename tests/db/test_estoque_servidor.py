@@ -29,8 +29,9 @@ def simular_mudanca(atuais, mudanca):
     return lista
 
 
-def estouros(livro):
-    saldos = {}
+def estouros(livro, saldos=None):
+    if saldos is None:
+        saldos = {}
     resultado = []
     for mov in livro:
         if mov.get("ignorada") is True:
@@ -50,6 +51,45 @@ def estouros(livro):
                 resultado.append((str(mov["id"]), produto))
             saldos[produto] = max(0, saldo + qtd)
     return resultado
+
+
+def saldos_do_livro(livro):
+    saldos = {}
+    estouros(livro, saldos)
+    return saldos
+
+
+def corrigir_estoque(produtos_banco, mud_products, livro):
+    """Espelho de Dados.CorrigirSaldos. Devolve a lista de produtos gravados (upsert/full ajustados + extras)."""
+    saldos = saldos_do_livro(livro)
+    if not saldos:
+        return {"upsert": mud_products.get("upsert", [])} if mud_products else None
+    enviados = set()
+    mud = copy.deepcopy(mud_products) if mud_products else None
+    if mud:
+        for chave in ("full", "upsert"):
+            for item in mud.get(chave, []):
+                enviados.add(str(item["id"]))
+                if str(item["id"]) in saldos:
+                    item["stock"] = saldos[str(item["id"])]
+    extras = []
+    for p in produtos_banco:
+        pid = str(p["id"])
+        if pid not in saldos or pid in enviados:
+            continue
+        esperado = round(saldos[pid])
+        if abs(p.get("stock", 0) - esperado) < 0.0001:
+            continue
+        copia = copy.deepcopy(p)
+        copia["stock"] = esperado
+        extras.append(copia)
+    if extras:
+        mud = mud or {}
+        if "upsert" in mud:
+            mud["upsert"] = mud["upsert"] + extras
+        else:
+            mud["upsert"] = extras
+    return mud
 
 
 def validar(atuais, mudanca):
@@ -153,6 +193,50 @@ def json_do_frontend_e_lido_como_no_servidor():
     # formato enviado por montarMudancas: upsert com itens completos e campos extras
     payload = json.loads('{"movimentacoes":{"upsert":[{"id":"M9","produtoId":"P1","tipo":"venda","qtd":-1,"ignorada":false}]}}')
     assert validar([mov("M1", "entrada", 1)], payload["movimentacoes"]) is None
+
+
+def produto(id_, stock):
+    return {"id": id_, "name": "P" + id_, "stock": stock, "cost": 1.0, "price": 2.0}
+
+
+@teste
+def produto_enviado_com_estoque_desatualizado_recebe_o_saldo_das_movimentacoes():
+    livro = [mov("M1", "entrada", 5)]
+    mud = corrigir_estoque([produto("P1", 5)], {"upsert": [produto("P1", 9)]}, livro)
+    assert mud["upsert"][0]["stock"] == 5
+
+
+@teste
+def produto_nao_enviado_com_estoque_errado_entra_com_o_registro_completo():
+    livro = [mov("M1", "entrada", 5)]
+    mud = corrigir_estoque([produto("P1", 9)], None, livro)
+    assert mud["upsert"][0]["stock"] == 5
+    assert mud["upsert"][0]["name"] == "PP1" and mud["upsert"][0]["price"] == 2.0, "registro completo, não só o estoque"
+
+
+@teste
+def produto_sem_historico_nao_e_alterado():
+    livro = [mov("M1", "entrada", 5, produto="P1")]
+    assert corrigir_estoque([produto("P2", 7)], None, livro) is None
+
+
+@teste
+def produto_com_estoque_certo_nao_gera_gravacao():
+    livro = [mov("M1", "entrada", 5)]
+    assert corrigir_estoque([produto("P1", 5)], None, livro) is None
+
+
+@teste
+def envio_completo_tem_todos_os_produtos_com_saldo_certo():
+    livro = [mov("M1", "entrada", 5), mov("M2", "venda", -2)]
+    mud = corrigir_estoque([produto("P1", 3)], {"full": [produto("P1", 9)]}, livro)
+    assert mud["full"][0]["stock"] == 3
+
+
+@teste
+def saldo_negativo_nao_acontece_e_a_saida_antiga_conta_como_zero():
+    livro = [mov("M1", "entrada", 1), mov("M2", "venda", -3)]
+    assert saldos_do_livro(livro)["P1"] == 0
 
 
 if __name__ == "__main__":

@@ -77,8 +77,15 @@ namespace SV.Api.Servicos
             lock (_trava)
             {
                 JObject alteracoes = JObject.Parse(jsonAlteracoes);
-                ValidarEstoque(alteracoes);
-                return SistemaVendas.Database.ApplyChanges(jsonAlteracoes);
+
+                JArray livroAtual = JArray.Parse(Ler("movimentacoes"));
+                JArray livroNovo = alteracoes["movimentacoes"] is JObject mm
+                    ? SimularMudanca(livroAtual, mm)
+                    : livroAtual;
+
+                ValidarEstoque(livroAtual, livroNovo);
+                CorrigirSaldos(alteracoes, livroNovo);
+                return SistemaVendas.Database.ApplyChanges(alteracoes.ToString(Formatting.None));
             }
         }
 
@@ -90,16 +97,10 @@ namespace SV.Api.Servicos
         /// Recusa a gravação se ela criar uma saída sem saldo. Só saídas novas causadas por esta
         /// gravação contam: uma saída já inconsistente antes da validação não bloqueia o resto.
         /// </summary>
-        private static void ValidarEstoque(JObject alteracoes)
+        private static void ValidarEstoque(JArray livroAtual, JArray livroNovo)
         {
-            JToken mudanca = alteracoes["movimentacoes"];
-            if (mudanca == null || mudanca.Type != JTokenType.Object) return;
-
-            JArray atuais = JArray.Parse(Ler("movimentacoes"));
-            JArray depois = SimularMudanca(atuais, (JObject)mudanca);
-
-            var antes = new HashSet<string>(EstourosDoLivro(atuais).Select(e => e.Key));
-            foreach (var estouro in EstourosDoLivro(depois))
+            var antes = new HashSet<string>(EstourosDoLivro(livroAtual, new Dictionary<string, double>()).Select(e => e.Key));
+            foreach (var estouro in EstourosDoLivro(livroNovo, new Dictionary<string, double>()))
             {
                 if (antes.Contains(estouro.Key)) continue;
                 throw new RegraNegocioException(
@@ -164,9 +165,8 @@ namespace SV.Api.Servicos
         /// Percorre o livro de movimentações (como o Estoque do app) e devolve as saídas que
         /// levariam o saldo abaixo de zero: par (id da movimentação, id do produto), na ordem do livro.
         /// </summary>
-        private static List<KeyValuePair<string, string>> EstourosDoLivro(JArray livro)
+        private static List<KeyValuePair<string, string>> EstourosDoLivro(JArray livro, Dictionary<string, double> saldos)
         {
-            var saldos = new Dictionary<string, double>();
             var estouros = new List<KeyValuePair<string, string>>();
 
             foreach (JToken mov in livro)
@@ -198,6 +198,92 @@ namespace SV.Api.Servicos
                 }
             }
             return estouros;
+        }
+
+        /// <summary>Saldo final de cada produto que tem movimentações (mesma regra de EstourosDoLivro).</summary>
+        private static Dictionary<string, double> CalcularSaldos(JArray livro)
+        {
+            var saldos = new Dictionary<string, double>();
+            EstourosDoLivro(livro, saldos);
+            return saldos;
+        }
+
+        /// <summary>
+        /// O estoque de cada produto com histórico passa a ser o saldo das movimentações, gravado na mesma
+        /// transação. Assim, um PC com número desatualizado não sobrescreve o estoque real.
+        /// Produto sem movimentação não é alterado (como em estoque.js).
+        /// </summary>
+        private static void CorrigirSaldos(JObject alteracoes, JArray livroNovo)
+        {
+            Dictionary<string, double> saldos = CalcularSaldos(livroNovo);
+            if (saldos.Count == 0) return;
+
+            var enviados = new HashSet<string>();
+            JObject mud = alteracoes["products"] as JObject;
+
+            if (mud != null)
+            {
+                if (mud["full"] is JArray full)
+                {
+                    foreach (JToken item in full)
+                    {
+                        enviados.Add(Texto(item["id"]));
+                        AjustarEstoque(item, saldos);
+                    }
+                }
+                if (mud["upsert"] is JArray up)
+                {
+                    foreach (JToken item in up)
+                    {
+                        enviados.Add(Texto(item["id"]));
+                        AjustarEstoque(item, saldos);
+                    }
+                }
+            }
+
+            // Produtos com estoque divergente que esta gravação não enviou: o registro completo do banco, com o saldo certo.
+            var extras = new JArray();
+            foreach (JToken p in JArray.Parse(Ler("products")))
+            {
+                string id = Texto(p["id"]);
+                if (!saldos.ContainsKey(id) || enviados.Contains(id)) continue;
+
+                long esperado = Arredondar(saldos[id]);
+                if (Math.Abs(Numero(p["stock"]) - esperado) < 0.0001) continue;
+
+                var copia = (JObject)JToken.Parse(p.ToString(Formatting.None));
+                copia["stock"] = esperado;
+                extras.Add(copia);
+            }
+
+            if (extras.Count > 0)
+            {
+                if (mud == null)
+                {
+                    mud = new JObject();
+                    alteracoes["products"] = mud;
+                }
+                if (mud["upsert"] is JArray up2)
+                {
+                    foreach (JToken e in extras) up2.Add(e);
+                }
+                else
+                {
+                    mud["upsert"] = extras;
+                }
+            }
+        }
+
+        private static void AjustarEstoque(JToken item, Dictionary<string, double> saldos)
+        {
+            string id = Texto(item["id"]);
+            if (!saldos.ContainsKey(id)) return;
+            item["stock"] = Arredondar(saldos[id]);
+        }
+
+        private static long Arredondar(double valor)
+        {
+            return (long)Math.Round(valor, MidpointRounding.AwayFromZero);
         }
 
         private static string NomeDoProduto(string produtoId)
