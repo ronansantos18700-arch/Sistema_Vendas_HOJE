@@ -3,8 +3,6 @@ using Microsoft.Web.WebView2.WinForms;
 using Newtonsoft.Json;
 using System;
 using System.IO;
-using System.Net.Http;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SistemaVendas
@@ -66,21 +64,23 @@ namespace SistemaVendas
 
                 // O frontend vem do servidor central (mesmos arquivos, http://IP:5080/).
                 // Sem servidor, o sistema não abre: os dados ficam só no servidor.
+                // A falha é detectada pelo próprio WebView2 (sem outra conexão de teste),
+                // e o aviso mostra o motivo que o navegador informou.
                 string url = LerUrlServidor();
-                while (!await ServidorDisponivel(url))
+                webView21.CoreWebView2.NavigationCompleted += (s, e) =>
                 {
+                    if (e.IsSuccess) return;
+
                     DialogResult resposta = MessageBox.Show(
-                        "Não foi possível conectar ao servidor de vendas (" + url + ").\n\n" +
+                        "Não foi possível abrir o sistema em " + url + ".\n\n" +
+                        "Motivo: " + e.WebErrorStatus + "\n\n" +
                         "Verifique se o servidor está ligado e se o endereço no arquivo servidor.txt está certo.\n\n" +
                         "Tentar de novo?",
                         "Servidor indisponível",
                         MessageBoxButtons.RetryCancel, MessageBoxIcon.Warning);
-                    if (resposta != DialogResult.Retry)
-                    {
-                        Close();
-                        return;
-                    }
-                }
+                    if (resposta == DialogResult.Retry) webView21.CoreWebView2.Navigate(url + "/");
+                    else Close();
+                };
 
                 webView21.CoreWebView2.Navigate(url + "/");
             }
@@ -122,22 +122,6 @@ namespace SistemaVendas
                 url = "http://" + url;
             }
             return url.TrimEnd('/');
-        }
-
-        private static async Task<bool> ServidorDisponivel(string url)
-        {
-            using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) })
-            {
-                try
-                {
-                    HttpResponseMessage resposta = await http.GetAsync(url + "/api/saude");
-                    return resposta.IsSuccessStatusCode;
-                }
-                catch (Exception)
-                {
-                    return false;
-                }
-            }
         }
 
         public void SendNotification(string type, string message)
