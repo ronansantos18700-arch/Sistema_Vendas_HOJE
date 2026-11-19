@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using SV.Api;
 using SV.Api.Servicos;
 
@@ -37,6 +38,12 @@ builder.Services.AddCors(opcoes =>
 var app = builder.Build();
 
 app.UseCors();
+
+// Frontend (mesmos arquivos do desktop), copiados para wwwroot na compilação.
+// Caminho explícito: com "dotnet run", a raiz de conteúdo é a pasta do projeto.
+var arquivosSite = new PhysicalFileProvider(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
+app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = arquivosSite });
+app.UseStaticFiles(new StaticFileOptions { FileProvider = arquivosSite });
 
 Dados.Iniciar(caminhoBanco);
 Dados.GarantirAdministrador();
