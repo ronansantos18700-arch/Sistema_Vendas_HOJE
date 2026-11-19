@@ -5904,3 +5904,14 @@ i.bx {
 .win-btn i.bx { font-size: 18px; }
 .win-btn:hover { border-color: #4070f4; color: #4070f4; }
 .win-btn-close:hover { border-color: #e5484d; background: #e5484d; color: #ffffff; }
+
+/* Relatórios (histórico) e destaques do dashboard */
+.relatorios-panel { padding: 1rem; border-radius: 12px; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.relatorios-linha { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.relatorios-opcoes { display: flex; gap: 1rem; flex-wrap: wrap; }
+.dash-destaques { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; border-radius: 12px; margin-top: 1rem; }
+.dash-destaque h4 { margin: 0 0 0.5rem 0; }
+.dash-destaque ul, .dash-destaque ol { margin: 0.25rem 0 0 1.1rem; padding: 0; }
+.dash-alerta-zero { color: #e5484d; }
+.dash-alerta-baixo { color: #d97706; }
+@media (max-width: 900px) { .dash-destaques { grid-template-columns: 1fr; } }

@@ -305,6 +305,17 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Testes: `tests/db/test_estoque_servidor.py` (espelho da regra em Python) e `tests/js/test_gravacao_registro.js` (recusa e recarregamento). O C# ainda não foi compilado no sandbox; validado por `dotnet build` no Windows.
 - Venda no PDV: "Venda finalizada" só aparece depois que o servidor confirma. Se ele recusar, a venda sai da tela e o carrinho volta. Se a conexão cair, a venda fica pendente e o aviso diz que ainda não foi confirmada.
 - Estoque corrigido no servidor: em cada gravação, o `stock` de todo produto com movimentações recebe o saldo do livro, na mesma transação. Assim, um PC com número antigo não sobrescreve o estoque real. Produto sem movimentação não muda.
+### 2026-11-19 (funcionalidade C — relatórios e dashboard)
+
+- Aba RELATÓRIOS (histórico): escolhe o período (de/até), os relatórios e exporta em CSV (um arquivo por relatório) ou PDF (um arquivo com todas as seções marcadas). Relatórios: vendas por dia ou mês, lucro por produto, estoque atual, recebimentos por forma de pagamento.
+- CSV: UTF-8 com BOM, separador `;` e vírgula decimal, para abrir direto no Excel em português.
+- PDF: gerado sem biblioteca externa (`relatorios.js`), em A4, Helvetica, com quebra de página. Validado com `pypdf` (abre, extrai o texto e mantém os caracteres do WinAnsi).
+- Lucro por produto: o desconto da venda é repartido pelos itens, então a soma bate com o valor final.
+- Dashboard: painel "Alertas de estoque" (sem estoque e baixo) e "Mais vendidos no período" (segue o filtro do dashboard).
+- Auditoria: cada exportação grava `RELATORIO_EXPORT` com formato, relatórios e período.
+- Fora desta etapa: fiado (funcionalidade F) não entra nos alertas, porque ainda não existe.
+- Testes: `tests/js/test_relatorios.js` (agregações, CSV, estrutura e xref do PDF) e `tests/js/test_relatorios_app.js` (arquivos baixados, painel e escape).
+
 - Pendência: o `cost` do produto (custo médio) ainda vem do cliente e pode ficar desatualizado do mesmo jeito. Mesma correção, a fazer.
 - Pendência: backup em modo servidor não inclui as fotos do servidor (só `images/` locais).
 - Firewall: o PC do servidor precisa liberar a porta 5080 na rede (entrada TCP).

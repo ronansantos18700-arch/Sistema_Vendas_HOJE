@@ -2052,6 +2052,114 @@ const app = {
     },
 
     // --- Backup Logic ---
+    // --- Relatórios (exportação CSV e PDF) ---
+
+    /** Monta as seções pedidas. Cada seção vem com o id do relatório. */
+    montarSecoesRelatorio(ids, inicio, fim) {
+        const R = window.Relatorios;
+        const vendas = R.filtrarVendas(this.state.sales, inicio, fim);
+        const { nivelBaixo, nivelMedio } = this.niveisEstoque();
+        const agrupar = (document.getElementById('rel-agrupar') || {}).value === 'mes' ? 'mes' : 'dia';
+        const construtores = {
+            vendas: () => R.secaoVendasPorPeriodo(vendas, agrupar),
+            lucro: () => R.secaoLucroPorProduto(vendas),
+            estoque: () => R.secaoEstoqueAtual(this.state.products, nivelBaixo, nivelMedio),
+            pagamentos: () => R.secaoRecebimentos(vendas)
+        };
+        return ids.map((id) => construtores[id]());
+    },
+
+    niveisEstoque() {
+        const cfg = (this.state.settings && this.state.settings.notifications) || {};
+        return {
+            nivelBaixo: Number(cfg.stockLowVal) || 10,
+            nivelMedio: Number(cfg.stockMediumVal) || 25
+        };
+    },
+
+    baixarArquivo(conteudo, tipo, nome) {
+        const blob = new Blob([conteudo], { type: tipo });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = nome;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
+    exportarRelatorios(formato) {
+        const ids = ['vendas', 'lucro', 'estoque', 'pagamentos'].filter((id) => {
+            const el = document.getElementById('rel-' + id);
+            return !!(el && el.checked);
+        });
+        if (ids.length === 0) {
+            this.showNotification('error', 'Marque pelo menos um relatório.');
+            return;
+        }
+
+        const inicio = (document.getElementById('rel-inicio') || {}).value || '';
+        const fim = (document.getElementById('rel-fim') || {}).value || '';
+        if (inicio && fim && inicio > fim) {
+            this.showNotification('error', 'A data inicial é depois da data final.');
+            return;
+        }
+
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+        const periodoTexto = (inicio || 'início') + ' a ' + (fim || 'hoje');
+        const sufixo = (inicio || 'inicio') + '_a_' + (fim || 'hoje');
+
+        try {
+            const secoes = this.montarSecoesRelatorio(ids, inicio, fim);
+            if (formato === 'csv') {
+                secoes.forEach((s) => {
+                    this.baixarArquivo(window.Relatorios.csv(s), 'text/csv;charset=utf-8', 'relatorio_' + s.id + '_' + sufixo + '.csv');
+                });
+            } else {
+                const bytes = window.Relatorios.pdf({
+                    titulo: 'Relatórios',
+                    empresa: (this.state.settings || {}).companyName || '',
+                    periodo: 'Período: ' + (inicio ? dataBr(inicio) : 'início') + ' a ' + (fim ? dataBr(fim) : 'hoje'),
+                    geradoEm: 'Gerado em ' + new Date().toLocaleString('pt-BR') + ' por ' + (this.state.currentUser?.username || 'sistema')
+                }, secoes);
+                this.baixarArquivo(bytes, 'application/pdf', 'relatorios_' + sufixo + '.pdf');
+            }
+        } catch (err) {
+            this.showNotification('error', 'Erro ao gerar o relatório: ' + err.message);
+            return;
+        }
+
+        // Quem exportou e o quê, para o registro de ações.
+        this.logAudit('RELATORIO_EXPORT', { formato, relatorios: ids, inicio, fim });
+        this.showNotification('success', 'Relatório exportado (' + formato.toUpperCase() + ', ' + periodoTexto + ').');
+    },
+
+    /** Painel de alertas de estoque e produtos mais vendidos no período do dashboard. */
+    renderDashboardAlertas() {
+        const R = window.Relatorios;
+        const elAlertas = document.getElementById('dash-alertas');
+        const elTop = document.getElementById('dash-top-produtos');
+        if (!R || (!elAlertas && !elTop)) return;
+
+        if (elAlertas) {
+            const { nivelBaixo, nivelMedio } = this.niveisEstoque();
+            const a = R.alertasEstoque(this.state.products, nivelBaixo, nivelMedio);
+            const itens = [
+                ...a.semEstoque.map((x) => `<li class="dash-alerta-zero">${R.escaparHtml(x.produto)}: sem estoque</li>`),
+                ...a.estoqueBaixo.map((x) => `<li class="dash-alerta-baixo">${R.escaparHtml(x.produto)}: ${x.saldo} un.</li>`)
+            ];
+            elAlertas.innerHTML = itens.length ? '<ul>' + itens.join('') + '</ul>' : '<p>Nenhum produto em alerta.</p>';
+        }
+
+        if (elTop) {
+            const lista = R.topProdutos(this.getFilteredSales(), 5);
+            elTop.innerHTML = lista.length
+                ? '<ol>' + lista.map((p) => `<li>${R.escaparHtml(p.produto)}: ${p.quantidade} un.</li>`).join('') + '</ol>'
+                : '<p>Sem vendas no período.</p>';
+        }
+    },
+
     async exportBackup() {
         if (this.requirePasswordChange()) return;
         if (!this.requireAdmin('exportar backups')) return;
@@ -3673,6 +3781,7 @@ const app = {
         const prevTicketMedio = prevNumVendas > 0 ? previousTotals.faturamento / prevNumVendas : 0;
         this.updateVariation('dash-ticket-var', ticketMedio, prevTicketMedio);
 
+        this.renderDashboardAlertas();
         this.initCharts();
     },
 
