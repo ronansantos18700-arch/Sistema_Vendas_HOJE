@@ -296,6 +296,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Sem snapshot, a gravação é recusada com erro (não envia a tabela inteira). Só um id repetido em uma coleção deixa essa coleção sem snapshot.
 - `Database.AplicarOrdem`: registro que este PC não conhecia (inserido por outro) vai para o fim, mantendo a ordem atual. Antes, isso desfazia a gravação inteira com "Ordem inconsistente".
 - Testes: `tests/js/test_gravacao_registro.js` (dois PCs, perda de dados, falha de rede, mudança durante a gravação) e cenário 6 em `tests/db/test_ordem_sql.py`.
+
+### 2026-11-19 (servidor central — etapa 4)
+
+- Estoque validado no servidor: `POST /api/dados/alteracoes` recusa (400, com o motivo) a gravação que deixaria um produto com saldo negativo. A validação e a gravação rodam sob a mesma trava, então dois PCs não passam ao mesmo tempo.
+- Regra igual a `estoque.js`: o saldo é recalculado a partir de `movimentacoes` (com movimentações ignoradas excluídas). Só saídas novas causadas pela gravação são recusadas; saídas antigas já inconsistentes não bloqueiam outras gravações.
+- Frontend: quando o servidor recusa, mostra o motivo e recarrega os dados do servidor. Antes, a gravação recusada ficava pendente e era reenviada a cada salvamento.
+- Testes: `tests/db/test_estoque_servidor.py` (espelho da regra em Python) e `tests/js/test_gravacao_registro.js` (recusa e recarregamento). O C# ainda não foi compilado no sandbox; validado por `dotnet build` no Windows.
+- Pendência conhecida: o `stock` do produto enviado pelo cliente pode ficar desatualizado (o app só recalcula ao registrar movimentação ou editar o produto). O saldo que vale para a validação é o das movimentações, então não há venda acima do estoque, mas o número mostrado no cadastro pode divergir.
 - Pendência: backup em modo servidor não inclui as fotos do servidor (só `images/` locais).
 - Firewall: o PC do servidor precisa liberar a porta 5080 na rede (entrada TCP).
 - Fotos antigas (caminho local `images/...`) não são migradas para o servidor.

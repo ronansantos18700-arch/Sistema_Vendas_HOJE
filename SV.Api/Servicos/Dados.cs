@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -65,6 +66,173 @@ namespace SV.Api.Servicos
             {
                 return SistemaVendas.Database.ApplyChanges(jsonAlteracoes);
             }
+        }
+
+        /// <summary>
+        /// Valida o estoque e grava as alterações sob a mesma trava: dois PCs não passam pela
+        /// validação ao mesmo tempo. Lança RegraNegocioException se a gravação causaria estoque negativo.
+        /// </summary>
+        public static bool AplicarComValidacao(string jsonAlteracoes)
+        {
+            lock (_trava)
+            {
+                JObject alteracoes = JObject.Parse(jsonAlteracoes);
+                ValidarEstoque(alteracoes);
+                return SistemaVendas.Database.ApplyChanges(jsonAlteracoes);
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Estoque (regra igual a estoque.js: o saldo nunca fica negativo)
+        // ---------------------------------------------------------------
+
+        /// <summary>
+        /// Recusa a gravação se ela criar uma saída sem saldo. Só saídas novas causadas por esta
+        /// gravação contam: uma saída já inconsistente antes da validação não bloqueia o resto.
+        /// </summary>
+        private static void ValidarEstoque(JObject alteracoes)
+        {
+            JToken mudanca = alteracoes["movimentacoes"];
+            if (mudanca == null || mudanca.Type != JTokenType.Object) return;
+
+            JArray atuais = JArray.Parse(Ler("movimentacoes"));
+            JArray depois = SimularMudanca(atuais, (JObject)mudanca);
+
+            var antes = new HashSet<string>(EstourosDoLivro(atuais).Select(e => e.Key));
+            foreach (var estouro in EstourosDoLivro(depois))
+            {
+                if (antes.Contains(estouro.Key)) continue;
+                throw new RegraNegocioException(
+                    "Estoque insuficiente para \"" + NomeDoProduto(estouro.Value) + "\". Nada foi gravado.");
+            }
+        }
+
+        /// <summary>Lista de movimentações depois de aplicar a mudança (full, upsert, delete, order).</summary>
+        private static JArray SimularMudanca(JArray atuais, JObject mudanca)
+        {
+            if (mudanca["full"] is JArray full)
+            {
+                return JArray.Parse(full.ToString(Formatting.None));
+            }
+
+            JArray lista = JArray.Parse(atuais.ToString(Formatting.None));
+
+            if (mudanca["delete"] is JArray remover)
+            {
+                var ids = new HashSet<string>(remover.Select(t => Texto(t)));
+                for (int i = lista.Count - 1; i >= 0; i--)
+                {
+                    if (ids.Contains(Texto(lista[i]["id"]))) lista.RemoveAt(i);
+                }
+            }
+
+            if (mudanca["upsert"] is JArray upsert)
+            {
+                foreach (JToken item in upsert)
+                {
+                    string id = Texto(item["id"]);
+                    int idx = -1;
+                    for (int i = 0; i < lista.Count; i++)
+                    {
+                        if (Texto(lista[i]["id"]) == id) { idx = i; break; }
+                    }
+                    JToken copia = JToken.Parse(item.ToString(Formatting.None));
+                    if (idx >= 0) lista[idx] = copia; else lista.Add(copia);
+                }
+            }
+
+            if (mudanca["order"] is JArray ordem)
+            {
+                var posicao = new Dictionary<string, int>();
+                for (int i = 0; i < ordem.Count; i++) posicao[Texto(ordem[i])] = i;
+
+                var listados = lista.Where(t => posicao.ContainsKey(Texto(t["id"])))
+                                    .OrderBy(t => posicao[Texto(t["id"])]);
+                var resto = lista.Where(t => !posicao.ContainsKey(Texto(t["id"])));
+                var nova = new JArray();
+                foreach (JToken t in listados.Concat(resto))
+                {
+                    nova.Add(JToken.Parse(t.ToString(Formatting.None)));
+                }
+                lista = nova;
+            }
+
+            return lista;
+        }
+
+        /// <summary>
+        /// Percorre o livro de movimentações (como o Estoque do app) e devolve as saídas que
+        /// levariam o saldo abaixo de zero: par (id da movimentação, id do produto), na ordem do livro.
+        /// </summary>
+        private static List<KeyValuePair<string, string>> EstourosDoLivro(JArray livro)
+        {
+            var saldos = new Dictionary<string, double>();
+            var estouros = new List<KeyValuePair<string, string>>();
+
+            foreach (JToken mov in livro)
+            {
+                if (Verdadeiro(mov["ignorada"])) continue;
+
+                string produto = Texto(mov["produtoId"]);
+                string tipo = Texto(mov["tipo"]);
+                double qtd = Numero(mov["qtd"]);
+                double saldo = Math.Max(0, saldos.TryGetValue(produto, out double s) ? s : 0);
+
+                switch (tipo)
+                {
+                    case "saldo_inicial":
+                        saldos[produto] = Math.Max(0, qtd);
+                        break;
+                    case "ajuste_custo":
+                        break;
+                    case "entrada":
+                        saldos[produto] = saldo + qtd;
+                        break;
+                    default: // venda, estorno, ajuste, exclusao_entrada
+                        if (saldo + qtd < 0)
+                        {
+                            estouros.Add(new KeyValuePair<string, string>(Texto(mov["id"]), produto));
+                        }
+                        saldos[produto] = Math.Max(0, saldo + qtd);
+                        break;
+                }
+            }
+            return estouros;
+        }
+
+        private static string NomeDoProduto(string produtoId)
+        {
+            foreach (JToken p in JArray.Parse(Ler("products")))
+            {
+                if (Texto(p["id"]) == produtoId)
+                {
+                    string nome = Texto(p["name"]);
+                    return string.IsNullOrEmpty(nome) ? produtoId : nome;
+                }
+            }
+            return produtoId;
+        }
+
+        private static string Texto(JToken t)
+        {
+            if (t == null || t.Type == JTokenType.Null || t.Type == JTokenType.Undefined) return "";
+            return t.Type == JTokenType.String ? t.Value<string>() : t.ToString(Formatting.None);
+        }
+
+        private static double Numero(JToken t)
+        {
+            double n;
+            return double.TryParse(Texto(t), System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out n) ? n : 0;
+        }
+
+        private static bool Verdadeiro(JToken t)
+        {
+            if (t == null || t.Type == JTokenType.Null) return false;
+            if (t.Type == JTokenType.Boolean) return t.Value<bool>();
+            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return Numero(t) != 0;
+            string s = Texto(t);
+            return string.Equals(s, "true", StringComparison.OrdinalIgnoreCase) || s == "1";
         }
 
         /// <summary>Retorna null se o JSON é aceito pela rota genérica; senão, o motivo.</summary>

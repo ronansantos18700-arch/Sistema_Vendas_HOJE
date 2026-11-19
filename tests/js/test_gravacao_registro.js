@@ -12,11 +12,12 @@ function novoServidor(dados) {
   const tabelas = {};
   for (const [nome, lista] of Object.entries(dados)) tabelas[nome] = JSON.parse(JSON.stringify(lista));
   const srv = {
-    tabelas, falhar: false, chamadas: [],
+    tabelas, falhar: false, recusarCom: null, chamadas: [],
     ler(tipo) { return JSON.stringify(tabelas[tipo] || []); },
     aplicar(json) {
       const payload = JSON.parse(json);
       srv.chamadas.push(payload);
+      if (srv.recusarCom) { const e = new Error(srv.recusarCom.erro); e.status = 400; throw e; }
       if (srv.falhar) return false;
       const novo = JSON.parse(JSON.stringify(tabelas));
       for (const [nome, mud] of Object.entries(payload)) {
@@ -51,12 +52,12 @@ const vendasIniciais = [
   { id: 'V2', date: '2026-11-18', cliente: '', valor_total: 7, desconto: 0, valor_final: 7, cost: 4, lucro: 3, pagamento: 'dinheiro', items: [] }
 ];
 
-function criarApp(srv, { comUsuarios = true } = {}) {
+function criarApp(srv, { timers = false } = {}) {
   const ctx = {
     window: {}, console: { log: noop, warn: noop, info: noop, error: noop },
     document: { getElementById: () => el, querySelector: () => el, querySelectorAll: () => [], addEventListener: noop, createElement: () => el, body: el, documentElement: el, readyState: 'complete' },
     localStorage: { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem: noop },
-    setTimeout: noop, setInterval: noop, clearInterval: noop, requestAnimationFrame: noop,
+    setTimeout: timers ? (fn) => { Promise.resolve().then(fn); return 0; } : noop, setInterval: noop, clearInterval: noop, requestAnimationFrame: noop,
     Chart: function () { return { destroy: noop, update: noop }; }, lucide: { createIcons: noop },
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     alert: noop, confirm: () => false, fetch: async () => ({ ok: false }),
@@ -188,6 +189,23 @@ teste('usuário padrão criado no primeiro uso é gravado no banco', async () =>
   const a = criarApp(srv);
   await a.carregarDados();
   assert.ok(srv.tabelas.users.find(u => u.username === 'admin' && u.isDefaultCredential === true), 'admin padrão no banco');
+});
+
+teste('servidor recusa (estoque insuficiente): mostra o motivo, recarrega e não reenvia a venda', async () => {
+  const srv = servidorComDados();
+  const a = criarApp(srv, { timers: true });
+  await a.carregarDados();
+  a.state.sales.push({ id: 'V9', date: '2026-11-19', cliente: '', valor_total: 8, desconto: 0, valor_final: 8, cost: 5, lucro: 3, pagamento: 'dinheiro', items: [] });
+  srv.recusarCom = { erro: 'Estoque insuficiente para "Arroz". Nada foi gravado.' };
+  assert.strictEqual(await a.salvarDados(), false);
+  await new Promise(r => setImmediate(r));
+  assert.ok(a.notificacoes.some(n => n.tipo === 'error' && /Estoque insuficiente para "Arroz"/.test(n.msg)), 'motivo mostrado');
+  assert.ok(!a.state.sales.some(v => v.id === 'V9'), 'venda recusada sai da tela após recarregar');
+  srv.recusarCom = null;
+  const enviosAntes = srv.chamadas.length;
+  assert.strictEqual(await a.salvarDados(), true);
+  const envio = srv.chamadas[srv.chamadas.length - 1];
+  assert.ok(srv.chamadas.length === enviosAntes + 1 && !('sales' in envio), 'próxima gravação não reenvia a venda recusada');
 });
 
 (async () => {

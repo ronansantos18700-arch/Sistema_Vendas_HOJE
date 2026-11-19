@@ -2458,7 +2458,15 @@ const app = {
             return true;
         } catch (err) {
             console.error("Erro ao salvar dados:", err);
-            this.showNotification('error', "Erro crítico ao salvar dados: " + err.message);
+            if (err && err.status === 400) {
+                // O servidor recusou a gravação (ex.: estoque insuficiente por outro PC). Nada foi gravado.
+                // Sem recarregar, a mesma gravação seria reenviada para sempre. Recarrega após esta
+                // gravação terminar (carregarDados também pode gravar, então não pode rodar dentro da fila).
+                this.showNotification('error', err.message + " Os dados foram atualizados do servidor.");
+                setTimeout(() => this.carregarDados(), 0);
+            } else {
+                this.showNotification('error', "Erro crítico ao salvar dados: " + err.message);
+            }
             return false;
         } finally {
             this.setLoading(false);
