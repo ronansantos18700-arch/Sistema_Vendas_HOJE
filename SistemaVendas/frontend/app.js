@@ -2401,6 +2401,7 @@ const app = {
     },
 
     async executarSalvarDados() {
+        this.gravacaoRecusada = false; // true só se o servidor recusou (400); falha de conexão não conta
         // Forçar dataLoaded se tivermos itens no estado (indica que o sistema está operacional)
         if (!this.state.dataLoaded && (this.state.products.length > 0 || this.state.sales.length > 0)) {
             this.state.dataLoaded = true;
@@ -2462,6 +2463,7 @@ const app = {
                 // O servidor recusou a gravação (ex.: estoque insuficiente por outro PC). Nada foi gravado.
                 // Sem recarregar, a mesma gravação seria reenviada para sempre. Recarrega após esta
                 // gravação terminar (carregarDados também pode gravar, então não pode rodar dentro da fila).
+                this.gravacaoRecusada = true;
                 this.showNotification('error', err.message + " Os dados foram atualizados do servidor.");
                 setTimeout(() => this.carregarDados(), 0);
             } else {
@@ -4172,6 +4174,8 @@ const app = {
 
         // Se a venda ainda não está no histórico (é uma venda nova do PDV)
         if (!this.state.sales.find(s => (s.id || s.ID) === sale.id)) {
+            const carrinhoAnterior = this.state.cart;
+
             // Atualiza o estoque
             this.registrarMovimentacoes(Estoque.movimentosDaVenda(sale));
 
@@ -4179,7 +4183,25 @@ const app = {
             this.state.sales.push(sale);
             this.state.cart = [];
 
-            await this.salvarDados();
+            // A venda só é confirmada depois que o servidor grava. Sem isso, a tela dizia "sucesso"
+            // mesmo quando o servidor recusava (ex.: estoque insuficiente por outro PC).
+            const gravou = await this.salvarDados();
+            if (!gravou) {
+                this.closeModal();
+                this.state.pendingSale = null;
+                if (this.gravacaoRecusada) {
+                    // Recusada pelo servidor: a venda não existe lá. Tira da tela e devolve o carrinho para ajustar.
+                    this.state.sales = this.state.sales.filter(s => (s.id || s.ID) !== sale.id);
+                    this.state.cart = carrinhoAnterior;
+                    this.renderCart();
+                    this.updateDashboardStats();
+                    this.renderHistory();
+                } else {
+                    // Falha de conexão: a venda continua pendente e será enviada quando o servidor voltar.
+                    this.showNotification('error', 'Venda não confirmada pelo servidor. Ela será gravada quando a conexão voltar.');
+                }
+                return;
+            }
             this.showNotification('success', 'Venda finalizada com sucesso!');
 
             // Limpar campos do PDV

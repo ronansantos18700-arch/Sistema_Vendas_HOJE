@@ -64,6 +64,7 @@ function criarApp(srv, { timers = false } = {}) {
     crypto: require('crypto').webcrypto, TextEncoder, TextDecoder, Intl, JSON, Math, Date, Map, Set, Object, Array, String, Number, Promise, Error, Symbol
   };
   ctx.window = ctx; ctx.globalThis = ctx;
+  ctx.addEventListener = noop; ctx.removeEventListener = noop;
   ctx.window.chrome = { webview: { hostObjects: { bridge: {
     GetData: async (tipo) => srv.ler(tipo),
     SaveChanges: async (json) => srv.aplicar(json),
@@ -208,11 +209,68 @@ teste('servidor recusa (estoque insuficiente): mostra o motivo, recarrega e não
   assert.ok(srv.chamadas.length === enviosAntes + 1 && !('sales' in envio), 'próxima gravação não reenvia a venda recusada');
 });
 
+function vendaPendente(a, id) {
+  // Telas do PDV não são testadas aqui (o harness não simula o DOM completo).
+  a.renderCart = noop; a.renderPosCatalog = noop; a.renderHistory = noop; a.updateDashboardStats = noop;
+  const item = { id: 'P1', name: 'Arroz', qty: 2, price: 8, cost: 5, image: '' };
+  a.state.cart = [item];
+  a.state.pendingSale = { id, date: '2026-11-19T10:00:00.000Z', cliente: 'Consumidor Final', valor_total: 16, desconto: 0, valor_final: 16, cost: 10, lucro: 6, pagamento: 'dinheiro', items: [item] };
+}
+
+teste('venda recusada pelo servidor: sem sucesso, sai da tela e devolve o carrinho', async () => {
+  const srv = servidorComDados();
+  const a = criarApp(srv, { timers: true });
+  await a.carregarDados();
+  vendaPendente(a, 'V8');
+  srv.recusarCom = { erro: 'Estoque insuficiente para "Arroz". Nada foi gravado.' };
+  await a.confirmFinishSale('none');
+  await new Promise(r => setImmediate(r));
+  assert.ok(!a.notificacoes.some(n => n.tipo === 'success'), 'não pode mostrar sucesso');
+  assert.ok(a.notificacoes.some(n => n.tipo === 'error' && /Estoque insuficiente/.test(n.msg)), 'mostra o motivo');
+  assert.ok(!a.state.sales.some(v => v.id === 'V8'), 'venda sai da tela');
+  assert.strictEqual(a.state.cart.length, 1, 'carrinho devolvido');
+  assert.strictEqual(a.state.cart[0].qty, 2);
+  assert.strictEqual(a.state.pendingSale, null);
+});
+
+teste('venda gravada: mostra sucesso só depois da confirmação do servidor', async () => {
+  const srv = servidorComDados();
+  const a = criarApp(srv);
+  await a.carregarDados();
+  vendaPendente(a, 'V8');
+  const aplicarOriginal = srv.aplicar;
+  let sucessoAntesDaGravacao = false;
+  srv.aplicar = (json) => {
+    sucessoAntesDaGravacao = a.notificacoes.some(n => n.tipo === 'success');
+    return aplicarOriginal(json);
+  };
+  await a.confirmFinishSale('none');
+  assert.strictEqual(sucessoAntesDaGravacao, false, 'nada de sucesso antes de gravar');
+  assert.ok(a.notificacoes.some(n => n.tipo === 'success' && /finalizada/.test(n.msg)), 'sucesso depois de gravar');
+  assert.ok(srv.tabelas.sales.some(v => v.id === 'V8'), 'venda no servidor');
+  assert.strictEqual(a.state.cart.length, 0, 'carrinho limpo após venda gravada');
+});
+
+teste('falha de conexão: venda continua pendente e o aviso não diz que foi gravada', async () => {
+  const srv = servidorComDados();
+  const a = criarApp(srv);
+  await a.carregarDados();
+  vendaPendente(a, 'V8');
+  srv.falhar = true;
+  await a.confirmFinishSale('none');
+  assert.ok(!a.notificacoes.some(n => n.tipo === 'success'), 'sem sucesso');
+  assert.ok(a.notificacoes.some(n => n.tipo === 'error' && /não confirmada/.test(n.msg)), 'avisa que não foi confirmada');
+  assert.ok(a.state.sales.some(v => v.id === 'V8'), 'venda continua na tela, pendente');
+  srv.falhar = false;
+  assert.strictEqual(await a.salvarDados(), true);
+  assert.ok(srv.tabelas.sales.some(v => v.id === 'V8'), 'enviada na próxima gravação');
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {
     try { await fn(); console.log('OK    ' + nome); }
-    catch (e) { falhas++; console.log('FALHA ' + nome + '\n      ' + e.message); }
+    catch (e) { falhas++; console.log('FALHA ' + nome + '\n      ' + e.message + '\n      ' + String(e.stack).split('\n').slice(1,4).join('\n      ')); }
   }
   console.log(falhas === 0 ? '\nTodos os testes de gravação por registro passaram.' : `\n${falhas} teste(s) falharam.`);
   process.exitCode = falhas === 0 ? 0 : 1;
