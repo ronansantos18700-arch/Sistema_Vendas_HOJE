@@ -11,7 +11,8 @@
   <ItemGroup>
     <!-- Mesmas versões do desktop (SistemaVendas.csproj), para o banco ter o mesmo comportamento. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.6" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+    <!-- 2.1.14: versões até 2.1.11 têm a vulnerabilidade GHSA-2m69-gcr7-jv3q (NU1903). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
