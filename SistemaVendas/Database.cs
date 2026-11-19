@@ -399,16 +399,31 @@ namespace SistemaVendas
                 posicao++;
             }
 
-            // 3) Nenhum registro pode ficar sem posição (lança erro e desfaz a transação).
-            using (var cont = conn.CreateCommand())
+            // 3) Registros que este computador não conhecia (inseridos por outro, depois da última
+            //    leitura) não podem ficar sem posição: vão para o fim, mantendo a ordem em que já estavam.
+            //    Antes, isto lançava erro e a gravação inteira de quem enviou a ordem era desfeita.
+            var restantes = new List<string>();
+            using (var sel = conn.CreateCommand())
             {
-                cont.Transaction = tx;
-                cont.CommandText = "SELECT COUNT(*) FROM " + Q(t.Nome) + " WHERE \"ordem\" < 0";
-                long pendentes = Convert.ToInt64(cont.ExecuteScalar(), CultureInfo.InvariantCulture);
-                if (pendentes > 0)
+                sel.Transaction = tx;
+                sel.CommandText = "SELECT \"id\" FROM " + Q(t.Nome) + " WHERE \"ordem\" < 0 ORDER BY \"ordem\" DESC";
+                using (var rd = sel.ExecuteReader())
                 {
-                    throw new InvalidOperationException("Ordem inconsistente na tabela " + t.Nome + ".");
+                    while (rd.Read()) restantes.Add(Convert.ToString(rd.GetValue(0), CultureInfo.InvariantCulture));
                 }
+            }
+            foreach (string id in restantes)
+            {
+                using (var upd = conn.CreateCommand())
+                {
+                    upd.Transaction = tx;
+                    upd.CommandText = "UPDATE " + Q(t.Nome) +
+                                      " SET \"ordem\" = @pos WHERE \"id\" = @id AND \"ordem\" < 0";
+                    upd.Parameters.AddWithValue("@pos", posicao);
+                    upd.Parameters.AddWithValue("@id", id);
+                    upd.ExecuteNonQuery();
+                }
+                posicao++;
             }
         }
 

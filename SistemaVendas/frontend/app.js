@@ -1715,7 +1715,6 @@ const app = {
 
                     if (window.chrome?.webview?.hostObjects?.bridge) {
                         const bridge = window.chrome.webview.hostObjects.bridge;
-                        this.snapshotSalvo = null; // gravação direta: próxima gravação compara com o banco inteiro
                         // Aguarda o SaveData terminar completamente antes de continuar
                         const saved = await bridge.SaveData(
                             'users',
@@ -1724,6 +1723,8 @@ const app = {
                         if (!saved) {
                             console.warn('Bridge users falhou no reset. Dados mantidos no localStorage.');
                         }
+                        // Só os usuários foram gravados: atualiza só essa parte do snapshot.
+                        if (saved && this.snapshotSalvo) this.snapshotSalvo.colecoes.users = this.snapshotDaLista(this.state.users);
                     }
 
                     this.setLoading(false);
@@ -2340,6 +2341,13 @@ const app = {
         };
     },
 
+    // Coleções que vão para o banco. No modo servidor, usuários ficam de fora (rotas próprias).
+    colecoesDeGravacao() {
+        const colecoes = this.colecoesParaSalvar();
+        if (this.emModoServidor()) delete colecoes.users;
+        return colecoes;
+    },
+
     // Mapa id -> JSON do registro, na ordem da lista. Retorna null se houver id ausente ou repetido.
     snapshotDaLista(lista) {
         const ids = [];
@@ -2356,9 +2364,8 @@ const app = {
     criarSnapshot(colecoes) {
         const resultado = {};
         for (const [nome, lista] of Object.entries(colecoes)) {
-            const snap = this.snapshotDaLista(lista);
-            if (!snap) return null; // próxima gravação regrava tudo
-            resultado[nome] = snap;
+            // Lista com id ausente ou repetido fica sem snapshot: essa coleção é regravada inteira.
+            resultado[nome] = this.snapshotDaLista(lista);
         }
         return { colecoes: resultado };
     },
@@ -2385,7 +2392,15 @@ const app = {
         return mudanca;
     },
 
-    async salvarDados() {
+    // Uma gravação por vez: a seguinte só começa depois da anterior, para não enviar a mesma mudança duas vezes.
+    salvarDados() {
+        const anterior = this.filaGravacao || Promise.resolve();
+        const atual = anterior.then(() => this.executarSalvarDados());
+        this.filaGravacao = atual.catch(() => {});
+        return atual;
+    },
+
+    async executarSalvarDados() {
         // Forçar dataLoaded se tivermos itens no estado (indica que o sistema está operacional)
         if (!this.state.dataLoaded && (this.state.products.length > 0 || this.state.sales.length > 0)) {
             this.state.dataLoaded = true;
@@ -2402,29 +2417,32 @@ const app = {
             if (bridge) {
 
                 // Grava somente o que mudou desde a última gravação bem-sucedida (uma transação).
-                const colecoes = this.colecoesParaSalvar();
-                // Usuários têm rotas próprias no servidor: ficam fora desta gravação.
-                if (this.emModoServidor()) delete colecoes.users;
+                const colecoes = this.colecoesDeGravacao();
                 const anterior = this.snapshotSalvo;
+                // Sem snapshot (dados não carregados), não dá para saber o que mudou: não grava nada.
+                if (!anterior) {
+                    throw new Error("Os dados ainda não foram carregados. Recarregue a tela antes de gravar.");
+                }
                 const payload = {};
 
                 for (const [nome, lista] of Object.entries(colecoes)) {
-                    const mudanca = anterior
-                        ? this.montarMudancas(lista, anterior.colecoes[nome])
-                        : { full: lista };
+                    const mudanca = this.montarMudancas(lista, anterior.colecoes[nome]);
                     if (mudanca) payload[nome] = mudanca;
                 }
 
                 // Configurações são pequenas: sempre regravadas por inteiro.
                 payload.settings = { full: [this.state.settings] };
 
+                // Snapshot do que está sendo enviado, criado antes do await: mudanças feitas enquanto
+                // grava continuam pendentes e vão na próxima gravação.
+                const enviado = this.criarSnapshot(colecoes);
                 const saved = await bridge.SaveChanges(JSON.stringify(payload));
                 if (!saved) {
                     // Mantém o snapshot antigo: a próxima gravação tenta as mesmas mudanças de novo.
                     throw new Error("Não foi possível salvar os dados. Nenhuma alteração foi gravada.");
                 }
 
-                this.snapshotSalvo = this.criarSnapshot(colecoes);
+                this.snapshotSalvo = enviado;
             } else {
                 localStorage.setItem('sv_products', JSON.stringify(this.state.products));
                 localStorage.setItem('sv_customers', JSON.stringify(this.state.customers));
@@ -2468,6 +2486,7 @@ const app = {
 
                 // Tenta carregar usuários via bridge, com fallback para localStorage
                 let usersData = null;
+                let usersVeioDoLocal = false;
                 try {
                     usersData = await bridge.GetData('users');
                 } catch (e) {
@@ -2475,6 +2494,7 @@ const app = {
                 }
 
                 if (!this.emModoServidor() && (!usersData || usersData === "[]" || usersData === "")) {
+                    usersVeioDoLocal = true;
                     usersData = localStorage.getItem('sv_users');
                 }
 
@@ -2596,6 +2616,11 @@ const app = {
                     password: String(u.password || ''),
                     role: String(u.role || 'operador')
                 }));
+
+                // O que foi lido é o que está no banco: a próxima gravação envia só as mudanças.
+                // Usuários vindos do localStorage (fallback) não estão no banco: regrava inteiro.
+                this.snapshotSalvo = this.criarSnapshot(this.colecoesDeGravacao());
+                if (usersVeioDoLocal && this.snapshotSalvo) this.snapshotSalvo.colecoes.users = null;
 
                 // Criar usuário admin padrão se não houver usuários (somente sem servidor)
                 if (this.state.users.length === 0 && !this.emModoServidor()) {

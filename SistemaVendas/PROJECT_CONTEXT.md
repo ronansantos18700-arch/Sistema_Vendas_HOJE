@@ -288,6 +288,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Dados nunca vão para a ponte (banco local) quando o servidor está configurado. Antes, uma sessão expirada podia gravar no SQLite local.
 - SHA-256 do backup em JS puro (`sha256.js`), usado quando `crypto.subtle` não existe (http). Mesmo valor do navegador (testado em `tests/js/test_sha256.js`).
 - Pendência: o desktop ainda inicializa o SQLite local ao abrir (`Database.Initialize`). Não é mais usado para dados, mas pode ser removido depois.
+
+### 2026-11-19 (servidor central — etapa 3)
+
+- Gravação por registro: cada coleção é comparada com o último snapshot salvo e só as mudanças (`upsert`, `delete`, `order`) são enviadas. Antes, a gravação mandava coleções inteiras (`full`), e um PC podia apagar registros que outro tinha acabado de criar.
+- Gravações em fila: uma por vez, para não reenviar a mesma mudança. Mudança feita durante uma gravação fica para a seguinte.
+- Sem snapshot, a gravação é recusada com erro (não envia a tabela inteira). Só um id repetido em uma coleção deixa essa coleção sem snapshot.
+- `Database.AplicarOrdem`: registro que este PC não conhecia (inserido por outro) vai para o fim, mantendo a ordem atual. Antes, isso desfazia a gravação inteira com "Ordem inconsistente".
+- Testes: `tests/js/test_gravacao_registro.js` (dois PCs, perda de dados, falha de rede, mudança durante a gravação) e cenário 6 em `tests/db/test_ordem_sql.py`.
 - Pendência: backup em modo servidor não inclui as fotos do servidor (só `images/` locais).
 - Firewall: o PC do servidor precisa liberar a porta 5080 na rede (entrada TCP).
 - Fotos antigas (caminho local `images/...`) não são migradas para o servidor.

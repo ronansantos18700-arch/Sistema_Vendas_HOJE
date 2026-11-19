@@ -31,6 +31,11 @@ def ordenar(c, ids):
     for id in ids:
         c.execute('UPDATE products SET ordem=? WHERE id=? AND ordem < 0', (pos, id))
         pos += 1
+    # registros que o cliente não conhecia vão para o fim, na ordem em que já estavam
+    restantes = [r[0] for r in c.execute('SELECT id FROM products WHERE ordem < 0 ORDER BY ordem DESC').fetchall()]
+    for id in restantes:
+        c.execute('UPDATE products SET ordem=? WHERE id=? AND ordem < 0', (pos, id))
+        pos += 1
     pend = c.execute('SELECT COUNT(*) FROM products WHERE ordem < 0').fetchone()[0]
     if pend: raise Exception('ordem inconsistente')
 
@@ -67,6 +72,17 @@ try:
     ok('reordenação normal', [r[0] for r in read(c3)] == ['Y2','Y1'])
 except Exception as e:
     ok('reordenação normal', False)
+
+# Cenário 6: outro computador inseriu P9 depois da última leitura; este envia a ordem sem P9
+c6 = criar()
+for i, (id, n) in enumerate([('P1','A'),('P2','B')], 1): inserir(c6, id, n, i)
+inserir(c6, 'P9', 'Outro PC', 7)                 # inserido pelo outro computador
+excluir(c6, 'P1')                                 # este computador exclui P1 e envia a ordem sem P9
+try:
+    ordenar(c6, ['P2'])
+    ok('registro de outro PC não quebra a reordenação e vai para o fim', [r[0] for r in read(c6)] == ['P2','P9'])
+except Exception:
+    ok('registro de outro PC não quebra a reordenação e vai para o fim', False)
 
 # Cenário 5: aleatório — compara com a lista de referência
 random.seed(1)

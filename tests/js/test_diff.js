@@ -57,7 +57,8 @@ check('sem snapshot -> full', J(app.montarMudancas(lista(), null)) === J({ full:
 const colecoes = { products: lista(), customers: [], sales: [] };
 const snapAll = app.criarSnapshot(colecoes);
 check('criarSnapshot cobre todas as coleções', snapAll && snapAll.colecoes.products && snapAll.colecoes.customers && snapAll.colecoes.sales);
-check('criarSnapshot com duplicado -> null', app.criarSnapshot({ products: dup }) === null);
+const snapDup = app.criarSnapshot({ products: dup, customers: [] });
+check('criarSnapshot: id duplicado só afeta a coleção (vira null, as outras continuam)', snapDup.colecoes.products === null && snapDup.colecoes.customers !== null);
 
 // Simula sequência: grava, muda, grava de novo (o snapshot deve acompanhar)
 let estado = lista();
