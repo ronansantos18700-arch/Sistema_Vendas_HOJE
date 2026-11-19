@@ -282,7 +282,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Sessão relê o usuário do banco a cada requisição: papel alterado ou usuário excluído valem na hora.
 - Fotos: `POST /api/imagens` (base64, até 5 MB, JPG/PNG/BMP) grava na pasta `imagens` ao lado do banco e devolve a URL. `GET /api/imagens/{arquivo}` serve a foto (nome aleatório). Produtos e clientes gravam a URL completa.
 - Frontend: `frontend/api.js` (cliente do servidor e adaptador com a forma do `Bridge`). Login obrigatório (`loginAtivo: true`); no modo servidor os usuários ficam fora do `SaveChanges`.
-- Pendência: o WebView2 roda em `https://app.local`. Chamadas para `http://` de outro PC podem ser bloqueadas como conteúdo misto. Com o servidor no mesmo PC (`localhost`) funciona. Decidir antes da etapa 3 (HTTPS ou servir o frontend pelo servidor).
+- Frontend servido pelo próprio servidor: `http://IP:5080/`. O `SV.Api.csproj` copia `SistemaVendas/frontend` para `wwwroot` (sem `images`). A janela do desktop (`FormVendas.cs`) abre esse endereço, em vez de `https://app.local`. Assim não há conteúdo misto entre PCs.
+- Endereço do servidor no desktop: arquivo `%LOCALAPPDATA%\SistemaVendas_UNIQ\servidor.txt`, com uma linha (ex.: `http://192.168.0.10:5080`). Sem o arquivo, usa `http://localhost:5080`. Se o servidor não responder ao abrir, o desktop pergunta se quer tentar de novo.
+- Queda do servidor com a tela aberta: o monitor do frontend (a cada 4 s) bloqueia o sistema com o aviso "Servidor indisponível". Ao voltar: confere a sessão; se o servidor reiniciou, volta ao login; senão, grava o pendente e recarrega os dados.
+- Dados nunca vão para a ponte (banco local) quando o servidor está configurado. Antes, uma sessão expirada podia gravar no SQLite local.
+- SHA-256 do backup em JS puro (`sha256.js`), usado quando `crypto.subtle` não existe (http). Mesmo valor do navegador (testado em `tests/js/test_sha256.js`).
+- Pendência: o desktop ainda inicializa o SQLite local ao abrir (`Database.Initialize`). Não é mais usado para dados, mas pode ser removido depois.
+- Pendência: backup em modo servidor não inclui as fotos do servidor (só `images/` locais).
+- Firewall: o PC do servidor precisa liberar a porta 5080 na rede (entrada TCP).
 - Fotos antigas (caminho local `images/...`) não são migradas para o servidor.
 - Não compilado no sandbox: `dotnet build` e teste no Windows são obrigatórios.
 

@@ -35,7 +35,11 @@
             this.fetchFn = opcoes.fetch || (raiz.fetch ? raiz.fetch.bind(raiz) : null);
         }
 
+        // Com a página servida pelo próprio servidor (http://IP:5080/), a origem da página é o servidor.
+        // Fora disso (testes, arquivo local), usa o endereço guardado.
         get url() {
+            const protocolo = raiz.location ? raiz.location.protocol : '';
+            if (protocolo === 'http:' || protocolo === 'https:') return raiz.location.origin;
             return normalizarUrl(this.armazenamento.getItem(CHAVE_URL));
         }
 
@@ -107,6 +111,37 @@
                 throw new ErroServidor(mensagem, resposta.status);
             }
             return texto;
+        }
+
+        // Verifica se o servidor responde (sem login). Não lança erro: devolve true ou false.
+        async verificarConexao() {
+            const base = this.url;
+            if (!base || !this.fetchFn) return false;
+            const controle = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controle ? setTimeout(() => controle.abort(), 4000) : null;
+            try {
+                const resposta = await this.fetchFn(base + '/api/saude', {
+                    cache: 'no-store',
+                    signal: controle ? controle.signal : undefined
+                });
+                return resposta.ok;
+            } catch (_) {
+                return false;
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
+
+        // true se a sessão ainda vale no servidor; false se o servidor recusou (reiniciou ou expirou).
+        // Outros erros (servidor fora) são lançados para quem chamou tratar.
+        async sessaoValida() {
+            try {
+                await this.requisitar('GET', '/api/eu');
+                return true;
+            } catch (erro) {
+                if (erro.status === 401) return false;
+                throw erro;
+            }
         }
 
         async login(usuario, senha) {

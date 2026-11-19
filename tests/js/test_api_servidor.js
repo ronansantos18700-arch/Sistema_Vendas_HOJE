@@ -168,6 +168,56 @@ function novoCliente(responder) {
     assert.strictEqual(sessao.getItem('sv_token'), null);
   });
 
+  await teste('url é a origem da página quando servida pelo servidor (http)', () => {
+    global.location = { protocol: 'http:', origin: 'http://192.168.0.10:5080' };
+    try {
+      const { servidor } = novoCliente();
+      assert.strictEqual(servidor.url, 'http://192.168.0.10:5080');
+    } finally {
+      delete global.location;
+    }
+  });
+
+  await teste('sem página http, url vem do endereço guardado', () => {
+    const { servidor } = novoCliente();
+    assert.strictEqual(servidor.url, '');
+    servidor.definirUrl('10.0.0.5:5080');
+    assert.strictEqual(servidor.url, 'http://10.0.0.5:5080');
+  });
+
+  await teste('verificarConexao: true com /api/saude ok, false se cair ou der erro', async () => {
+    const ok = novoCliente(() => ({ status: 200, corpo: { ok: true } }));
+    ok.servidor.definirUrl('http://srv:5080');
+    assert.strictEqual(await ok.servidor.verificarConexao(), true);
+    assert.strictEqual(ok.fetch.chamadas[0].url, 'http://srv:5080/api/saude');
+
+    const caiu = novoCliente(() => { throw new TypeError('offline'); });
+    caiu.servidor.definirUrl('http://srv:5080');
+    assert.strictEqual(await caiu.servidor.verificarConexao(), false);
+
+    const erro = novoCliente(() => ({ status: 503 }));
+    erro.servidor.definirUrl('http://srv:5080');
+    assert.strictEqual(await erro.servidor.verificarConexao(), false);
+  });
+
+  await teste('sessaoValida: true com sessão, false com 401 (limpa o token), erro de rede é lançado', async () => {
+    const ok = novoCliente(() => ({ status: 200, corpo: { usuario: 'admin' } }));
+    ok.servidor.definirUrl('http://srv:5080');
+    ok.sessao.setItem('sv_token', 'T');
+    assert.strictEqual(await ok.servidor.sessaoValida(), true);
+
+    const expirou = novoCliente(() => ({ status: 401, corpo: { erro: 'Sessão expirada.' } }));
+    expirou.servidor.definirUrl('http://srv:5080');
+    expirou.sessao.setItem('sv_token', 'T');
+    assert.strictEqual(await expirou.servidor.sessaoValida(), false);
+    assert.strictEqual(expirou.sessao.getItem('sv_token'), null);
+
+    const caiu = novoCliente(() => { throw new TypeError('offline'); });
+    caiu.servidor.definirUrl('http://srv:5080');
+    caiu.sessao.setItem('sv_token', 'T');
+    await assert.rejects(() => caiu.servidor.sessaoValida(), /conectar/);
+  });
+
   console.log(falhas === 0 ? '\nTodos os testes do cliente do servidor passaram.' : `\n${falhas} teste(s) falharam.`);
   process.exitCode = falhas === 0 ? 0 : 1;
 })();

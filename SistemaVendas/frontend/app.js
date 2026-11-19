@@ -198,27 +198,108 @@ const app = {
     },
 
     origemDeDados() {
-        if (this.emModoServidor()) return window.SvServidor.origemDeDados(this.servidor);
+        // Com servidor configurado, os dados só vão para o servidor, mesmo sem sessão.
+        // Nunca cair na ponte: ela grava no banco local da máquina e separaria os dados.
+        if (this.servidor && window.SvServidor) return window.SvServidor.origemDeDados(this.servidor);
         if (window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.bridge) {
             return window.chrome.webview.hostObjects.bridge;
         }
         return null;
     },
 
-    preencherServidorNoLogin() {
-        const campo = document.getElementById('login-servidor');
-        if (campo && this.servidor) campo.value = this.servidor.url || 'http://localhost:5080';
+    // --- Monitor do servidor ---
+    // Se o servidor cai, o sistema para (tela bloqueada com aviso). Quando volta, confere a sessão,
+    // grava o que ficou pendente e recarrega os dados (inclui o que outros computadores gravaram).
+    iniciarMonitorServidor() {
+        if (!this.servidor || this.monitorServidor) return;
+        this.monitorServidor = setInterval(() => this.verificarServidor(), 4000);
+    },
+
+    async verificarServidor() {
+        if (this.verificandoServidor) return;
+        this.verificandoServidor = true;
+        try {
+            const ok = await this.servidor.verificarConexao();
+            if (!ok) {
+                if (!this.servidorCaido) {
+                    this.servidorCaido = true;
+                    this.mostrarServidorIndisponivel(true);
+                }
+                return;
+            }
+            if (this.servidorCaido) {
+                this.servidorCaido = false;
+                this.mostrarServidorIndisponivel(false);
+                await this.servidorVoltou();
+            }
+        } finally {
+            this.verificandoServidor = false;
+        }
+    },
+
+    async servidorVoltou() {
+        if (!this.emModoServidor()) return; // ninguém logado: a tela de login volta ao normal
+        let valida = true;
+        try {
+            valida = await this.servidor.sessaoValida();
+        } catch (_) {
+            return; // caiu de novo: o monitor detecta na próxima verificação
+        }
+        if (!valida) {
+            // Sessão perdida (o servidor reiniciou ou expirou): volta para o login.
+            this.logout();
+            this.showLoginError('O servidor foi reiniciado. Entre novamente.');
+            return;
+        }
+        try {
+            // Grava o que ficou pendente antes de recarregar; se falhar, não recarrega (não perde nada).
+            const gravou = await this.salvarDados();
+            if (gravou === false) return;
+            await this.carregarDados();
+        } catch (err) {
+            this.showNotification('error', err.message);
+        }
+    },
+
+    mostrarServidorIndisponivel(ativo) {
+        let aviso = document.getElementById('servidor-indisponivel');
+        if (!ativo) {
+            if (aviso) aviso.remove();
+            return;
+        }
+        if (aviso) return;
+
+        aviso = document.createElement('div');
+        aviso.id = 'servidor-indisponivel';
+        aviso.setAttribute('role', 'alertdialog');
+        aviso.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.92);color:#fff;' +
+            'display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;';
+
+        const caixa = document.createElement('div');
+        caixa.style.cssText = 'max-width:460px;';
+
+        const titulo = document.createElement('h2');
+        titulo.textContent = 'Servidor indisponível';
+        titulo.style.cssText = 'margin:0 0 12px;font-size:1.4rem;';
+
+        const texto = document.createElement('p');
+        texto.textContent = 'A conexão com o servidor de vendas caiu. O sistema está pausado para não perder dados.';
+        texto.style.cssText = 'margin:0 0 8px;';
+
+        const endereco = document.createElement('p');
+        endereco.textContent = 'Endereço: ' + (this.servidor.url || '(não definido)');
+        endereco.style.cssText = 'margin:0 0 16px;opacity:0.85;';
+
+        const rodape = document.createElement('p');
+        rodape.textContent = 'Esta tela some sozinha quando o servidor voltar. Não feche o programa.';
+        rodape.style.cssText = 'margin:0;opacity:0.85;';
+
+        caixa.append(titulo, texto, endereco, rodape);
+        aviso.appendChild(caixa);
+        document.body.appendChild(aviso);
     },
 
     async loginServidor(username, password) {
-        const campo = document.getElementById('login-servidor');
-        try {
-            this.servidor.definirUrl(campo ? campo.value : this.servidor.url);
-        } catch (err) {
-            this.showLoginError(err.message);
-            return;
-        }
-
         this.setLoading(true);
         try {
             const usuario = await this.servidor.login(username, password);
@@ -355,7 +436,7 @@ const app = {
         this.setupBridge();
         // Com login, os dados são carregados depois de entrar (o servidor exige sessão).
         if (!this.config.loginAtivo) await this.carregarDados();
-        this.preencherServidorNoLogin();
+        this.iniciarMonitorServidor();
         this.setupEventListeners();
         this.initLucide();
 
@@ -1955,6 +2036,10 @@ const app = {
 
     async generateChecksum(data) {
         const content = JSON.stringify(data);
+        // Em http:// (outro PC na rede) não existe crypto.subtle: usa o SHA-256 em JS (mesmo resultado).
+        if (!(window.crypto && window.crypto.subtle) && window.SvSha256) {
+            return window.SvSha256.sha256Hex(content);
+        }
         const encoder = new TextEncoder();
         const hashBuffer = await crypto.subtle.digest(
             'SHA-256',
@@ -2540,8 +2625,8 @@ const app = {
                 this.state.categories = JSON.parse(localStorage.getItem('sv_categories') || '[]');
                 this.state.movimentacoes = JSON.parse(localStorage.getItem('sv_movimentacoes') || '[]');
 
-                // Criar usuário admin padrão se não houver usuários (fallback)
-                if (this.state.users.length === 0) {
+                // Criar usuário admin padrão se não houver usuários (fallback, somente sem servidor)
+                if (this.state.users.length === 0 && !this.emModoServidor()) {
                     const hashedPassword = await this.hashPassword('1234', 'admin');
                     this.state.users.push({
                         id: 'U' + Date.now(),
