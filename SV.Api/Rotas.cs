@@ -118,7 +118,7 @@ namespace SV.Api
                 }
             });
 
-            // --- Usuários (somente leitura por enquanto; gestão completa na próxima etapa) ---
+            // --- Usuários: listar, criar, editar e excluir são só do administrador ---
 
             app.MapGet("/api/usuarios", (HttpRequest req) =>
             {
@@ -135,6 +135,136 @@ namespace SV.Api
                     Console.Error.WriteLine("Erro ao listar usuários: " + ex);
                     return Erro(500, "Erro ao ler os usuários.");
                 }
+            });
+
+            app.MapPost("/api/usuarios", async Task<IResult> (HttpRequest req) =>
+            {
+                Sessao sessao = Autenticar(req);
+                if (sessao == null) return Erro(401, "Sessão expirada. Entre novamente.");
+                if (sessao.Papel != "admin") return Erro(403, "Somente administradores.");
+
+                JObject corpo = await LerCorpo(req);
+                if (corpo == null) return Erro(400, "Requisição inválida.");
+
+                string nome = ((string)corpo["fullname"] ?? "").Trim();
+                string login = ((string)corpo["username"] ?? "").Trim();
+                string papel = (string)corpo["role"] ?? "operador";
+                string senha = (string)corpo["senha"] ?? "";
+
+                string erro = ValidarUsuario(nome, login, papel);
+                if (erro != null) return Erro(400, erro);
+                if (senha.Length < Senha.TamanhoMinimo)
+                {
+                    return Erro(400, "A senha deve ter no mínimo " + Senha.TamanhoMinimo + " caracteres.");
+                }
+
+                try
+                {
+                    JObject criado = Dados.CriarUsuario(nome, login, papel, senha);
+                    return Results.Content(criado.ToString(Formatting.None), TipoJson, null, 201);
+                }
+                catch (RegraNegocioException ex)
+                {
+                    return Erro(400, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao criar usuário: " + ex);
+                    return Erro(500, "Erro ao criar o usuário.");
+                }
+            });
+
+            app.MapPut("/api/usuarios/{id}", async Task<IResult> (string id, HttpRequest req) =>
+            {
+                Sessao sessao = Autenticar(req);
+                if (sessao == null) return Erro(401, "Sessão expirada. Entre novamente.");
+                if (sessao.Papel != "admin") return Erro(403, "Somente administradores.");
+
+                JObject corpo = await LerCorpo(req);
+                if (corpo == null) return Erro(400, "Requisição inválida.");
+
+                string nome = ((string)corpo["fullname"] ?? "").Trim();
+                string login = ((string)corpo["username"] ?? "").Trim();
+                string papel = (string)corpo["role"] ?? "operador";
+                string senha = (string)corpo["senha"] ?? "";
+
+                string erro = ValidarUsuario(nome, login, papel);
+                if (erro != null) return Erro(400, erro);
+                if (senha.Length > 0 && senha.Length < Senha.TamanhoMinimo)
+                {
+                    return Erro(400, "A senha deve ter no mínimo " + Senha.TamanhoMinimo + " caracteres.");
+                }
+
+                try
+                {
+                    JObject atualizado = Dados.AtualizarUsuario(id, nome, login, papel, senha);
+                    return Results.Content(atualizado.ToString(Formatting.None), TipoJson);
+                }
+                catch (RegraNegocioException ex)
+                {
+                    return Erro(400, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao atualizar usuário: " + ex);
+                    return Erro(500, "Erro ao atualizar o usuário.");
+                }
+            });
+
+            app.MapDelete("/api/usuarios/{id}", (string id, HttpRequest req) =>
+            {
+                Sessao sessao = Autenticar(req);
+                if (sessao == null) return Erro(401, "Sessão expirada. Entre novamente.");
+                if (sessao.Papel != "admin") return Erro(403, "Somente administradores.");
+
+                try
+                {
+                    JObject solicitante = Dados.BuscarUsuario(sessao.Usuario);
+                    string idSolicitante = solicitante == null ? "" : (string)solicitante["id"];
+                    Dados.ExcluirUsuario(id, idSolicitante);
+                    return Results.Json(new { ok = true });
+                }
+                catch (RegraNegocioException ex)
+                {
+                    return Erro(400, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao excluir usuário: " + ex);
+                    return Erro(500, "Erro ao excluir o usuário.");
+                }
+            });
+
+            // --- Imagens: upload exige login; leitura é pública, mas os nomes são aleatórios (GUID) ---
+
+            app.MapPost("/api/imagens", async Task<IResult> (HttpRequest req) =>
+            {
+                if (Autenticar(req) == null) return Erro(401, "Sessão expirada. Entre novamente.");
+
+                JObject corpo = await LerCorpo(req);
+                if (corpo == null) return Erro(400, "Requisição inválida.");
+
+                try
+                {
+                    string arquivo = Dados.SalvarImagem((string)corpo["nome"], (string)corpo["conteudo"]);
+                    return Results.Json(new { url = "/api/imagens/" + arquivo });
+                }
+                catch (RegraNegocioException ex)
+                {
+                    return Erro(400, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao salvar imagem: " + ex);
+                    return Erro(500, "Erro ao salvar a imagem.");
+                }
+            });
+
+            app.MapGet("/api/imagens/{arquivo}", (string arquivo) =>
+            {
+                string caminho = Dados.CaminhoImagem(arquivo);
+                if (caminho == null) return Results.NotFound();
+                return Results.File(caminho, TipoImagem(arquivo));
             });
 
             // --- Dados ---
@@ -181,6 +311,24 @@ namespace SV.Api
             });
         }
 
+        /// <summary>Retorna null se os dados do usuário são válidos; senão, a mensagem de erro.</summary>
+        private static string ValidarUsuario(string nome, string login, string papel)
+        {
+            if (string.IsNullOrEmpty(nome)) return "Informe o nome.";
+            if (string.IsNullOrEmpty(login)) return "Informe o nome de usuário.";
+            if (login.Length > 50) return "O nome de usuário pode ter no máximo 50 caracteres.";
+            if (Array.IndexOf(Dados.Papeis, papel) < 0) return "Papel inválido.";
+            return null;
+        }
+
+        private static string TipoImagem(string arquivo)
+        {
+            string ext = System.IO.Path.GetExtension(arquivo).ToLowerInvariant();
+            if (ext == ".png") return "image/png";
+            if (ext == ".bmp") return "image/bmp";
+            return "image/jpeg";
+        }
+
         private static string TokenDe(HttpRequest req)
         {
             string cabecalho = req.Headers["Authorization"].ToString();
@@ -188,9 +336,26 @@ namespace SV.Api
             return cabecalho.Substring(7).Trim();
         }
 
+        /// <summary>
+        /// Confere a sessão e relê o usuário no banco: papel alterado ou usuário excluído
+        /// valem na hora, sem esperar a sessão expirar.
+        /// </summary>
         private static Sessao Autenticar(HttpRequest req)
         {
-            return Sessoes.Obter(TokenDe(req));
+            string token = TokenDe(req);
+            Sessao sessao = Sessoes.Obter(token);
+            if (sessao == null) return null;
+
+            JObject atual = Dados.BuscarUsuario(sessao.Usuario);
+            if (atual == null)
+            {
+                Sessoes.Encerrar(token);
+                return null;
+            }
+
+            sessao.Nome = (string)atual["fullname"] ?? sessao.Nome;
+            sessao.Papel = (string)atual["role"] ?? "operador";
+            return sessao;
         }
 
         private static async Task<JObject> LerCorpo(HttpRequest req)
