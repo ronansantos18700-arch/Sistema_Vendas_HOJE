@@ -5754,6 +5754,24 @@ i.bx {
 #history-list-labs .btn-itens-ver:hover { background: #4070f4; border-color: #4070f4; color: #ffffff; }
 #history-list-labs .btn-itens-ver i.bx { font-size: 16px; }
 
+/* Edição de venda: linhas do modal e totais */
+.sale-edit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px 110px;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+}
+.sale-edit-nome { min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.sale-edit-nome small { display: block; font-size: 12px; color: #707070; font-weight: 400; }
+.sale-edit-qty { height: 38px; text-align: center; }
+.sale-edit-sub { text-align: right; font-weight: 600; white-space: nowrap; }
+.sale-edit-totais { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 14px; }
+.sale-edit-totais > div { display: flex; justify-content: space-between; }
+.sale-edit-totais .total { font-weight: 700; font-size: 16px; padding-top: 0.35rem; border-top: 1px solid rgba(128, 128, 128, 0.25); }
+.sale-edit-aviso { color: #d9534f; font-size: 13px; }
+
 /* Saídas: células podem encolher, sem forçar largura da tabela */
 #history-list-labs .nested-item-labs-row > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #history-list-labs .nested-item-labs-row .col-actions { overflow: visible; }
@@ -5835,7 +5853,7 @@ i.bx {
 /* Saídas: colunas com larguras fixas, para distribuir igual em qualquer tela */
 #history-list-labs .list-header-labs,
 #history-list-labs .nested-item-labs-row {
-    grid-template-columns: 56px 84px minmax(100px, 1.3fr) minmax(84px, 1fr) minmax(72px, 0.8fr) minmax(84px, 1fr) minmax(84px, 1fr) minmax(80px, 0.9fr) minmax(160px, 1.8fr) minmax(104px, 1fr) 84px !important;
+    grid-template-columns: 56px 84px minmax(90px, 1.3fr) minmax(72px, 1fr) minmax(64px, 0.8fr) minmax(72px, 1fr) minmax(72px, 1fr) minmax(72px, 0.9fr) minmax(140px, 2fr) minmax(96px, 1fr) 124px !important;
     gap: 6px !important;
 }
 #history-list-labs .nested-item-labs-row .col-items-action {

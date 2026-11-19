@@ -264,3 +264,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Dados antigos de caixa e fechamentos continuam nas tabelas `caixa` e `fechamentos` do banco, mas o app não lê nem grava mais. Backups deixam de incluir `fechamentos`; backups antigos com essa chave são ignorados na restauração.
 - Não verificado no Windows: a tela Resumo e os filtros de data.
 
+### 2026-11-14 (edição de venda registrada)
+
+- Na tela Saídas, o botão de lápis abre o modal "Editar venda". É possível alterar: quantidade de cada item (0 remove o item), desconto em R$, cliente e forma de pagamento. Data e número da venda não mudam. Não é possível adicionar produto novo a uma venda existente.
+- Estoque: a diferença de quantidade vira movimentação, sem apagar o histórico. Mais unidades = movimentação de venda (com o custo do item na venda); menos unidades = estorno. Se faltar estoque para aumentar a venda, a edição é recusada e nada muda.
+- Venda paga em mais de uma forma: a divisão só é mantida se a soma continuar batendo com o novo total; caso contrário, é preciso escolher uma forma única.
+- Correção junto: a normalização das vendas ao carregar descartava `pagamentos` e `troco`, então a divisão de pagamento sumia após reiniciar. Agora esses campos são mantidos.
+- Regras puras em `frontend/edicao_venda.js`. Testes: `node tests/js/test_edicao_venda.js`.
+- Saídas: coluna AÇÕES com três botões (editar, recibo, excluir) e larguras ajustadas para caber em 1366 px sem cortar. A regra efetiva da grade é a do bloco "Saídas: colunas com larguras fixas".
+- Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
+- Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
+

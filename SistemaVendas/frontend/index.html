@@ -919,6 +919,38 @@
                 </div>
             </div>
 
+            <!-- Modal Editar Venda -->
+            <div id="sale-edit-modal" class="modal hidden" style="max-width: 680px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 id="sale-edit-title" style="margin: 0;">Editar venda</h3>
+                    <button class="btn-action-delete" onclick="app.closeModal()" title="Fechar">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-grid-labs" style="grid-template-columns: 1fr 1fr;">
+                    <div class="input-group-labs">
+                        <label class="input-label-labs">CLIENTE</label>
+                        <select id="sale-edit-cliente" class="glass-input-labs"></select>
+                    </div>
+                    <div class="input-group-labs">
+                        <label class="input-label-labs">FORMA DE PAGAMENTO</label>
+                        <select id="sale-edit-pagamento" class="glass-input-labs" onchange="app.atualizarTotaisEdicaoVenda()"></select>
+                    </div>
+                </div>
+                <div class="input-group-labs" style="margin-top: 0.75rem;">
+                    <label class="input-label-labs">DESCONTO (R$)</label>
+                    <input type="number" id="sale-edit-desconto" min="0" step="0.01" inputmode="decimal" class="glass-input-labs" oninput="app.atualizarTotaisEdicaoVenda()">
+                </div>
+                <div class="input-label-labs" style="margin: 1rem 0 0.5rem;">ITENS (quantidade 0 remove o item)</div>
+                <div id="sale-edit-items" class="pos-cart-labs" style="max-height: 280px; overflow-y: auto;"></div>
+                <div id="sale-edit-totais" class="sale-edit-totais"></div>
+                <div id="sale-edit-erro" class="login-error-msg hidden" style="margin-top: 0.75rem;"></div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Cancelar</button>
+                    <button class="btn-save-labs" id="sale-edit-salvar" onclick="app.salvarEdicaoVenda()" style="flex: 1;">Salvar alterações</button>
+                </div>
+            </div>
+
             <!-- Modal Nova Entrada -->
             <div id="entrada-modal" class="modal glass hidden" style="max-width: 800px; height: 90vh; max-height: 90vh; display: flex; flex-direction: column;">
                 <h3 style="margin-bottom: 1rem; flex-shrink: 0;">Registrar Entrada de Estoque</h3>
@@ -1369,6 +1401,7 @@
     </div>
 
     <script src="estoque.js"></script>
+    <script src="edicao_venda.js"></script>
     <script src="backup.js"></script>
     <script src="app.js"></script>
     <script src="tabela.js"></script>

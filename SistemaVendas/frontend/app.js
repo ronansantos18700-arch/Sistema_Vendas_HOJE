@@ -2267,6 +2267,9 @@ const app = {
                         cost: parseFloat(s.cost || s.custo || s.Custo || s.custoTotal || 0) || 0,
                         lucro: parseFloat(s.lucro || s.Lucro || 0) || 0,
                         pagamento: String(s.pagamento || s["Forma de Pagamento"] || 'N/A'),
+                        // Venda paga em mais de uma forma: mantém a divisão (vem de _extra no banco)
+                        pagamentos: Array.isArray(s.pagamentos) ? s.pagamentos : undefined,
+                        troco: s.troco !== undefined ? (Number(s.troco) || 0) : undefined,
                         items: items
                     };
                 });
@@ -4413,6 +4416,7 @@ const app = {
                     </div>
                     <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
                     <div class="col-actions" data-label="AÇÕES">
+                        <button class="btn-action-edit" title="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
                         <button class="btn-action-edit" title="Gerar Recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
                         <button class="btn-action-delete" title="Excluir Venda" onclick="app.deleteSale('${id}')"><i data-lucide="trash-2"></i></button>
                     </div>
@@ -4457,6 +4461,153 @@ const app = {
             },
             'trash-2'
         );
+    },
+
+    // ===== Edição de venda registrada (regras puras em edicao_venda.js) =====
+    vendaEmEdicao() {
+        const id = this.state.saleEditId;
+        if (!id) return null;
+        return this.state.sales.find(s => String(s.id || s.ID) === String(id)) || null;
+    },
+
+    openSaleEdit(saleId) {
+        const sale = this.state.sales.find(s => String(s.id || s.ID) === String(saleId));
+        if (!sale || !Array.isArray(sale.items) || sale.items.length === 0) {
+            this.showNotification('error', 'Venda não encontrada ou sem itens.');
+            return;
+        }
+        this.state.saleEditId = String(sale.id || sale.ID);
+
+        const nomesCliente = ['Consumidor Final', ...this.state.customers.map(c => c.name)];
+        if (sale.cliente && !nomesCliente.includes(sale.cliente)) nomesCliente.push(sale.cliente);
+        const clienteSel = document.getElementById('sale-edit-cliente');
+        clienteSel.innerHTML = [...new Set(nomesCliente)]
+            .map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
+        clienteSel.value = sale.cliente || 'Consumidor Final';
+
+        const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
+        const misto = Array.isArray(sale.pagamentos) && sale.pagamentos.length > 0;
+        const pagSel = document.getElementById('sale-edit-pagamento');
+        pagSel.innerHTML = (misto ? '<option value="manter">Manter pagamento dividido</option>' : '')
+            + EdicaoVenda.FORMAS.map(f => `<option value="${f}">${nomesForma[f]}</option>`).join('');
+        pagSel.value = misto ? 'manter' : (EdicaoVenda.FORMAS.includes(sale.pagamento) ? sale.pagamento : 'dinheiro');
+
+        document.getElementById('sale-edit-desconto').value = Number(sale.desconto) || 0;
+        document.getElementById('sale-edit-title').textContent = `Editar venda #${String(sale.id || sale.ID).slice(-6)}`;
+
+        document.getElementById('sale-edit-items').innerHTML = sale.items.map((item, i) => `
+            <div class="sale-edit-row">
+                <div class="sale-edit-nome">
+                    ${this.esc(item.name || 'Produto')}
+                    <small>${this.formatCurrency(Number(item.price) || 0)} cada</small>
+                </div>
+                <input type="number" class="glass-input-labs sale-edit-qty" min="0" step="1" inputmode="numeric"
+                       value="${Number(item.qty) || 0}" data-idx="${i}" oninput="app.atualizarTotaisEdicaoVenda()">
+                <div class="sale-edit-sub" data-sub="${i}"></div>
+            </div>`).join('');
+
+        this.mostrarErroEdicaoVenda('');
+        this.atualizarTotaisEdicaoVenda();
+        this.openModal('sale-edit-modal');
+        this.initLucide();
+    },
+
+    mostrarErroEdicaoVenda(msg) {
+        const el = document.getElementById('sale-edit-erro');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.classList.toggle('hidden', !msg);
+    },
+
+    lerQuantidadesEdicao() {
+        return Array.from(document.querySelectorAll('#sale-edit-items .sale-edit-qty'))
+            .map(inp => (inp.value === '' ? NaN : Number(inp.value)));
+    },
+
+    atualizarTotaisEdicaoVenda() {
+        const sale = this.vendaEmEdicao();
+        const totaisEl = document.getElementById('sale-edit-totais');
+        if (!sale || !totaisEl) return;
+
+        const qtds = this.lerQuantidadesEdicao();
+        qtds.forEach((q, i) => {
+            const sub = document.querySelector(`#sale-edit-items [data-sub="${i}"]`);
+            const price = Number(sale.items[i].price) || 0;
+            if (sub) sub.textContent = this.formatCurrency(price * (Number.isFinite(q) ? q : 0));
+        });
+
+        const desconto = Number(document.getElementById('sale-edit-desconto').value) || 0;
+        try {
+            const t = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
+            totaisEl.innerHTML = `
+                <div><span>Subtotal</span><span>${this.formatCurrency(t.valor_total)}</span></div>
+                <div><span>Desconto</span><span>- ${this.formatCurrency(t.desconto)}</span></div>
+                <div class="total"><span>Total da venda</span><span>${this.formatCurrency(t.valor_final)}</span></div>`;
+        } catch (e) {
+            totaisEl.innerHTML = `<div class="sale-edit-aviso">${this.esc(e.message)}</div>`;
+        }
+    },
+
+    async salvarEdicaoVenda() {
+        const sale = this.vendaEmEdicao();
+        if (!sale) {
+            this.mostrarErroEdicaoVenda('Venda não encontrada.');
+            return;
+        }
+
+        const qtds = this.lerQuantidadesEdicao();
+        const desconto = Number(document.getElementById('sale-edit-desconto').value) || 0;
+        const cliente = document.getElementById('sale-edit-cliente').value || 'Consumidor Final';
+        const escolha = document.getElementById('sale-edit-pagamento').value;
+
+        let totais, pag, plano;
+        try {
+            totais = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
+            pag = EdicaoVenda.pagamentoAposEdicao(sale, totais.valor_final, escolha);
+            plano = EdicaoVenda.planejarEdicao(this.state.movimentacoes, sale, qtds);
+        } catch (e) {
+            this.mostrarErroEdicaoVenda(e.message);
+            return;
+        }
+
+        if (!plano.ok) {
+            const lista = plano.problemas.map(p => `${p.nome}: faltam ${p.falta} un.`).join(' · ');
+            this.mostrarErroEdicaoVenda('Estoque insuficiente para aumentar esta venda. ' + lista);
+            return;
+        }
+
+        const itensAntes = sale.items.map(it => ({ id: it.id, qty: it.qty }));
+        const saleId = sale.id || sale.ID;
+
+        // Tudo validado: aplica estoque (movimentações) e a venda
+        this.registrarMovimentacoes(plano.novas);
+        Object.assign(sale, {
+            items: totais.items,
+            valor_total: totais.valor_total,
+            desconto: totais.desconto,
+            valor_final: totais.valor_final,
+            cost: totais.cost,
+            lucro: totais.lucro,
+            cliente: cliente
+        });
+        delete sale.pagamentos;
+        delete sale.troco;
+        Object.assign(sale, pag);
+
+        this.logAudit('EDIT_SALE', {
+            saleId: saleId,
+            itensAntes: itensAntes,
+            itensDepois: totais.items.map(it => ({ id: it.id, qty: it.qty })),
+            desconto: totais.desconto,
+            pagamento: pag.pagamento
+        });
+
+        this.state.saleEditId = null;
+        this.closeModal();
+        await this.salvarDados();
+        this.showNotification('success', 'Venda editada e estoque ajustado.');
+        this.renderHistory();
+        this.updateDashboardStats();
     },
 
     openStockAlerts() {
@@ -4762,6 +4913,9 @@ const app = {
         const saleDetailsModal = document.getElementById('sale-details-modal');
         if (saleDetailsModal) saleDetailsModal.classList.toggle('hidden', type !== 'sale-details-modal');
 
+        const saleEditModal = document.getElementById('sale-edit-modal');
+        if (saleEditModal) saleEditModal.classList.toggle('hidden', type !== 'sale-edit-modal');
+
         const alertsModal = document.getElementById('stock-alerts-modal');
         if (alertsModal) alertsModal.classList.toggle('hidden', type !== 'stock-alerts');
 
@@ -4841,7 +4995,7 @@ const app = {
         }
 
         // Garantir que todos os modais internos estejam escondidos
-        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'confirm-remove-logo', 'backup-modal', 'categories-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
+        const modals = ['product-modal', 'customer-modal', 'stock-modal', 'receipt-confirm-modal', 'tutorial-modal', 'stock-alerts-modal', 'sale-details-modal', 'sale-edit-modal', 'confirm-remove-logo', 'backup-modal', 'categories-modal', 'user-modal', 'generic-confirm-modal', 'generic-alert-modal', 'product-history-modal'];
         modals.forEach(id => {
             document.getElementById(id)?.classList.add('hidden');
         });
