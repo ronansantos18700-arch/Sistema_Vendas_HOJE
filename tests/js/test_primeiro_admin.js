@@ -81,6 +81,33 @@ function servidorFalso(extra = {}) {
 const testes = [];
 const teste = (nome, fn) => testes.push([nome, fn]);
 
+teste('aba parada: sessão apagada no servidor tira os dados da tela e volta ao login', async () => {
+  const servidor = servidorFalso({
+    verificarConexao: async () => true,
+    sessaoValida: async () => false
+  });
+  const { app } = criarAmbiente({ servidor });
+  app.state.products = [{ id: 'P1', name: 'Arroz' }];
+  app.state.customers = [{ id: 'C1', name: 'Ana' }];
+  await app.verificarServidor();
+  assert.strictEqual(app.state.products.length, 0);
+  assert.strictEqual(app.state.customers.length, 0);
+  assert.strictEqual(app.state.dataLoaded, false);
+  assert.strictEqual(app.state.currentUser, null);
+  assert.ok(app.notificacoes.some(n => /sessão terminou/.test(n.msg)));
+});
+
+teste('sessão encerrada: avisa uma vez e não grava nada depois', async () => {
+  const servidor = servidorFalso({ verificarConexao: async () => true, sessaoValida: async () => false });
+  const { app } = criarAmbiente({ servidor });
+  app.state.products = [{ id: 'P1', name: 'Arroz' }];
+  await app.sessaoEncerrada();
+  await app.sessaoEncerrada(); // segunda chamada: já saiu, não repete
+  assert.strictEqual(app.notificacoes.filter(n => /sessão terminou/.test(n.msg)).length, 1);
+  await app.salvarDados();
+  assert.strictEqual(servidor.salvos, 0);
+});
+
 teste('banco vazio com servidor não cria dados de demonstração nem grava nada no servidor', async () => {
   const servidor = servidorFalso({
     lerDados: async () => '[]',

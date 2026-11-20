@@ -233,11 +233,36 @@ const app = {
             if (this.servidorCaido) {
                 this.servidorCaido = false;
                 this.mostrarServidorIndisponivel(false);
-                await this.servidorVoltou();
+                await this.servidorVoltou(); // confere a sessão sozinho
+                return;
+            }
+            // Aba parada não faz chamadas: confere a sessão a cada verificação (sessão apagada ou expirada).
+            if (this.emModoServidor()) {
+                try {
+                    const valida = await this.servidor.sessaoValida();
+                    if (!valida) await this.sessaoEncerrada();
+                } catch (_) {
+                    // Falha de rede: o próprio monitor cuida disso na próxima verificação.
+                }
             }
         } finally {
             this.verificandoServidor = false;
         }
+    },
+
+    // Sessão encerrada no servidor (dados apagados, servidor reiniciado ou sessão expirada):
+    // tira da tela os dados que estavam em memória e volta para o login. Nada mais é gravado daqui.
+    async sessaoEncerrada(mensagem) {
+        if (!this.state.currentUser) return; // já saiu: evita repetir o aviso
+        this.state.dataLoaded = false;
+        this.state.snapshotSalvo = null;
+        ['products', 'customers', 'sales', 'users', 'entradas', 'categories', 'movimentacoes', 'reversals']
+            .forEach((k) => { this.state[k] = []; });
+        this.logout();
+        mensagem = mensagem || 'Sua sessão terminou (o servidor foi reiniciado ou os dados foram apagados). Entre novamente.';
+        this.showLoginError(mensagem);
+        this.showNotification('error', mensagem);
+        await this.verificarPrimeiroAdministrador();
     },
 
     async servidorVoltou() {
@@ -249,9 +274,8 @@ const app = {
             return; // caiu de novo: o monitor detecta na próxima verificação
         }
         if (!valida) {
-            // Sessão perdida (o servidor reiniciou ou expirou): volta para o login.
-            this.logout();
-            this.showLoginError('O servidor foi reiniciado. Entre novamente.');
+            // Sessão perdida (o servidor reiniciou ou expirou): volta para o login, sem dados antigos na tela.
+            await this.sessaoEncerrada('O servidor foi reiniciado. Entre novamente.');
             return;
         }
         try {
@@ -432,6 +456,7 @@ const app = {
 
     async init() {
         this.servidor = window.SvServidor ? new window.SvServidor.ServidorAPI() : null;
+        if (this.servidor) this.servidor.aoSessaoEncerrada = () => this.sessaoEncerrada();
         if (!this.config.loginAtivo) {
             this.state.currentUser = { ...this.config.usuarioLocal };
             document.body.classList.add('sem-login');

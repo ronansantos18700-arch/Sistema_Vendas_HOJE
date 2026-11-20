@@ -98,6 +98,25 @@ function novoCliente(responder) {
     assert.strictEqual(sessao.getItem('sv_token'), null);
   });
 
+  await teste('401 em chamada autenticada avisa a tela (aoSessaoEncerrada) uma vez', async () => {
+    const { servidor, sessao } = novoCliente(() => ({ status: 401, corpo: { erro: 'Sessão expirada.' } }));
+    servidor.definirUrl('http://srv:5080');
+    sessao.setItem('sv_token', 'velho');
+    let avisos = 0;
+    servidor.aoSessaoEncerrada = () => { avisos++; };
+    await assert.rejects(servidor.lerDados('products'), err => err.status === 401);
+    assert.strictEqual(avisos, 1);
+  });
+
+  await teste('401 no login (sem token) não avisa a tela', async () => {
+    const { servidor } = novoCliente(() => ({ status: 401, corpo: { erro: 'Usuário ou senha inválidos.' } }));
+    servidor.definirUrl('http://srv:5080');
+    let avisos = 0;
+    servidor.aoSessaoEncerrada = () => { avisos++; };
+    await assert.rejects(servidor.login('ana', 'errada'), err => err.status === 401);
+    assert.strictEqual(avisos, 0);
+  });
+
   await teste('sem token, chamada autenticada nem sai da máquina', async () => {
     const { servidor, fetch } = novoCliente(() => ({ status: 200, corpo: [] }));
     servidor.definirUrl('http://srv:5080');

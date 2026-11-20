@@ -107,7 +107,13 @@
                     const dados = JSON.parse(texto);
                     if (dados && dados.erro) mensagem = dados.erro;
                 } catch (_) { /* resposta sem JSON: fica a mensagem genérica */ }
-                if (resposta.status === 401 && autenticado) this.token = '';
+                if (resposta.status === 401 && autenticado) {
+                    this.token = '';
+                    // Avisa quem usa o cliente (a tela) para sair dos dados antigos.
+                    if (typeof this.aoSessaoEncerrada === 'function') {
+                        try { this.aoSessaoEncerrada(); } catch (_) { /* não atrapalha o erro original */ }
+                    }
+                }
                 throw new ErroServidor(mensagem, resposta.status);
             }
             return texto;
