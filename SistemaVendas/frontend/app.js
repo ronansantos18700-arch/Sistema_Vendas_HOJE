@@ -3931,15 +3931,15 @@ const app = {
 
         if (previous > 0) {
             const diffPercent = ((current - previous) / previous) * 100;
-            const sign = diffPercent >= 0 ? '▲' : '▼';
+            const sign = diffPercent >= 0 ? '+' : '−';
             const fmt = Math.abs(diffPercent).toFixed(1).replace('.', ',');
-            valueEl.textContent = `${sign} ${fmt}%`;
+            valueEl.textContent = `${sign}${fmt}%`;
             valueEl.className = 'var-value ' + (diffPercent >= 0 ? 'positive' : 'negative');
         } else if (current > 0) {
             valueEl.textContent = 'Novo';
             valueEl.className = 'var-value positive';
         } else if (current < 0) {
-            valueEl.textContent = '▼ 100,0%';
+            valueEl.textContent = '−100,0%';
             valueEl.className = 'var-value negative';
         } else {
             valueEl.textContent = '0,0%';
@@ -5588,7 +5588,7 @@ const app = {
                         <button type="button" class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver itens da venda (${itemsCount} un.)" aria-label="Ver itens da venda"><i class="bx bx-list-ul"></i>Ver</button>
                     </td>
                     <td class="col-payment" data-label="Pagamento" title="${this.esc(pagamento)}">
-                        <span class="sv-status-badge sv-status-${pagTom}"><span class="sv-status-dot"></span>${this.esc(pagamento)}</span>
+                        <span class="sv-status-badge sv-status-${pagTom}"><span class="sv-status-dot"></span><span class="sv-status-text">${this.esc(pagamento.startsWith('Fiado · em aberto') ? 'Fiado · em aberto' : pagamento)}</span></span>
                     </td>
                     <td class="col-actions" data-label="Ações">
                         <div class="sv-actions-inline">
@@ -6817,7 +6817,7 @@ const app = {
                     </div>
                 </div>
                 <div class="tabela-card-dados">
-                    <div><small>Itens</small><b>${e.items.length} itens</b></div>
+                    <div><small>Itens</small><b>${e.items.length} ${e.items.length === 1 ? 'item' : 'itens'}</b></div>
                     <div><small>Custo total</small><b>${this.formatCurrency(e.totalCusto)}</b></div>
                 </div>
                 <div class="tabela-card-acoes">
@@ -6832,13 +6832,15 @@ const app = {
             const dEnt = this.parseDate(e.date);
             const forn = this.esc(e.fornecedor || '—');
             const nota = this.esc(e.nota || '—');
+            const qtdItens = e.items.length;
+            const rotItens = `${qtdItens} ${qtdItens === 1 ? 'item' : 'itens'}`;
             return `
             <tr class="sv-dt-row nested-item-labs-row">
                 <td class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</td>
                 <td class="col-date" data-label="Data" data-sort="${dEnt ? dEnt.getTime() : 0}">${dEnt ? dEnt.toLocaleDateString('pt-BR') : '—'}</td>
                 <td class="col-name sv-cell-primary" data-label="Fornecedor" title="${forn}">${forn}</td>
                 <td class="col-code" data-label="Nº Nota" title="${nota}">${nota}</td>
-                <td class="col-qty-sum num" data-label="Itens" data-sort="${e.items.length}">${e.items.length} itens</td>
+                <td class="col-qty-sum num" data-label="Itens" data-sort="${qtdItens}">${rotItens}</td>
                 <td class="col-price num sv-cell-strong" data-label="Custo total" data-sort="${Number(e.totalCusto) || 0}">${this.formatCurrency(e.totalCusto)}</td>
                 <td class="col-actions" data-label="Ações">
                     <div class="sv-actions-inline">
@@ -6907,9 +6909,9 @@ const app = {
             + '<th scope="col" class="num" data-col-key="estoque" data-col-label="Estoque" data-col-locked="true">Estoque</th>'
             + '<th scope="col" class="col-center" data-col-key="situacao" data-col-label="Situação">Situação</th>'
             + '<th scope="col" data-col-key="cobertura" data-col-label="Cobertura">Cobertura</th>'
-            + '<th scope="col" class="num" data-col-key="vendas30" data-col-label="Vendas 30 dias">Vendas 30 dias</th>'
+            + '<th scope="col" class="num" data-col-key="vendas30" data-col-label="Vendas 30d">Vendas 30d</th>'
             + '<th scope="col" class="num" data-col-key="valor" data-col-label="Valor em estoque">Valor em estoque</th>'
-            + '<th scope="col" data-col-key="ultima" data-col-label="Última movimentação">Última movimentação</th>'
+            + '<th scope="col" data-col-key="ultima" data-col-label="Última movimentação" title="Última movimentação">Última mov.</th>'
             + '<th scope="col" class="col-actions-head" data-col-key="acoes" data-col-label="Ações" data-col-locked="true">Ações</th>'
             + '</tr></thead>'
             + '<tbody>' + linhas + '</tbody></table></div></div>';

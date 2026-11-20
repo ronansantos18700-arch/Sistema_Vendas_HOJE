@@ -167,7 +167,7 @@ function criarApp(registro = { criados: [] }) {
   await teste('updateVariation formata em pt-BR e não fabrica 100.0% quando base anterior é 0', async () => {
     const { app, dom } = criarApp();
     app.updateVariation('dash-faturamento-var', 150, 100);
-    assert.strictEqual(dom.getElementById('dash-faturamento-var').querySelector('.var-value').textContent, '▲ 50,0%');
+    assert.strictEqual(dom.getElementById('dash-faturamento-var').querySelector('.var-value').textContent, '+50,0%');
     app.updateVariation('dash-faturamento-var', 80, 0);
     assert.strictEqual(dom.getElementById('dash-faturamento-var').querySelector('.var-value').textContent, 'Novo');
     app.updateVariation('dash-faturamento-var', 0, 0);
