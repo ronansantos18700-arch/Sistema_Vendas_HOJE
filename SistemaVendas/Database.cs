@@ -226,6 +226,9 @@ namespace SistemaVendas
             var colecoes = raiz as JObject;
             if (colecoes == null) return false;
 
+            // Regra de negócio dos recebimentos de fiado: conferida antes de qualquer gravação.
+            if (ValidarRecebimentosFiado(colecoes) != null) return false;
+
             // Valida tudo antes de abrir a transação.
             var pendentes = new List<KeyValuePair<Tabela, JToken>>();
             foreach (JProperty prop in colecoes.Properties())
@@ -412,6 +415,90 @@ namespace SistemaVendas
             }
         }
 
+        private static readonly string[] FormasRecebimento = { "dinheiro", "cartao", "pix" };
+        private const double TolerancaRecebimento = 0.005;
+
+        /// <summary>
+        /// Confere os recebimentos de venda fiado nas vendas que estão sendo gravadas.
+        /// Aceita os dois formatos: lista direta (SaveAll) ou { "full": [...] } / { "upsert": [...] } (SaveChanges).
+        /// Regras: só venda fiado tem recebimento; cada valor é maior que zero; a forma é conhecida;
+        /// a soma não passa do valor final. Devolve null se estiver certo; senão, a mensagem para o usuário.
+        /// Só confere o que está sendo gravado, para não travar gravações por causa de dados antigos.
+        /// </summary>
+        public static string ValidarRecebimentosFiado(JObject colecoes)
+        {
+            if (colecoes == null) return null;
+
+            var vendas = new List<JToken>();
+            JToken bruto = colecoes["sales"];
+            if (bruto is JArray lista)
+            {
+                vendas.AddRange(lista);
+            }
+            else if (bruto is JObject bloco)
+            {
+                if (bloco["full"] is JArray cheio) vendas.AddRange(cheio);
+                if (bloco["upsert"] is JArray alteradas) vendas.AddRange(alteradas);
+            }
+
+            foreach (JToken item in vendas)
+            {
+                var venda = item as JObject;
+                if (venda == null) continue;
+
+                var recebimentos = venda["recebimentos"] as JArray;
+                if (recebimentos == null || recebimentos.Count == 0) continue;
+
+                string id = TextoDe(venda["id"]) ?? "";
+                if (TextoDe(venda["pagamento"]) != "fiado")
+                {
+                    return "Venda " + id + ": só venda a prazo (fiado) pode ter recebimentos.";
+                }
+
+                double? valorFinal = NumeroDe(venda["valor_final"]);
+                if (valorFinal == null) return "Venda " + id + ": valor final inválido.";
+
+                double soma = 0;
+                foreach (JToken r in recebimentos)
+                {
+                    var recebimento = r as JObject;
+                    if (recebimento == null) return "Venda " + id + ": recebimento inválido.";
+
+                    double? valor = NumeroDe(recebimento["valor"]);
+                    if (valor == null || valor.Value <= 0)
+                    {
+                        return "Venda " + id + ": o valor de cada recebimento deve ser maior que zero.";
+                    }
+
+                    string forma = TextoDe(recebimento["forma"]);
+                    if (forma == null || Array.IndexOf(FormasRecebimento, forma) < 0)
+                    {
+                        return "Venda " + id + ": forma de recebimento inválida.";
+                    }
+                    soma += valor.Value;
+                }
+
+                if (soma - valorFinal.Value > TolerancaRecebimento)
+                {
+                    return "Venda " + id + ": os recebimentos passam do valor final da venda.";
+                }
+            }
+            return null;
+        }
+
+        private static string TextoDe(JToken t)
+        {
+            var v = t as JValue;
+            return v != null && v.Type == JTokenType.String ? (string)v : null;
+        }
+
+        private static double? NumeroDe(JToken t)
+        {
+            var v = t as JValue;
+            if (v == null || (v.Type != JTokenType.Integer && v.Type != JTokenType.Float)) return null;
+            return (double)v;
+        }
+
         /// <summary>
         /// Aplica mudanças incrementais em uma única transação. Formato por coleção:
         ///   { "full": [ ... ] }                              regrava a tabela inteira
@@ -423,6 +510,9 @@ namespace SistemaVendas
             JToken raiz = Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
             var colecoes = raiz as JObject;
             if (colecoes == null) return false;
+
+            // Regra de negócio dos recebimentos de fiado: conferida antes de qualquer gravação.
+            if (ValidarRecebimentosFiado(colecoes) != null) return false;
 
             // Valida tudo antes de abrir a transação.
             var plano = new List<KeyValuePair<Tabela, JObject>>();

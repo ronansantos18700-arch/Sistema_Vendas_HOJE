@@ -9,7 +9,7 @@ const el = new Proxy({}, { get: (t, k) => (k === 'value' ? '' : k === 'classList
 const erros = [];
 const notificacoes = [];
 
-function criarContexto(bridgeDados) {
+function criarContexto(bridgeDados, gravados) {
   const ctx = {
     window: {}, console: { log: noop, warn: noop, info: noop, error: (...a) => erros.push(a.join(' ')) },
     document: { getElementById: () => el, querySelector: () => el, querySelectorAll: () => [], addEventListener: noop, createElement: () => el, body: el, documentElement: el, readyState: 'complete' },
@@ -23,7 +23,7 @@ function criarContexto(bridgeDados) {
   ctx.window = ctx; ctx.globalThis = ctx;
   ctx.window.chrome = { webview: { hostObjects: { bridge: {
     GetData: async (tipo) => (tipo in bridgeDados ? bridgeDados[tipo] : '[]'),
-    SaveChanges: async () => true, SaveAll: async () => true
+    SaveChanges: async (json) => { if (gravados) gravados.push(json); return true; }, SaveAll: async () => true
   } } } };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(base, 'estoque.js'), 'utf8'), ctx);
@@ -32,7 +32,7 @@ function criarContexto(bridgeDados) {
   const app = ctx.__app;
   app.setLoading = noop; app.updateBrand = noop; app.iniciarHistoricoEstoque = noop;
   app.showNotification = (tipo, msg) => notificacoes.push({ tipo, msg });
-  app.salvarDados = async () => {};
+  if (!gravados) app.salvarDados = async () => {}; // com `gravados`, o salvarDados real roda e a bridge registra o que foi enviado
   return app;
 }
 
@@ -69,6 +69,17 @@ function check(nome, cond) { console.log((cond ? 'OK   ' : 'FALHA') + ' ' + nome
   await vazio.carregarDados();
   check('banco vazio carrega sem erro', erros.length === 0 && !notificacoes.some(n => n.tipo === 'error'));
   check('banco vazio cria admin padrão', vazio.state.users.length === 1);
+
+  // Primeira gravação depois de carregar: manda só a venda alterada, não as tabelas inteiras
+  // (senão regravaria por cima de um recebimento lançado em outro terminal).
+  const gravados = [];
+  const real = criarContexto(dados, gravados);
+  await real.carregarDados();
+  real.state.sales[0].valor_final = 35;
+  await real.salvarDados();
+  const enviado = gravados.length ? JSON.parse(gravados[gravados.length - 1]) : {};
+  check('gravação após carregar: vendas só com a alteração (upsert, sem full)', !!enviado.sales && Array.isArray(enviado.sales.upsert) && enviado.sales.upsert.length === 1 && !enviado.sales.full);
+  check('gravação após carregar: produtos sem mudança não são enviados', !('products' in enviado));
 
   console.log(falhas === 0 ? 'Todos os testes passaram.' : `${falhas} falha(s).`);
   process.exit(falhas === 0 ? 0 : 1);

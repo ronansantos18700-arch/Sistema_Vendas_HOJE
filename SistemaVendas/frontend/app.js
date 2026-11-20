@@ -2845,7 +2845,15 @@ const app = {
             this.setLoading(false);
         }
 
-        // Vendas fiado antigas (sem id do cliente): liga pelo nome quando ele é único; grava se mudou algo.
+        // Linha de base: o que acabou de ser lido é o que está no banco. Assim a próxima gravação
+        // manda só o que mudou nesta sessão, e não regrava a tabela inteira por cima de outro terminal.
+        if (this.state.dataLoaded) {
+            const colecoesBase = this.colecoesParaSalvar();
+            if (this.emModoServidor()) delete colecoesBase.users;
+            this.snapshotSalvo = this.criarSnapshot(colecoesBase);
+        }
+
+        // Vendas fiado antigas (sem id do cliente): liga pelo nome quando ele é único; grava só essas.
         if (this.state.dataLoaded) {
             const vinculo = Fiado.vincularLegado(this.state.sales, this.state.customers);
             if (vinculo.vinculadas > 0) await this.salvarDados();

@@ -77,7 +77,8 @@ namespace SV.Api.Servicos
                     return "Tipo de dado não permitido nesta operação: " + p.Name + ".";
                 }
             }
-            return null;
+            // Recebimentos de fiado: mesma regra do Database.ApplyChanges, com a mensagem para o usuário.
+            return SistemaVendas.Database.ValidarRecebimentosFiado(alteracoes);
         }
 
         // ---------------------------------------------------------------
