@@ -239,6 +239,44 @@ teste('vincular: só fiado sem cliente, e cliente escolhido grava id e nome', ()
   assert.strictEqual(F.vincular(vendas, 'V1', null).ok, false, 'sem cliente');
 });
 
+teste('resumo do cliente: total a prazo, pago e falta, sem vendas de outros', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'C1', 30, 'pix', '2026-11-10T12:00:00Z', 'R700');
+  const r = F.resumoCliente(vendas, 'C1');
+  assert.strictEqual(r.totalPrazo, 150, 'só as vendas fiado da Ana (100 + 50)');
+  assert.strictEqual(r.pago, 30);
+  assert.strictEqual(r.falta, 120);
+  assert.deepStrictEqual(r.vendas.map((x) => x.vendaId), ['V1', 'V2'], 'mais antiga primeiro');
+  assert.strictEqual(r.vendas[0].falta, 70);
+  assert.strictEqual(r.vendas[1].pago, 0);
+});
+
+teste('resumo: venda quitada continua no total a prazo, com falta zero', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'C1', 100, 'pix', '2026-11-10T12:00:00Z', 'R710');
+  const r = F.resumoCliente(vendas, 'C1');
+  assert.strictEqual(r.vendas[0].falta, 0);
+  assert.strictEqual(r.totalPrazo, 150);
+  assert.strictEqual(r.falta, 50);
+});
+
+teste('resumosPorCliente bate com resumoCliente para cada cliente', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'C2', 10, 'dinheiro', '2026-11-10T12:00:00Z', 'R720');
+  const m = F.resumosPorCliente(vendas);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(m.get('C1'))), { totalPrazo: 150, pago: 0, falta: 150 });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(m.get('C2'))), { totalPrazo: 30, pago: 10, falta: 20 });
+  assert.strictEqual(m.has('C3'), false, 'sem venda fiado, não aparece');
+});
+
+teste('prévia do recebimento: quanto fica em aberto e recusa de valor inválido', () => {
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(F.restanteAposRecebimento(150, 60))), { ok: true, restante: 90 });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(F.restanteAposRecebimento(150, 150))), { ok: true, restante: 0 });
+  assert.strictEqual(F.restanteAposRecebimento(150, 151).ok, false);
+  assert.strictEqual(F.restanteAposRecebimento(150, 0).ok, false);
+  assert.strictEqual(F.restanteAposRecebimento(150, -1).ok, false);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

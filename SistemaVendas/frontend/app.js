@@ -4753,22 +4753,35 @@ const app = {
             return;
         }
 
-        const saldosFiado = Fiado.saldosPorCliente(this.state.sales);
-        container.innerHTML = filtered.map(c => `
+        const resumos = Fiado.resumosPorCliente(this.state.sales);
+        const textoFiado = (r) => {
+            if (!r || r.totalPrazo <= 0) return '<span class="fiado-sem">-</span>';
+            if (r.falta > 0) {
+                return `<span class="fiado-falta"><strong>${this.formatCurrency(r.falta)}</strong> em aberto</span>` +
+                    `<small>Pago ${this.formatCurrency(r.pago)} de ${this.formatCurrency(r.totalPrazo)}</small>`;
+            }
+            return `<span class="fiado-quitado">Quitado</span><small>${this.formatCurrency(r.totalPrazo)} a prazo</small>`;
+        };
+        container.innerHTML = filtered.map(c => {
+            const r = resumos.get(String(c.id));
+            const receber = r && r.falta > 0
+                ? `<button type="button" class="btn-fiado-receber-lista" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button>`
+                : '';
+            return `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
-                    <span class="col-name" data-label="NOME">${this.esc(c.name)}${saldosFiado.has(String(c.id))
-                        ? ` <span class="cliente-fiado">Em aberto <strong>${this.formatCurrency(saldosFiado.get(String(c.id)))}</strong><button type="button" class="btn-fiado-receber" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button></span>`
-                        : ''}</span>
+                    <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
+                    <span class="col-fiado" data-label="FIADO">${textoFiado(r)}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
                     <span class="col-date" data-label="DATA">${this.parseDate(c.date) ? this.parseDate(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
                     <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
                     <div class="col-actions" data-label="AÇÕES">
+                        ${receber}
                         <button class="btn-action-edit" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
                         <button class="btn-action-delete" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+        }).join('');
         this.initLucide();
     },
 
@@ -4796,17 +4809,21 @@ const app = {
         this.openModal('fiado');
     },
 
-    /** Preenche o modal de Fiado com o estado atual do cliente (saldo, vendas em aberto e recebimentos). */
+    /** Preenche o modal de Fiado: totais (total, pago, falta), andamento de cada venda e recebimentos. */
     atualizarModalFiado() {
         const c = this.clientePorId(this.state.fiadoCliente);
         if (!c) return;
-        const saldo = Fiado.saldoCliente(this.state.sales, c.id);
+        const r = Fiado.resumoCliente(this.state.sales, c.id);
+        const m = (v) => this.formatCurrency(v);
         document.getElementById('fiado-titulo').textContent = `Receber fiado · ${c.name}`;
-        document.getElementById('fiado-saldo').textContent = this.formatCurrency(saldo);
-        document.getElementById('fiado-lista').innerHTML = Fiado.emAberto(this.state.sales, c.id).map(v => {
+        document.getElementById('fiado-total').textContent = m(r.totalPrazo);
+        document.getElementById('fiado-pago').textContent = m(r.pago);
+        document.getElementById('fiado-saldo').textContent = m(r.falta);
+        document.getElementById('fiado-lista').innerHTML = r.vendas.map(v => {
             const data = new Date(v.date).toLocaleDateString('pt-BR');
-            return `<div class="fiado-linha"><span>${data} · venda #${this.esc(String(v.id || v.ID).slice(-6))}</span><strong>${this.formatCurrency(Fiado.saldoAberto(v))}</strong></div>`;
-        }).join('') || '<div class="fiado-linha"><span>Nenhuma venda em aberto.</span></div>';
+            const situacao = v.falta > 0 ? `<strong>Falta ${m(v.falta)}</strong>` : '<span class="fiado-quitado">Quitada</span>';
+            return `<div class="fiado-linha fiado-venda"><span>${data} · venda #${this.esc(String(v.vendaId).slice(-6))}</span><span>Total ${m(v.total)} · Pago ${m(v.pago)} · ${situacao}</span></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhuma venda a prazo.</span></div>';
 
         const admin = this.state.currentUser?.role === 'admin';
         const operacoes = Fiado.operacoes(this.state.sales, c.id);
@@ -4817,7 +4834,29 @@ const app = {
                 ? `<button type="button" class="btn-fiado-estornar" onclick="app.estornarRecebimentoFiado('${this.esc(o.operacao)}')">Estornar</button>`
                 : '';
             return `<div class="fiado-linha"><span>${data} · ${this.esc(forma)}</span><span><strong>${this.formatCurrency(o.valor)}</strong>${estornar}</span></div>`;
-        }).join('') || '<div class="fiado-linha"><span>Nenhum recebimento ainda.</span></div>';
+        }).join('') || '<div class="fiado-linha"><span>Nenhum pagamento recebido ainda.</span></div>';
+
+        this.atualizarPreviaFiado();
+    },
+
+    /** Enquanto digita o valor, mostra quanto fica em aberto depois do recebimento. Não grava nada. */
+    atualizarPreviaFiado() {
+        const c = this.clientePorId(this.state.fiadoCliente);
+        const previa = document.getElementById('fiado-previa');
+        const campo = document.getElementById('fiado-valor');
+        if (!c || !previa || !campo) return;
+        const falta = Fiado.saldoCliente(this.state.sales, c.id);
+        const valor = Number(campo.value);
+        const r = Fiado.restanteAposRecebimento(falta, valor);
+        if (!r.ok) {
+            previa.className = 'fiado-previa fiado-previa-erro';
+            previa.textContent = r.motivo;
+            return;
+        }
+        previa.className = 'fiado-previa';
+        previa.textContent = r.restante > 0
+            ? `Recebendo ${this.formatCurrency(valor)}: ficam ${this.formatCurrency(r.restante)} em aberto.`
+            : `Recebendo ${this.formatCurrency(valor)}: a conta fica quitada.`;
     },
 
     /** Estorna uma operação de recebimento inteira (administrador). Pede confirmação antes. */

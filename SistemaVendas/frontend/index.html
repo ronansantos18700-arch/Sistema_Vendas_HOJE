@@ -681,6 +681,7 @@
                         <div class="list-header-labs">
                             <span class="col-id">ID</span>
                             <span class="col-name">NOME DO CLIENTE</span>
+                            <span class="col-fiado">FIADO</span>
                             <span class="col-whatsapp">WHATSAPP</span>
                             <span class="col-date">DATA CADASTRO</span>
                             <span class="col-obs">OBSERVAÇÕES / ENDEREÇO</span>
@@ -1260,17 +1261,19 @@
                         <i data-lucide="x"></i>
                     </button>
                 </div>
-                <div class="fiado-resumo">
-                    <span>Saldo em aberto</span>
-                    <strong id="fiado-saldo">R$ 0,00</strong>
+                <div class="fiado-totais">
+                    <div class="fiado-total-card"><span>Total a prazo</span><strong id="fiado-total">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-pago"><span>Já pago</span><strong id="fiado-pago">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-falta"><span>Falta pagar</span><strong id="fiado-saldo">R$ 0,00</strong></div>
                 </div>
+                <div class="fiado-subtitulo">Vendas a prazo</div>
                 <div id="fiado-lista" class="fiado-lista"></div>
-                <div class="fiado-subtitulo">Recebimentos registrados</div>
+                <div class="fiado-subtitulo">Pagamentos recebidos</div>
                 <div id="fiado-recebidos" class="fiado-lista"></div>
                 <div class="modal-grid-labs" style="grid-template-columns: 1fr 1fr; margin-top: 1rem;">
                     <div class="input-group-labs">
-                        <label class="input-label-labs">VALOR RECEBIDO (R$)</label>
-                        <input type="number" id="fiado-valor" class="glass-input-labs" inputmode="decimal" step="0.01" min="0.01" autocomplete="off">
+                        <label class="input-label-labs">VALOR RECEBIDO (parcial ou total)</label>
+                        <input type="number" id="fiado-valor" class="glass-input-labs" inputmode="decimal" step="0.01" min="0.01" autocomplete="off" oninput="app.atualizarPreviaFiado()">
                     </div>
                     <div class="input-group-labs">
                         <label class="input-label-labs">FORMA</label>
@@ -1281,6 +1284,7 @@
                         </select>
                     </div>
                 </div>
+                <div id="fiado-previa" class="fiado-previa"></div>
                 <div id="fiado-erro" class="login-error-msg hidden" style="margin-top: 0.75rem;"></div>
                 <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
                     <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Cancelar</button>

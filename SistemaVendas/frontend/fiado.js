@@ -187,6 +187,48 @@
         return { ok: true };
     }
 
+    /**
+     * Quanto um cliente deve a prazo: total das vendas fiado, o que já foi pago e o que falta.
+     * Cada venda traz o próprio andamento (mais antiga primeiro).
+     */
+    function resumoCliente(vendas, clienteId) {
+        const lista = (vendas || [])
+            .filter((v) => ehFiado(v) && doCliente(v, clienteId))
+            .map((v) => ({
+                vendaId: v.id || v.ID,
+                date: v.date,
+                total: r2(Number(v.valor_final) || 0),
+                pago: recebido(v),
+                falta: saldoAberto(v)
+            }))
+            .sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0));
+        const soma = (campo) => r2(lista.reduce((acc, x) => acc + x[campo], 0));
+        return { totalPrazo: soma('total'), pago: soma('pago'), falta: soma('falta'), vendas: lista };
+    }
+
+    /** Mapa id do cliente → { totalPrazo, pago, falta } para todos os clientes com venda fiado. */
+    function resumosPorCliente(vendas) {
+        const mapa = new Map();
+        (vendas || []).forEach((v) => {
+            const id = clienteIdDe(v);
+            if (!ehFiado(v) || !id) return;
+            const r = mapa.get(id) || { totalPrazo: 0, pago: 0, falta: 0 };
+            r.totalPrazo = r2(r.totalPrazo + (Number(v.valor_final) || 0));
+            r.pago = r2(r.pago + recebido(v));
+            r.falta = r2(r.falta + saldoAberto(v));
+            mapa.set(id, r);
+        });
+        return mapa;
+    }
+
+    /** Prévia do recebimento: quanto fica em aberto depois do valor digitado. Não grava nada. */
+    function restanteAposRecebimento(saldo, valor) {
+        const v = r2(valor);
+        if (!(v > 0)) return { ok: false, motivo: 'Informe um valor maior que zero.' };
+        if (v - saldo > TOLERANCIA) return { ok: false, motivo: `O valor passa do saldo em aberto (${r2(saldo).toFixed(2)}).` };
+        return { ok: true, restante: r2(saldo - v) };
+    }
+
     /** Campos de fiado lidos do banco (normalização ao carregar): só entram os que existem. */
     function camposFiado(s) {
         const campos = {};
@@ -251,7 +293,8 @@
         ehFiado, recebimentos, recebido, saldoAberto, emAberto, saldoCliente, saldosPorCliente,
         validarVendaFiado, distribuir, registrarRecebimento, validarEdicao,
         operacaoDe, operacoes, estornarRecebimento,
-        clienteIdDe, camposFiado, vincularLegado, pendentesSemCliente, vincular, renomearCliente
+        clienteIdDe, camposFiado, vincularLegado, pendentesSemCliente, vincular, renomearCliente,
+        resumoCliente, resumosPorCliente, restanteAposRecebimento
     };
 
     raiz.Fiado = API;

@@ -6081,3 +6081,33 @@ i.bx {
 .fiado-pendente-linha > span { flex: 1 1 260px; }
 .fiado-pendente-linha strong { color: var(--text-white); font-weight: 600; font-variant-numeric: tabular-nums; }
 .fiado-pendente-linha select { min-width: 200px; }
+
+/* Fiado: totais do cliente, coluna FIADO na lista de clientes e prévia do recebimento */
+.fiado-totais { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+.fiado-total-card { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.6rem 0.75rem; border: 1px solid var(--glass-border); border-radius: 12px; background: #f5f8fc; }
+.fiado-total-card span { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.fiado-total-card strong { font-size: 1.05rem; color: var(--text-white); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fiado-card-pago strong { color: #2b7a5b; }
+.fiado-card-falta strong { color: #a2473c; }
+.fiado-venda > span:last-child { text-align: right; }
+.fiado-quitado { color: #2b7a5b; font-weight: 600; }
+.fiado-previa { margin-top: 0.75rem; padding: 0.55rem 0.75rem; border-radius: 10px; background: #eef4ff; color: var(--text-white); font-size: 0.85rem; }
+.fiado-previa-erro { background: #fdecea; color: #a2473c; }
+
+#customers-list-labs .col-name { width: auto; height: auto; line-height: normal; white-space: normal; overflow: visible; text-overflow: clip; display: block; }
+#customers-list-labs .col-fiado { font-size: 0.85rem; display: flex; flex-direction: column; gap: 2px; }
+#customers-list-labs .col-fiado small { font-size: 0.72rem; color: var(--text-dim); }
+#customers-list-labs .col-fiado .fiado-falta strong { color: #a2473c; font-weight: 600; font-variant-numeric: tabular-nums; }
+#customers-list-labs .col-fiado .fiado-sem { color: var(--text-dim); }
+#customers-list-labs .col-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; }
+.btn-fiado-receber-lista { border: none; background: #2f56c9; color: #fff; border-radius: 8px; padding: 0.35rem 0.7rem; font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-fiado-receber-lista:hover { filter: brightness(1.08); }
+
+@media (min-width: 1024px) {
+    #customers-list-labs .list-header-labs,
+    #customers-list-labs .nested-item-labs-row {
+        grid-template-columns: 70px minmax(150px, 1.3fr) minmax(130px, 1.1fr) 1fr 1fr 1.2fr 160px !important;
+        gap: 0.75rem !important;
+    }
+}
+

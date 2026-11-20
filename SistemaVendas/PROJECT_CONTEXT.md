@@ -302,6 +302,15 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Sem mudança de tabela nem de servidor: `cliente_id` vai para `_extra`.
 - Não verificado visualmente no Windows: painel de pendências e seletores.
 
+### 2026-11-20 (fiado: visualização de pago e falta)
+
+- Causa do botão Receber sumido: a regra de `#customers-list-labs .col-name` fixava altura de 25px com `overflow: hidden`, e o botão ficava no fim do texto, cortado. Agora a coluna FIADO tem seu próprio campo e o botão **Receber** fica na coluna AÇÕES.
+- Lista de clientes: FIADO mostra "R$ x em aberto" e "Pago R$ y de R$ z", ou "Quitado".
+- Modal Receber: três cartões (Total a prazo, Já pago, Falta pagar); lista de cada venda com total, pago e falta; pagamentos recebidos com botão Estornar (admin).
+- Prévia ao digitar o valor: "Recebendo R$ x: ficam R$ y em aberto", ou "a conta fica quitada". Valor acima do saldo aparece em vermelho.
+- Lógica em `Fiado.resumoCliente`, `Fiado.resumosPorCliente` e `Fiado.restanteAposRecebimento`.
+- Não verificado visualmente: o sandbox não tem navegador.
+
 ### 2026-11-20 (histórico de movimentações em Estoque)
 
 - Nova aba **Movimentações** dentro da tela Estoque (`#estoque-abas`). Só administrador vê a aba; para os demais ela some e a tela fica em Produtos (`sincronizarAbaEstoque`). É só leitura.

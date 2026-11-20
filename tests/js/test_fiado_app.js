@@ -7,6 +7,8 @@ const assert = require('assert');
 const base = path.join(__dirname, '../../SistemaVendas/frontend');
 const F = require(path.join(base, 'fiado.js'));
 const noop = () => {};
+// Intl pt-BR usa espaço não separável entre "R$" e o valor.
+const txt = (t) => String(t).replace(/\u00a0/g, ' ');
 
 function criarAmbiente({ customers, sales, cart, pagamento = 'fiado', cliente = 'C1' }) {
   const elementos = {};
@@ -120,7 +122,8 @@ teste('clientes: mostra o saldo em aberto e o botão Receber só para quem deve'
   const html = elementos['customers-items-container'].innerHTML;
   assert.ok(html.includes("app.abrirRecebimentoFiado('C1')"), 'Ana tem botão Receber');
   assert.ok(!html.includes("app.abrirRecebimentoFiado('C2')"), 'Beto quitou, sem botão');
-  assert.ok(html.includes('Em aberto'));
+  assert.ok(html.includes('em aberto') && txt(html).includes('Pago R$ 0,00 de R$ 100,00'), 'mostra o falta e o pago');
+  assert.ok(html.includes('Quitado'), 'Beto aparece como quitado');
 });
 
 teste('recebimento: parcial pelo modal grava na venda mais antiga e salva', async () => {
@@ -209,7 +212,7 @@ teste('estorno (admin): desfaz o recebimento, grava auditoria e reabre o modal',
   assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 100, 'saldo volta ao total');
   assert.ok(app.auditoria.some((a) => a.acao === 'FIADO_ESTORNO' && a.detalhes.valor === 60));
   assert.strictEqual(elementos['fiado-modal'].classList.contains('hidden'), false, 'modal reaberto após a confirmação');
-  assert.ok(elementos['fiado-recebidos'].innerHTML.includes('Nenhum recebimento ainda'));
+  assert.ok(elementos['fiado-recebidos'].innerHTML.includes('Nenhum pagamento recebido ainda'));
 });
 
 teste('estorno (operador): não mostra o botão e não pede confirmação', async () => {
@@ -321,6 +324,36 @@ teste('edição: o seletor de cliente mostra o cliente pelo id', () => {
   const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
   app.openSaleEdit('V1');
   assert.strictEqual(elementos['sale-edit-cliente'].value, 'C2');
+});
+
+teste('modal: mostra total a prazo, já pago, falta e o andamento de cada venda', () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00'), venda('V2', 'Ana', 50, '2026-11-11T10:00:00')];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  F.registrarRecebimento(app.state.sales, 'C1', 120, 'pix', '2026-11-12T10:00:00Z', 'R800');
+  app.abrirRecebimentoFiado('C1');
+  assert.strictEqual(txt(elementos['fiado-total'].textContent), 'R$ 150,00');
+  assert.strictEqual(txt(elementos['fiado-pago'].textContent), 'R$ 120,00');
+  assert.strictEqual(txt(elementos['fiado-saldo'].textContent), 'R$ 30,00');
+  assert.ok(elementos['fiado-lista'].innerHTML.includes('Quitada'), 'V1 quitada aparece');
+  assert.ok(txt(elementos['fiado-lista'].innerHTML).includes('Falta R$ 30,00'), 'V2 mostra o que falta');
+});
+
+teste('prévia: mostra o que fica em aberto enquanto digita, e recusa valor acima do saldo', () => {
+  const sales = [venda('V1', 'Ana', 150, '2026-11-10T10:00:00')];
+  const { app, ctx, elementos } = criarAmbiente({ customers: clientes(), sales });
+  app.abrirRecebimentoFiado('C1');
+  const campo = ctx.document.getElementById('fiado-valor');
+  campo.value = '60';
+  app.atualizarPreviaFiado();
+  assert.ok(txt(elementos['fiado-previa'].textContent).includes('ficam R$ 90,00 em aberto'));
+  assert.strictEqual(elementos['fiado-previa'].className, 'fiado-previa');
+  campo.value = '150';
+  app.atualizarPreviaFiado();
+  assert.ok(elementos['fiado-previa'].textContent.includes('quitada'));
+  campo.value = '200';
+  app.atualizarPreviaFiado();
+  assert.ok(elementos['fiado-previa'].className.includes('erro'));
+  assert.strictEqual(app.salvos, 0, 'a prévia não grava nada');
 });
 
 (async () => {
