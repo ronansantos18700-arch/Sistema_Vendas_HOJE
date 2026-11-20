@@ -526,9 +526,54 @@
         return textos;
     }
 
+    /**
+     * Série de margem de lucro (%) ao longo do período selecionado (dia em 7d/month, mês em year).
+     * Pontos sem faturamento retornam null para não distorcer a linha com 0% artificial.
+     */
+    function serieMargemPeriodo(vendas, filtro, agora, parseDate) {
+        const base = serieLinha(vendas, filtro, agora, parseDate);
+        let hasData = false;
+        const margins = base.revenue.map((fat, i) => {
+            if (fat > 0) {
+                hasData = true;
+                return arred2((base.profit[i] / fat) * 100);
+            }
+            return null;
+        });
+        return {
+            labels: base.labels,
+            margins: margins,
+            revenue: base.revenue,
+            profit: base.profit,
+            hasData: hasData
+        };
+    }
+
+    /**
+     * Faturamento e quantidade de vendas por hora local (0h..23h), alinhado ao KPI de horário de pico.
+     */
+    function vendasPorHorario(vendas, parseDate) {
+        const labels = Array.from({ length: 24 }, (_, h) => `${h}h`);
+        const revenue = Array(24).fill(0);
+        const counts = Array(24).fill(0);
+        let hasData = false;
+        (vendas || []).forEach((v) => {
+            const d = dataVenda(v, parseDate);
+            if (!d) return;
+            const h = d.getHours();
+            if (h >= 0 && h < 24) {
+                revenue[h] = arred2(revenue[h] + valoresVenda(v).faturamento);
+                counts[h] += 1;
+                hasData = true;
+            }
+        });
+        return { labels, revenue, counts, hasData };
+    }
+
     const API = {
         COBERTURA_ALVO_DIAS, COBERTURA_CRITICA_DIAS,
-        chaveDia, valoresVenda, serieLinha, intervalosPeriodo, resumoPagamentos,
+        chaveDia, valoresVenda, serieLinha, serieMargemPeriodo, vendasPorHorario,
+        intervalosPeriodo, resumoPagamentos,
         kpisEstoque, kpisVendas, escaparHtml, dataVenda,
         rankingProdutos, alertasEstoque, insightsVendas, insightsEstoque
     };

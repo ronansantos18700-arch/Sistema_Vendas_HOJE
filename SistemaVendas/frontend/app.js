@@ -740,9 +740,14 @@ const app = {
 
         if (this.state.charts.topProfitable) {
             this.state.charts.topProfitable.destroy();
+            this.state.charts.topProfitable = null;
         }
 
-        if (top5.length === 0) return;
+        if (top5.length === 0) {
+            this.setChartEmptyState(ctx, true, 'Sem vendas no período selecionado.');
+            return;
+        }
+        this.setChartEmptyState(ctx, false);
 
         const theme = this.getThemeColors();
         this.state.charts.topProfitable = new Chart(ctx, {
@@ -752,7 +757,7 @@ const app = {
                 datasets: [{
                     label: 'Lucro Total',
                     data: data,
-                    backgroundColor: 'rgba(127, 165, 142, 0.6)',
+                    backgroundColor: 'rgba(46, 158, 106, 0.55)',
                     borderColor: '#2e9e6a',
                     borderWidth: 1,
                     borderRadius: 6,
@@ -784,12 +789,16 @@ const app = {
                     x: {
                         beginAtZero: true,
                         grid: { color: theme.grid, drawBorder: false },
-                        ticks: { color: theme.ticks, font: { size: 10 } }
+                        ticks: {
+                            color: theme.ticks,
+                            font: { size: 11 },
+                            callback: (v) => this.formatCurrencyCompact(v)
+                        }
                     },
                     y: {
                         grid: { display: false, drawBorder: false },
-                        ticks: { 
-                            color: theme.text, 
+                        ticks: {
+                            color: theme.text,
                             font: { size: 11, weight: '500' }
                         }
                     }
@@ -2974,6 +2983,97 @@ const app = {
         });
     },
 
+    /** Formatação compacta de moeda em pt-BR para eixos de gráficos (ex.: R$ 1,5 mil). */
+    formatCurrencyCompact(value) {
+        const n = Number(value) || 0;
+        const abs = Math.abs(n);
+        const sinal = n < 0 ? '-' : '';
+        if (abs >= 1000000) {
+            return `${sinal}R$ ${(abs / 1000000).toFixed(1).replace('.', ',').replace(',0', '')} mi`;
+        }
+        if (abs >= 1000) {
+            return `${sinal}R$ ${(abs / 1000).toFixed(1).replace('.', ',').replace(',0', '')} mil`;
+        }
+        return `${sinal}R$ ${Math.round(abs)}`;
+    },
+
+    /** Exibe ou oculta estado vazio limpo sobre o contêiner de um gráfico sem dados. */
+    setChartEmptyState(canvas, vazio, mensagem = 'Sem dados no período selecionado.') {
+        const pai = canvas && canvas.parentElement;
+        if (!pai || typeof pai.querySelector !== 'function') return;
+        let aviso = pai.querySelector('.chart-empty-state');
+        if (vazio) {
+            if (!aviso) {
+                aviso = document.createElement('div');
+                aviso.className = 'chart-empty-state';
+                pai.appendChild(aviso);
+            }
+            aviso.textContent = mensagem;
+            aviso.classList.remove('hidden');
+            if (canvas.style) canvas.style.visibility = 'hidden';
+        } else {
+            if (aviso) aviso.classList.add('hidden');
+            if (canvas.style) canvas.style.visibility = '';
+        }
+    },
+
+    /** Alterna exibição Gráfico ↔ Lista/Tabela nos cards combinados do Dashboard. */
+    setDashCardModo(cardId, modo) {
+        const card = document.getElementById(cardId);
+        if (!card) return;
+        card.dataset.modo = modo;
+        card.querySelectorAll('.dash-card-toggle button').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.modo === modo);
+        });
+    },
+
+    /** Banner discreto na visão Vendas quando há saldo de fiado em aberto. */
+    renderDashboardFiadoBanner() {
+        const banner = document.getElementById('dash-fiado-banner');
+        if (!banner || !window.Fiado) return;
+        const sales = this.state.sales || [];
+        const clientesComSaldo = new Set();
+        let totalAberto = 0;
+        let qtdAtrasadas = 0;
+        const hojeRef = typeof Fiado.dataLocal === 'function' ? Fiado.dataLocal(new Date()) : undefined;
+        sales.forEach((s) => {
+            if (!Fiado.ehFiado(s)) return;
+            const saldo = Fiado.saldoAberto(s);
+            if (saldo <= 0) return;
+            totalAberto += saldo;
+            const cid = Fiado.clienteIdDe(s) || (s.cliente || s.Cliente || '');
+            if (cid) clientesComSaldo.add(String(cid));
+            if (typeof Fiado.atrasada === 'function' && Fiado.atrasada(s, hojeRef)) {
+                qtdAtrasadas++;
+            }
+        });
+        if (totalAberto <= 0) {
+            banner.classList.add('hidden');
+            return;
+        }
+        banner.classList.remove('hidden');
+        const elTotal = document.getElementById('dash-fiado-total');
+        const elSub = document.getElementById('dash-fiado-sub');
+        if (elTotal) elTotal.textContent = this.formatCurrency(totalAberto);
+        if (elSub) {
+            const partes = [`${clientesComSaldo.size} cliente(s) com saldo em aberto`];
+            if (qtdAtrasadas > 0) partes.push(`${qtdAtrasadas} venda(s) em atraso`);
+            elSub.textContent = partes.join(' · ');
+        }
+    },
+
+    /** Atalho do Dashboard para abrir Clientes já filtrado em Fiado em aberto. */
+    abrirClientesFiadoAberto() {
+        this.state.customersFiadoFilter = 'aberto';
+        const chips = document.querySelectorAll('#filter-customers-fiado .filtro-chip');
+        chips.forEach((b) => {
+            const ativo = b.dataset.fiado === 'aberto';
+            b.classList.toggle('active', ativo);
+            b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+        this.switchView('customers');
+    },
+
     // --- Dashboard Logic ---
     initCharts() {
         if (typeof Chart === 'undefined') return;
@@ -2991,6 +3091,9 @@ const app = {
             lucro: { label: 'Lucro', data: serie.profit, cor: '#2e9e6a', fundo: 'rgba(46, 158, 106, 0.12)' },
             custo: { label: 'Custo', data: serie.cost, cor: '#d64545', fundo: 'rgba(214, 69, 69, 0.1)' }
         };
+
+        const semMovimento = serie.revenue.every((v) => !v) && serie.profit.every((v) => !v) && serie.cost.every((v) => !v);
+        this.setChartEmptyState(canvasLine, semMovimento, 'Sem vendas no período selecionado.');
 
         // Mesmas linhas, mesmo período e mesmo tema: só troca os valores, sem recriar o gráfico.
         const chave = ativos.join(',') + '|' + this.state.dashboardFilter + '|' + theme.text + '|' + theme.grid;
@@ -3051,17 +3154,26 @@ const app = {
                     padding: { left: 10, right: 20, top: 20, bottom: 10 }
                 },
                 plugins: {
-                    legend: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.dataset.label}: ${this.formatCurrency(context.parsed.y)}`
+                        }
+                    }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
                         grid: { color: theme.grid },
-                        ticks: { font: { size: 13 }, color: theme.text }
+                        ticks: {
+                            font: { size: 12 },
+                            color: theme.text,
+                            callback: (v) => this.formatCurrencyCompact(v)
+                        }
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { font: { size: 13 }, color: theme.text }
+                        ticks: { font: { size: 12 }, color: theme.text }
                     }
                 }
             }
@@ -3094,6 +3206,7 @@ const app = {
 
     renderDashboard() {
         this.updateDashboardStats();
+        this.renderDashboardFiadoBanner();
         
         this.renderTopProductsChart();
         this.renderTopProfitableProductsChart();
@@ -3132,9 +3245,9 @@ const app = {
                 const classe = i.cobertura < R.COBERTURA_CRITICA_DIAS ? 'dash-alerta-zero' : 'dash-alerta-baixo';
                 return `<tr>
                     <td>${this.esc(i.produto)}</td>
-                    <td>${i.saldo} un.</td>
+                    <td class="num">${i.saldo} un.</td>
                     <td class="${classe}">${dura}</td>
-                    <td>${i.sugestao > 0 ? i.sugestao + ' un.' : '—'}</td>
+                    <td class="num">${i.sugestao > 0 ? i.sugestao + ' un.' : '—'}</td>
                 </tr>`;
             });
             reposicao.innerHTML = linhas.length
@@ -3157,9 +3270,9 @@ const app = {
             lucro.innerHTML = ven.produtosLucro.length
                 ? ven.produtosLucro.map((p) => `<tr>
                     <td>${this.esc(p.nome)}</td>
-                    <td>${p.qtd}</td>
-                    <td>${this.formatCurrency(p.lucro)}</td>
-                    <td>${pct(p.margem)}</td>
+                    <td class="num">${p.qtd}</td>
+                    <td class="num">${this.formatCurrency(p.lucro)}</td>
+                    <td class="num">${pct(p.margem)}</td>
                 </tr>`).join('')
                 : '<tr><td colspan="4" class="dash-vazio">Sem vendas no período.</td></tr>';
         }
@@ -3275,12 +3388,14 @@ const app = {
 
         if (this.state.charts.topProducts) {
             this.state.charts.topProducts.destroy();
+            this.state.charts.topProducts = null;
         }
 
         if (top5.length === 0) {
-            // Se não houver dados, podemos mostrar uma mensagem ou gráfico vazio
+            this.setChartEmptyState(ctx, true, 'Sem vendas no período selecionado.');
             return;
         }
+        this.setChartEmptyState(ctx, false);
 
         const theme = this.getThemeColors();
         this.state.charts.topProducts = new Chart(ctx, {
@@ -3352,9 +3467,14 @@ const app = {
 
         if (this.state.charts.paymentMethods) {
             this.state.charts.paymentMethods.destroy();
+            this.state.charts.paymentMethods = null;
         }
 
-        if (metodos.length === 0) return;
+        if (metodos.length === 0) {
+            this.setChartEmptyState(ctx, true, 'Sem vendas no período selecionado.');
+            return;
+        }
+        this.setChartEmptyState(ctx, false);
 
         const theme = this.getThemeColors();
         this.state.charts.paymentMethods = new Chart(ctx, {
@@ -3411,33 +3531,30 @@ const app = {
         if (!ctx) return;
 
         const filteredSales = this.getFilteredSales();
-        const hourlyStats = Array(24).fill(0);
+        const horario = window.Dashboard && typeof Dashboard.vendasPorHorario === 'function'
+            ? Dashboard.vendasPorHorario(filteredSales, (d) => this.parseDate(d))
+            : { labels: Array.from({ length: 24 }, (_, i) => `${i}h`), revenue: Array(24).fill(0), counts: Array(24).fill(0), hasData: false };
 
-        filteredSales.forEach(sale => {
-            const date = this.parseDate(sale.date || sale.Data);
-            if (date) {
-                const hour = date.getHours();
-                if (hour >= 0 && hour < 24) {
-                    hourlyStats[hour]++;
-                }
-            }
-        });
-
-        const labels = Array.from({ length: 24 }, (_, i) => `${i}h`);
-        
         if (this.state.charts.salesByHour) {
             this.state.charts.salesByHour.destroy();
+            this.state.charts.salesByHour = null;
         }
+
+        if (!horario.hasData) {
+            this.setChartEmptyState(ctx, true, 'Sem vendas no período selecionado.');
+            return;
+        }
+        this.setChartEmptyState(ctx, false);
 
         const theme = this.getThemeColors();
         this.state.charts.salesByHour = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: horario.labels,
                 datasets: [{
-                    label: 'Vendas',
-                    data: hourlyStats,
-                    backgroundColor: 'rgba(64, 112, 244, 0.4)',
+                    label: 'Faturamento',
+                    data: horario.revenue,
+                    backgroundColor: 'rgba(64, 112, 244, 0.5)',
                     borderColor: '#4070f4',
                     borderWidth: 1,
                     borderRadius: 4
@@ -3452,17 +3569,25 @@ const app = {
                         backgroundColor: theme.tooltipBg,
                         titleColor: theme.tooltipText,
                         bodyColor: theme.tooltipText,
+                        padding: 10,
+                        cornerRadius: 8,
                         callbacks: {
-                            label: (context) => ` ${context.raw} vendas às ${context.label}`
+                            label: (context) => {
+                                const h = context.dataIndex;
+                                return [
+                                    ` Faturamento: ${this.formatCurrency(horario.revenue[h])}`,
+                                    ` Vendas: ${horario.counts[h]}`
+                                ];
+                            }
                         }
                     }
                 },
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { 
+                        ticks: {
                             color: theme.ticks,
-                            font: { size: 10 },
+                            font: { size: 11 },
                             maxRotation: 0,
                             autoSkip: true,
                             maxTicksLimit: 12
@@ -3471,10 +3596,10 @@ const app = {
                     y: {
                         beginAtZero: true,
                         grid: { color: theme.grid, drawBorder: false },
-                        ticks: { 
+                        ticks: {
                             color: theme.ticks,
-                            font: { size: 10 },
-                            precision: 0
+                            font: { size: 11 },
+                            callback: (v) => this.formatCurrencyCompact(v)
                         }
                     }
                 }
@@ -3486,61 +3611,38 @@ const app = {
         const ctx = document.getElementById('profitMarginPercentChart');
         if (!ctx) return;
 
-        const filteredSales = this.getFilteredSales();
-        const labels = [];
-        const marginData = [];
-
-        // Agrupamento por hora (0-23)
-        const hourlyTotal = Array(24).fill(0);
-        const hourlyProfit = Array(24).fill(0);
-
-        filteredSales.forEach(s => {
-            const dateStr = s.date || s.Data;
-            const d = this.parseDate(dateStr);
-            if (d) {
-                const hour = d.getHours();
-                const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                const desconto = s.desconto ?? s.Desconto ?? 0;
-                const totalFinal = subtotal - desconto;
-                const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                hourlyTotal[hour] += Number(totalFinal) || 0;
-                hourlyProfit[hour] += Number(lucro) || 0;
-            }
-        });
-
-        // Gerar labels e dados apenas para as horas que tiveram vendas
-        hourlyTotal.forEach((total, hour) => {
-            if (total > 0) {
-                labels.push(`${hour}h`);
-                const margin = ((hourlyProfit[hour] / total) * 100).toFixed(1);
-                marginData.push(margin);
-            }
-        });
+        const serie = window.Dashboard && typeof Dashboard.serieMargemPeriodo === 'function'
+            ? Dashboard.serieMargemPeriodo(this.state.sales || [], this.state.dashboardFilter, new Date(), (d) => this.parseDate(d))
+            : { labels: [], margins: [], revenue: [], profit: [], hasData: false };
 
         if (this.state.charts.profitMarginPercent) {
             this.state.charts.profitMarginPercent.destroy();
+            this.state.charts.profitMarginPercent = null;
         }
 
-        if (marginData.length === 0) return;
+        if (!serie.hasData) {
+            this.setChartEmptyState(ctx, true, 'Sem vendas no período selecionado.');
+            return;
+        }
+        this.setChartEmptyState(ctx, false);
 
         const theme = this.getThemeColors();
         this.state.charts.profitMarginPercent = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: serie.labels,
                 datasets: [{
                     label: 'Margem %',
-                    data: marginData,
-                    borderColor: '#4070f4',
-                    backgroundColor: 'rgba(64, 112, 244, 0.1)',
+                    data: serie.margins,
+                    borderColor: '#2e9e6a',
+                    backgroundColor: 'rgba(46, 158, 106, 0.12)',
                     borderWidth: 2,
-                    pointRadius: 3,
+                    pointRadius: 3.5,
+                    pointHoverRadius: 5,
                     pointBackgroundColor: '#2e9e6a',
-                    tension: 0.4,
+                    tension: 0.35,
                     fill: true,
-                    spanGaps: false
+                    spanGaps: true
                 }]
             },
             options: {
@@ -3552,23 +3654,33 @@ const app = {
                         backgroundColor: theme.tooltipBg,
                         titleColor: theme.tooltipText,
                         bodyColor: theme.tooltipText,
+                        padding: 10,
+                        cornerRadius: 8,
                         callbacks: {
-                            label: (context) => ` Margem: ${context.raw}%`
+                            label: (context) => {
+                                const i = context.dataIndex;
+                                const m = serie.margins[i];
+                                if (m == null) return ' Sem vendas';
+                                return [
+                                    ` Margem: ${m.toFixed(1).replace('.', ',')}%`,
+                                    ` Lucro: ${this.formatCurrency(serie.profit[i])} / ${this.formatCurrency(serie.revenue[i])}`
+                                ];
+                            }
                         }
                     }
                 },
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: theme.ticks, font: { size: 10 } }
+                        ticks: { color: theme.ticks, font: { size: 11 } }
                     },
                     y: {
                         beginAtZero: true,
                         grid: { color: theme.grid, drawBorder: false },
-                        ticks: { 
-                            color: theme.ticks, 
-                            font: { size: 10 }, 
-                            callback: (value) => value + '%' 
+                        ticks: {
+                            color: theme.ticks,
+                            font: { size: 11 },
+                            callback: (value) => `${Number(value).toFixed(0)}%`
                         }
                     }
                 }
@@ -3634,10 +3746,10 @@ const app = {
                     <td>
                         <span class="category-badge">${this.esc(p.category || 'Geral')}</span>
                     </td>
-                    <td>
+                    <td class="num">
                         <span style="font-weight: 600;">${p.stock}</span>
                     </td>
-                    <td>
+                    <td class="col-center">
                         <span class="stock-status-badge ${statusClass}">${status}</span>
                     </td>
                 </tr>
@@ -3700,17 +3812,19 @@ const app = {
                 <tr>
                     <td>${data ? data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}</td>
                     <td><span style="font-weight: 500; color: var(--text-white);">${this.esc(s.cliente || s.Cliente || 'Consumidor')}</span></td>
-                    <td>
+                    <td class="col-center">
                         <span class="badge-qty">${qtdItens}</span>
                     </td>
-                    <td style="color: #d64545;">${this.formatCurrency(desconto)}</td>
-                    <td style="font-weight: 700; color: var(--accent);">${this.formatCurrency(totalFinal)}</td>
-                    <td style="color: var(--text-dim);">${this.formatCurrency(custo)}</td>
-                    <td style="font-weight: 600; color: ${lucro >= 0 ? '#2e9e6a' : '#d64545'};">${this.formatCurrency(lucro)}</td>
-                    <td>
-                        <button class="btn-action-view" onclick="app.showSaleDetails('${s.id}')" title="Ver Itens">
-                            <i data-lucide="eye"></i>
-                        </button>
+                    <td class="num" style="color: #d64545;">${this.formatCurrency(desconto)}</td>
+                    <td class="num" style="font-weight: 700; color: var(--accent);">${this.formatCurrency(totalFinal)}</td>
+                    <td class="num" style="color: var(--text-dim);">${this.formatCurrency(custo)}</td>
+                    <td class="num" style="font-weight: 600; color: ${lucro >= 0 ? '#2e9e6a' : '#d64545'};">${this.formatCurrency(lucro)}</td>
+                    <td class="col-actions-tab">
+                        <div class="actions-inline">
+                            <button type="button" class="btn-action-view" onclick="app.showSaleDetails('${s.id}')" title="Ver itens" aria-label="Ver itens da venda">
+                                <i data-lucide="eye"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;

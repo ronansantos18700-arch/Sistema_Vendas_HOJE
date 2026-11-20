@@ -171,7 +171,7 @@
                             <button type="button" class="dash-visao-btn active" data-visao="vendas" aria-pressed="true" onclick="app.setDashboardVisao('vendas')">Vendas</button>
                             <button type="button" class="dash-visao-btn" data-visao="estoque" aria-pressed="false" onclick="app.setDashboardVisao('estoque')">Estoque</button>
                         </div>
-                        <label class="dash-periodo">
+                        <label class="dash-periodo" data-visao-bloco="vendas">
                             <span>Período</span>
                             <select id="dash-periodo" onchange="app.setDashboardFilter(this.value)">
                                 <option value="7d">Últimos 7 dias</option>
@@ -179,8 +179,9 @@
                                 <option value="year">Ano atual</option>
                             </select>
                         </label>
+                        <span class="dash-nota dash-periodo-nota" data-visao-bloco="estoque">Base de cálculo: ritmo dos últimos 30 dias</span>
                     </div>
-                    <div class="stats-grid-labs">
+                    <div class="stats-grid-labs" data-visao-bloco="vendas">
                         <div class="stat-card-labs glass-inner">
                             <div class="stat-card-header">
                                 <div class="stat-icon-wrapper faturamento">
@@ -190,7 +191,7 @@
                             </div>
                             <h3 id="dash-faturamento">R$ 0,00</h3>
                             <div class="stat-variation" id="dash-faturamento-var">
-                                <span class="var-value">▲ 0.0%</span>
+                                <span class="var-value">▲ 0,0%</span>
                                 <span class="var-label">vs período anterior</span>
                             </div>
                         </div>
@@ -203,7 +204,7 @@
                             </div>
                             <h3 id="dash-lucro">R$ 0,00</h3>
                             <div class="stat-variation" id="dash-lucro-var">
-                                <span class="var-value">▲ 0.0%</span>
+                                <span class="var-value">▲ 0,0%</span>
                                 <span class="var-label">vs período anterior</span>
                             </div>
                         </div>
@@ -216,7 +217,7 @@
                             </div>
                             <h3 id="dash-vendas">0</h3>
                             <div class="stat-variation" id="dash-vendas-var">
-                                <span class="var-value">▲ 0.0%</span>
+                                <span class="var-value">▲ 0,0%</span>
                                 <span class="var-label">vs período anterior</span>
                             </div>
                         </div>
@@ -229,10 +230,20 @@
                             </div>
                             <h3 id="dash-ticket">R$ 0,00</h3>
                             <div class="stat-variation" id="dash-ticket-var">
-                                <span class="var-value">▲ 0.0%</span>
+                                <span class="var-value">▲ 0,0%</span>
                                 <span class="var-label">vs período anterior</span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Resumo contextual de Fiado em aberto (aparece só quando há saldo a receber) -->
+                    <div id="dash-fiado-banner" class="dash-fiado-banner hidden" data-visao-bloco="vendas">
+                        <div class="dash-fiado-info">
+                            <span class="dash-fiado-rotulo">Fiado em aberto</span>
+                            <strong id="dash-fiado-total">R$ 0,00</strong>
+                            <span id="dash-fiado-sub" class="dash-nota"></span>
+                        </div>
+                        <button type="button" class="btn-ghost-labs dash-fiado-btn" onclick="app.abrirClientesFiadoAberto()">Ver clientes em aberto</button>
                     </div>
 
                     <!-- Estoque: só o que pede ação -->
@@ -264,19 +275,25 @@
                                 <small>custo vendido ÷ valor em estoque</small>
                             </div>
                         </div>
-                        <div class="glass-inner dash-tabela-box">
-                            <div class="dash-tabela-titulo">Repor primeiro (5 mais urgentes)</div>
-                            <table class="custom-table-labs">
-                                <thead>
-                                    <tr>
-                                        <th>Produto</th>
-                                        <th>Saldo</th>
-                                        <th>Dura</th>
-                                        <th>Sugestão de compra</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dash-est-reposicao"></tbody>
-                            </table>
+                        <div class="dash-destaques dash-destaques-estoque">
+                            <div class="glass-inner dash-tabela-box">
+                                <div class="dash-tabela-titulo">Repor primeiro (5 mais urgentes)</div>
+                                <table class="custom-table-labs dash-table-aligned">
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th class="num">Saldo</th>
+                                            <th>Dura</th>
+                                            <th class="num">Sugestão de compra</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dash-est-reposicao"></tbody>
+                                </table>
+                            </div>
+                            <div class="glass-inner dash-destaque">
+                                <h4>Alertas de estoque</h4>
+                                <div id="dash-alertas"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -309,32 +326,6 @@
                                 <small id="dash-ven-recorrencia-sub">clientes com 2 ou mais compras</small>
                             </div>
                         </div>
-                        <div class="glass-inner dash-tabela-box">
-                            <div class="dash-tabela-titulo">Lucro por produto (5 maiores)</div>
-                            <table class="custom-table-labs">
-                                <thead>
-                                    <tr>
-                                        <th>Produto</th>
-                                        <th>Qtd</th>
-                                        <th>Lucro</th>
-                                        <th>Margem</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dash-ven-lucro"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Destaques: alertas e mais vendidos -->
-                    <div class="dash-destaques">
-                        <div class="glass-inner dash-destaque" data-visao-bloco="estoque">
-                            <h4>Alertas de estoque</h4>
-                            <div id="dash-alertas"></div>
-                        </div>
-                        <div class="glass-inner dash-destaque" data-visao-bloco="vendas">
-                            <h4>Mais vendidos no período</h4>
-                            <div id="dash-top-produtos"></div>
-                        </div>
                     </div>
 
                     <div class="charts-grid">
@@ -342,13 +333,13 @@
                             <div class="chart-header-actions">
                                 <h4>Evolução de Vendas</h4>
                                 <div class="chart-dataset-toggles">
-                                    <button class="dataset-btn active" data-dataset="faturamento" onclick="app.toggleChartDataset('faturamento')">
+                                    <button type="button" class="dataset-btn active" data-dataset="faturamento" onclick="app.toggleChartDataset('faturamento')">
                                         <span class="dot faturamento"></span> Faturamento
                                     </button>
-                                    <button class="dataset-btn active" data-dataset="lucro" onclick="app.toggleChartDataset('lucro')">
+                                    <button type="button" class="dataset-btn active" data-dataset="lucro" onclick="app.toggleChartDataset('lucro')">
                                         <span class="dot lucro"></span> Lucro
                                     </button>
-                                    <button class="dataset-btn active" data-dataset="custo" onclick="app.toggleChartDataset('custo')">
+                                    <button type="button" class="dataset-btn active" data-dataset="custo" onclick="app.toggleChartDataset('custo')">
                                         <span class="dot custo"></span> Custo
                                     </button>
                                 </div>
@@ -360,7 +351,10 @@
 
                         <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
-                                <h4>Vendas por Horário</h4>
+                                <div>
+                                    <h4>Faturamento por Horário</h4>
+                                    <span class="chart-subtitle">Distribuição por hora do dia (R$)</span>
+                                </div>
                             </div>
                             <div class="chart-container-labs">
                                 <canvas id="salesByHourChart"></canvas>
@@ -369,32 +363,59 @@
 
                         <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
-                                <h4>Margem de Lucro (%)</h4>
+                                <div>
+                                    <h4>Margem de Lucro (%)</h4>
+                                    <span class="chart-subtitle">Evolução no período selecionado</span>
+                                </div>
                             </div>
                             <div class="chart-container-labs">
                                 <canvas id="profitMarginPercentChart"></canvas>
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas" data-modo="grafico" id="card-top-vendidos">
                             <div class="chart-header-actions">
-                                <h4>Top 5 Produtos (Mais Vendidos)</h4>
+                                <h4>Top 5 Mais Vendidos</h4>
+                                <div class="dash-card-toggle" role="group" aria-label="Modo de exibição de mais vendidos">
+                                    <button type="button" class="active" data-modo="grafico" onclick="app.setDashCardModo('card-top-vendidos', 'grafico')">Gráfico</button>
+                                    <button type="button" data-modo="lista" onclick="app.setDashCardModo('card-top-vendidos', 'lista')">Lista</button>
+                                </div>
                             </div>
-                            <div class="chart-container-labs">
+                            <div class="chart-container-labs dash-modo-grafico">
                                 <canvas id="topProductsChart"></canvas>
                             </div>
+                            <div class="dash-modo-lista dash-destaque-inline">
+                                <div id="dash-top-produtos"></div>
+                            </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas" data-modo="grafico" id="card-top-lucrativos">
                             <div class="chart-header-actions">
-                                <h4>Top 5 Produtos Mais Lucrativos</h4>
+                                <h4>Top 5 Mais Lucrativos</h4>
+                                <div class="dash-card-toggle" role="group" aria-label="Modo de exibição de mais lucrativos">
+                                    <button type="button" class="active" data-modo="grafico" onclick="app.setDashCardModo('card-top-lucrativos', 'grafico')">Gráfico</button>
+                                    <button type="button" data-modo="tabela" onclick="app.setDashCardModo('card-top-lucrativos', 'tabela')">Tabela</button>
+                                </div>
                             </div>
-                            <div class="chart-container-labs">
+                            <div class="chart-container-labs dash-modo-grafico">
                                 <canvas id="topProfitableProductsChart"></canvas>
                             </div>
+                            <div class="dash-modo-tabela dash-tabela-inline">
+                                <table class="custom-table-labs dash-table-aligned">
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th class="num">Qtd</th>
+                                            <th class="num">Lucro</th>
+                                            <th class="num">Margem</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dash-ven-lucro"></tbody>
+                                </table>
+                            </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
+                        <div class="chart-card-labs glass-inner full-width" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Vendas por Pagamento</h4>
                             </div>
@@ -403,27 +424,27 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner" data-visao-bloco="estoque">
+                        <div class="chart-card-labs glass-inner full-width" data-visao-bloco="estoque">
                             <div class="chart-header-actions">
                                 <h4>Alertas de Estoque Crítico</h4>
                                 <div class="table-pagination-controls">
-                                    <button class="btn-pagination" onclick="app.changeCriticalStockPage(-1)" id="prev-critical-stock">
+                                    <button type="button" class="btn-pagination" onclick="app.changeCriticalStockPage(-1)" id="prev-critical-stock" aria-label="Página anterior">
                                         <i data-lucide="chevron-left"></i>
                                     </button>
                                     <span id="critical-stock-page-info">1 / 1</span>
-                                    <button class="btn-pagination" onclick="app.changeCriticalStockPage(1)" id="next-critical-stock">
+                                    <button type="button" class="btn-pagination" onclick="app.changeCriticalStockPage(1)" id="next-critical-stock" aria-label="Próxima página">
                                         <i data-lucide="chevron-right"></i>
                                     </button>
                                 </div>
                             </div>
                             <div class="table-container-labs">
-                                <table class="custom-table-labs">
+                                <table class="custom-table-labs dash-table-aligned">
                                     <thead>
                                         <tr>
                                             <th>Produto</th>
                                             <th>Categoria</th>
-                                            <th>Estoque</th>
-                                            <th>Status</th>
+                                            <th class="num">Estoque</th>
+                                            <th class="col-center">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="critical-stock-body">
@@ -437,27 +458,27 @@
                             <div class="chart-header-actions">
                                 <h4>Últimas 25 Vendas</h4>
                                 <div class="table-pagination-controls">
-                                    <button class="btn-pagination" onclick="app.changeRecentSalesPage(-1)" id="prev-recent-sales">
+                                    <button type="button" class="btn-pagination" onclick="app.changeRecentSalesPage(-1)" id="prev-recent-sales" aria-label="Página anterior">
                                         <i data-lucide="chevron-left"></i>
                                     </button>
                                     <span id="recent-sales-page-info">1 / 1</span>
-                                    <button class="btn-pagination" onclick="app.changeRecentSalesPage(1)" id="next-recent-sales">
+                                    <button type="button" class="btn-pagination" onclick="app.changeRecentSalesPage(1)" id="next-recent-sales" aria-label="Próxima página">
                                         <i data-lucide="chevron-right"></i>
                                     </button>
                                 </div>
                             </div>
                             <div class="table-container-labs">
-                                <table class="custom-table-labs">
+                                <table class="custom-table-labs dash-table-aligned">
                                     <thead>
                                         <tr>
                                             <th>Data</th>
                                             <th>Cliente</th>
-                                            <th>Itens</th>
-                                            <th>Desconto</th>
-                                            <th>Valor Final</th>
-                                            <th>Custo</th>
-                                            <th>Lucro</th>
-                                            <th>Ações</th>
+                                            <th class="col-center">Itens</th>
+                                            <th class="num">Desconto</th>
+                                            <th class="num">Valor Final</th>
+                                            <th class="num">Custo</th>
+                                            <th class="num">Lucro</th>
+                                            <th class="col-actions-head">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody id="recent-sales-body">

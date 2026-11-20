@@ -6632,3 +6632,179 @@ i.bx {
     font-variant-numeric: tabular-nums;
 }
 
+/* ==========================================================================
+   Fase 3 — Dashboard UX, visualização de dados e simetria de grade
+   ========================================================================== */
+
+/* Subtítulo contextual nos cards de gráfico */
+.chart-subtitle {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-dim);
+}
+
+/* Estado vazio limpo dentro de gráficos sem movimento no período */
+.chart-container-labs { position: relative; }
+.chart-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1rem;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    background: #fafbfd;
+    border: 1px dashed #dde4ee;
+    border-radius: 10px;
+}
+.chart-empty-state.hidden { display: none; }
+
+/* Alternância Gráfico ↔ Lista/Tabela nos cards de Top 5 (elimina duplicação na tela) */
+.dash-card-toggle {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--glass-border);
+    border-radius: 9px;
+    background: #f5f8fc;
+    flex-shrink: 0;
+}
+.dash-card-toggle button {
+    border: 0;
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background var(--dur-fast), color var(--dur-fast);
+}
+.dash-card-toggle button:hover { color: var(--text-white); }
+.dash-card-toggle button.active {
+    background: #ffffff;
+    color: #2f56c9;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.chart-card-labs[data-modo="grafico"] .dash-modo-lista,
+.chart-card-labs[data-modo="grafico"] .dash-modo-tabela { display: none; }
+.chart-card-labs[data-modo="lista"] .dash-modo-grafico,
+.chart-card-labs[data-modo="tabela"] .dash-modo-grafico { display: none; }
+
+.dash-destaque-inline ol {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.dash-destaque-inline li {
+    font-size: 13.5px;
+    color: var(--text-white);
+    line-height: 1.4;
+}
+.dash-destaque-inline .dash-meta {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+.dash-tabela-inline {
+    overflow-x: auto;
+    max-height: 280px;
+}
+
+/* Faixa contextual de Fiado em aberto no Dashboard de Vendas */
+.dash-fiado-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 12px 16px;
+    margin-top: 0.9rem;
+    background: #fdf7ec;
+    border: 1px solid #ecd29d;
+    border-radius: 12px;
+}
+.dash-fiado-banner.hidden { display: none; }
+.dash-fiado-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.45rem 0.85rem;
+}
+.dash-fiado-rotulo {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9a6700;
+}
+.dash-fiado-info strong {
+    font-size: 18px;
+    font-weight: 700;
+    color: #7c4d00;
+    font-variant-numeric: tabular-nums;
+}
+.dash-fiado-btn {
+    height: 34px;
+    padding: 0 12px;
+    font-size: 12.5px;
+    background: #ffffff;
+}
+
+/* Estoque: grade 2 colunas equilibrada (Repor primeiro + Alertas de estoque) */
+.dash-destaques-estoque {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 1rem;
+    margin-top: 0;
+    align-items: start;
+}
+@media (max-width: 960px) {
+    .dash-destaques-estoque { grid-template-columns: 1fr; }
+}
+.dash-destaque ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.dash-periodo-nota {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+/* Alinhamento consistente das tabelas internas do Dashboard (cabeçalho = célula) */
+.dash-table-aligned th.num,
+.dash-table-aligned td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.dash-table-aligned th.col-center,
+.dash-table-aligned td.col-center {
+    text-align: center;
+    white-space: nowrap;
+}
+.dash-table-aligned th.col-actions-head,
+.dash-table-aligned td.col-actions-tab {
+    text-align: right;
+    vertical-align: middle;
+    white-space: nowrap;
+    width: 1%;
+}
+.dash-table-aligned .actions-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+
