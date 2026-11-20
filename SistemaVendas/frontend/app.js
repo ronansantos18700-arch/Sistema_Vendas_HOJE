@@ -550,6 +550,10 @@ const app = {
             this.showNotification('error', 'Sem servidor configurado: não há dados para apagar.');
             return;
         }
+        if (typeof this.servidor.limparTudo !== 'function') {
+            this.showNotification('error', 'Esta página está desatualizada. Atualize o sistema (Ctrl+F5) e tente de novo.');
+            return;
+        }
         this.setLoading(true);
         try {
             await this.servidor.limparTudo();
