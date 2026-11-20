@@ -54,6 +54,7 @@ O SV Ultra (SistemaVendas) é um PDV desktop (aplicativo Windows Forms independe
 ### Dashboard
 
 - Cards e gráficos (ex.: Evolução de Vendas) com filtros (Faturamento/Lucro/Custo).
+- KPIs de estoque (ruptura, cobertura, dinheiro parado, giro, reposição) e de vendas (margem, lucro por produto, pico de dia e horário, recorrência), alertas de estoque e mais vendidos. Lógica em `frontend/dashboard.js`.
 
 ### PDV
 
@@ -275,6 +276,103 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
+### 2026-11-20 (fiado: venda a prazo com recebimento)
+
+- Forma de pagamento **Fiado** no PDV (botão e seletor). Exige cliente cadastrado; "Consumidor Final" é recusado.
+- Receita e lucro ficam na data da venda. A venda fica com `pagamento: 'fiado'` e `recebimentos: []` (campo extra, gravado em `_extra` no banco; sem mudança de tabela nem de servidor).
+- Saldo em aberto = valor final menos os recebimentos. Nunca fica negativo.
+- Clientes: "Em aberto R$ x" e botão **Receber**. O modal mostra as vendas em aberto e aceita valor parcial ou total, na forma dinheiro, cartão ou PIX. O valor é distribuído nas vendas da mais antiga para a mais recente. Auditoria `FIADO_RECEBIMENTO`.
+- Histórico de vendas mostra "Fiado · em aberto R$ x" ou "Fiado · quitado".
+- Venda com recebimento não pode ser excluída, continua fiado na edição e não pode trocar de cliente.
+- Relatórios: em "Recebimentos por forma", fiado conta só o que foi recebido, pela forma da baixa. O saldo em aberto aparece em linha à parte, fora do total.
+- Estorno de recebimento (somente administrador): no modal de Receber, cada operação aparece em "Recebimentos registrados" e pode ser estornada inteira, em todas as vendas em que foi distribuída. Pede confirmação. Auditoria `FIADO_ESTORNO`. Depois de estornar, a venda pode ser excluída.
+- Limitação resolvida em 2026-11-20 (ver a entrada de correção dos relatórios): recebimento de fiado conta pela data do pagamento.
+- Lógica pura em `frontend/fiado.js` (`Fiado`). Testes: `tests/js/test_fiado.js`, `tests/js/test_fiado_app.js` e casos novos em `tests/js/test_relatorios.js`.
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+
+### 2026-11-20 (fiado: cliente identificado por id)
+
+- Venda fiado grava `cliente_id` (id do cliente cadastrado) além do nome em `cliente`. Saldo, recebimentos, estorno e o botão Receber usam o id. Dois clientes com o mesmo nome deixam de se misturar.
+- Renomear o cliente não quebra o vínculo: as vendas fiado dele recebem o nome novo.
+- Só vendas fiado recebem `cliente_id`. Vendas à vista continuam com o nome, como antes.
+- Excluir cliente com saldo em aberto é recusado (receber o fiado antes).
+- Vendas fiado antigas (sem id): ao carregar, ligam ao cliente quando há um único cadastro com o mesmo nome (sem diferença de maiúsculas e espaços). Esse vínculo é gravado. Os casos ambíguos (nome repetido ou cliente sem cadastro) aparecem no painel "Fiado sem cliente identificado", na tela Clientes, com um seletor para escolher o cliente. Auditoria `FIADO_VINCULO`.
+- Correção: a normalização ao carregar descartava `recebimentos` (bug da entrega anterior). Agora `Fiado.camposFiado` mantém `recebimentos` e `cliente_id`.
+- Edição de venda: o seletor de cliente usa o id. Venda antiga sem cadastro único aparece como "(sem cadastro)" e não pode virar fiado sem escolher um cliente.
+- Sem mudança de tabela nem de servidor: `cliente_id` vai para `_extra`.
+- Não verificado visualmente no Windows: painel de pendências e seletores.
+
+### 2026-11-20 (fiado: visualização de pago e falta)
+
+- Causa do botão Receber sumido: a regra de `#customers-list-labs .col-name` fixava altura de 25px com `overflow: hidden`, e o botão ficava no fim do texto, cortado. Agora a coluna FIADO tem seu próprio campo e o botão **Receber** fica na coluna AÇÕES.
+- Lista de clientes: FIADO mostra "R$ x em aberto" e "Pago R$ y de R$ z", ou "Quitado".
+- Modal Receber: três cartões (Total a prazo, Já pago, Falta pagar); lista de cada venda com total, pago e falta; pagamentos recebidos com botão Estornar (admin).
+- Prévia ao digitar o valor: "Recebendo R$ x: ficam R$ y em aberto", ou "a conta fica quitada". Valor acima do saldo aparece em vermelho.
+- Lógica em `Fiado.resumoCliente`, `Fiado.resumosPorCliente` e `Fiado.restanteAposRecebimento`.
+- Não verificado visualmente: o sandbox não tem navegador.
+
+### 2026-11-20 (fiado: extrato do cliente e situação no histórico)
+
+- Histórico de vendas: abaixo do valor final, venda fiado mostra "Falta R$ x" (em vermelho) ou "Quitado" (em verde). TOTAL, FINAL e LUCRO continuam sendo o valor da venda na data da venda (regra já aceita). A coluna PAGAMENTO também mostra a situação.
+- Lista de clientes: botão **Extrato** para qualquer cliente com fiado, inclusive quitado. **Receber** só aparece com saldo.
+- Modal Extrato: total a prazo, já pago e falta, e todos os movimentos em ordem de data: compra a prazo (+) e pagamento (-), com o saldo depois de cada um. O saldo final é igual ao que falta.
+- Pagamento parcial cai primeiro na venda mais antiga (regra do `registrarRecebimento`).
+- Lógica em `Fiado.extratoCliente`. Não verificado visualmente: o sandbox não tem navegador.
+
+### 2026-11-20 (histórico de movimentações em Estoque)
+
+- Nova aba **Movimentações** dentro da tela Estoque (`#estoque-abas`). Só administrador vê a aba; para os demais ela some e a tela fica em Produtos (`sincronizarAbaEstoque`). É só leitura.
+- Lógica pura em `frontend/historico_movimentos.js` (`HistoricoMov`): linhas com saldo após (vindo de `Estoque.historico`), filtros, totais, paginação de 50 e seção de exportação. Sem DOM.
+- Filtros: período (Hoje, 7 dias, 30 dias, Tudo, Personalizado com datas), produto, tipos (seleção múltipla, vazio = todos) e busca em observação, origem e nome do produto. Padrão: Tudo.
+- Colunas: data e hora, produto, tipo (com etiqueta), quantidade (+/−), custo unitário, saldo após, origem (venda, estorno ou entrada) e observação. Movimentações ignoradas aparecem apagadas, com a marca "ignorada", e não entram nos totais.
+- Totais do filtro: entradas, saídas líquidas (vendas menos estornos), ajustes e quantidade de ignoradas.
+- Exportação em `.xlsx` ou `.pdf` com as linhas filtradas (não só as visíveis). Nome: `movimentacoes_AAAA-MM-DD_a_AAAA-MM-DD.xlsx`, ou `movimentacoes_todas.xlsx` sem período. Auditoria `MOVIMENTACOES_EXPORT`.
+- Limite do PDF: produto e observação longos são cortados com reticências (o XLSX traz o texto inteiro).
+- Testes: `tests/js/test_historico_movimentos.js` (lógica) e `tests/js/test_movimentacoes_app.js` (tela e exportação, com DOM simulado). O XLSX e o PDF gerados foram lidos com `openpyxl` e `pypdf`.
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows, em 1366x768.
+
+### 2026-11-20 (relatórios exportáveis: Excel e PDF, em Configurações)
+
+- Refeito sobre a base atual (a versão CSV de `691bfc2` foi revertida). Substitui o CSV por **.xlsx**; o PDF continua.
+- Nova sub-página **Configurações > Relatórios** (`sv-section-relatorios`), no mesmo visual dos cards do backup. Três passos:
+  1. Período: Hoje, Últimos 7 dias, Mês atual, Mês anterior, Ano atual ou Personalizado (datas de/até). Digitar uma data muda para Personalizado.
+  2. Informações (checkboxes): vendas por dia ou por mês, lucro por produto, estoque atual e recebimentos por forma de pagamento. "Marcar todos" e "Desmarcar todos".
+  3. Formato: Planilha Excel (.xlsx) ou Documento PDF (.pdf).
+- `relatorios.js`: agregações (puras), `xlsx(secoes, cabecalho)` e `pdf(cabecalho, secoes)`. O XLSX é gerado no código: ZIP sem compressão com XML (uma aba por relatório, mais "Resumo" quando há cabeçalho). Sem biblioteca em `vendor/`.
+- Regras: vendas usam `valor_final` (com desconto). Lucro por produto reparte o desconto entre os itens. Misto soma as parcelas e não conta o troco. Estoque atual ignora o período.
+- Acesso: só administrador, como o backup. Operador não acessa Configurações, então na prática é só admin.
+- Auditoria: `RELATORIO_EXPORT` a cada exportação (formato, relatórios, período).
+- Validação: testes em `tests/js/test_relatorios.js` (agregações, ZIP com CRC, abas, escape, PDF) e `tests/js/test_relatorios_app.js` (tela e exportação, com DOM simulado). Os arquivos gerados também foram abertos com `openpyxl` (xlsx) e `pypdf` (PDF), sem erro.
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+- Ajustes de tela (2026-11-20): layout em duas colunas (período e formato à esquerda; informações à direita), cartões compactos, sem rolagem em 1366x768 (estimado, não medido). Opção "Todos os períodos" (sem filtro de data). Período personalizado usa a mesma linha dos atalhos, então a tela não pula ao abrir as datas. Ícones trocados por nomes que já existiam no mapa original de `vendor/icons.js` (os novos apareciam como quadrado no navegador do usuário).
+- Pendente: o backup de dados (`exportBackup`) não é afetado.
+
+### 2026-11-20 (redesenho do dashboard: Vendas e Estoque)
+
+- Barra no topo do dashboard: botões **Vendas | Estoque** (`app.setDashboardVisao`) mostram só o bloco da visão escolhida. Marcação: atributo `data-visao-bloco` em `index.html`; regra de exibição em `style.css`. Os 4 cards de topo ficam nas duas visões.
+- Seletor de **período** (7 dias, mês atual, ano atual) em `#dash-periodo`, chamando `app.setDashboardFilter`. Antes não havia controle na tela; `state.dashboardFilter` ficava sempre em `7d`.
+- Textos de insight dinâmicos, em `#dash-insight-vendas` e `#dash-insight-estoque`, gerados por `Dashboard.insightsVendas` e `Dashboard.insightsEstoque` (puros, testados). Ex.: "Novembro concentrou o maior faturamento do período (R$ X), seguido por uma queda de Y% em dezembro." Meses futuros não entram na comparação.
+- "Vendas por Pagamento": rosca grande trocada por barras horizontais compactas (`chart-compacto`, 240 px), ordenadas do maior para o menor.
+- Removidos os emojis 🔥 dos rankings do gráfico (e o cálculo `hotProductIds` que só existia para eles).
+- Indicadores: fundo mais neutro e número em cor de texto, sem cor de destaque. Cor fica só para alerta (zero e baixo).
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+- Não alterado: emojis de notificação (🔐, ⚠️, 🔒, ✅) e o 💡 da tela de Configurações.
+
+### 2026-11-20 (dashboard reexibido e otimizado)
+
+- Origem: a reversão da PR #39 (commit `65c827f`, já no origin) tirou os destaques do dashboard. Esta entrada refaz o dashboard sobre o `master` (43c889a), com foco em decisão.
+- Novo `frontend/dashboard.js` (lógica pura, sem DOM; `window.Dashboard` e `module.exports`): `serieLinha`, `kpisEstoque`, `kpisVendas`, `rankingProdutos`, `alertasEstoque`, `valoresVenda`, `chaveDia`, `escaparHtml`.
+- Bug corrigido no gráfico de evolução: o agrupamento por dia usava `toISOString` (UTC). No Brasil, venda depois das 21h caía no dia seguinte. Agora o dia é o local, igual a `parseDate`.
+- Gráfico de evolução: a série vem de `Dashboard.serieLinha`. Se o período e as séries visíveis não mudam, só os valores são atualizados (sem recriar o gráfico).
+- Seções novas no dashboard, abaixo dos 4 cards (que foram mantidos):
+  - Estoque (janela fixa de 30 dias): ruptura (% de produtos sem saldo), cobertura média, dinheiro parado (saldo × custo, sem venda na janela), giro (custo vendido ÷ valor em estoque) e os 5 produtos mais urgentes para repor.
+  - Vendas (período do filtro): margem bruta, dia e horário de pico, recorrência de clientes (2 ou mais compras, sem "Consumidor Final") e os 5 maiores lucros por produto.
+  - Destaques: alertas de estoque (sem saldo e abaixo de `stockLowVal`) e mais vendidos no período.
+- Regras: cobertura = saldo ÷ venda média por dia na janela; repor = cobertura abaixo de 30 dias; crítico = abaixo de 7 dias. Sugestão de compra = média × 30 − saldo. Itens lidos como o app: `productId` ou `id`, e `qtySold` ou `qty`. Desconto da venda repartido entre os itens.
+- Fora do escopo desta entrada: "fiado em aberto" (o sistema não tem venda a prazo nem conta a receber) e os relatórios exportáveis (CSV/PDF). Ficam para depois, um de cada vez.
+- Testes: `tests/js/test_dashboard.js` (cálculos, em 3 fusos) e `tests/js/test_dashboard_app.js` (integração com DOM simulado, escape e atualização do gráfico). Suíte JS completa passou.
+- Não verificado visualmente: o sandbox não tem navegador. O layout precisa de conferência no Windows.
+
 ### 2026-11-19 (servidor central — etapa 2)
 
 - Usuários pelo servidor: criar, editar e excluir (`POST /api/usuarios`, `PUT /api/usuarios/{id}`, `DELETE /api/usuarios/{id}`), só admin. Operador troca só a própria senha (`POST /api/senha`).
@@ -306,4 +404,34 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Ainda não feito: o frontend continua usando a ponte local. A troca para a API é a etapa 2. Gravação por registro e validação de estoque no servidor são as etapas 3 e 4.
 - Não compilado: o sandbox não tem .NET nem acesso ao NuGet. A sintaxe foi verificada com o parser tree-sitter; tipos e referências ainda precisam de `dotnet build` no Windows.
 - Valor de referência do hash: `admin` / `1234` → `d1f098152e97b7542feffd65fe27620905e804b5fd594d5db98aa82fda903e71`.
+
+### 2026-11-20 (relatórios: recebimento de fiado pela data do pagamento)
+
+- Seção "Recebimentos por forma de pagamento": fiado recebido no período entra pela data do pagamento, mesmo que a venda seja de outro mês. Vendas à vista continuam pela data da venda.
+- "Fiado em aberto hoje" é o saldo atual de todas as vendas, fora do total, sem filtro de período.
+- Receita, lucro e vendas continuam pela data da venda.
+- Sem período (todos os períodos), conta tudo, como antes.
+- Testes: `tests/js/test_relatorios.js` (regra) e `tests/js/test_relatorios_app.js` (chamada do app).
+
+### 2026-11-20 (fiado: prazo, limite e atraso)
+- Cadastro do cliente ganhou **Limite de crédito (R$)** e **Prazo para pagar (dias)**. Vazio = sem limite / sem prazo. Gravados em `_extra` (sem mudança de tabela).
+- Venda fiado de cliente com prazo grava `vencimento` (YYYY-MM-DD, dia da venda + prazo, dia local).
+- Limite: o PDV recusa a venda fiado que passa do disponível (limite menos saldo em aberto do cliente) e informa o disponível.
+- Edição de venda fiado que aumenta a dívida do cliente (ou troca a venda de cliente) também respeita o limite. Editar sem aumentar o saldo nunca é bloqueado pelo limite.
+- Atrasada = fiado com saldo em aberto e vencimento anterior a hoje. A lista de Clientes mostra "N venda(s) em atraso · X dia(s)"; o modal de Receber mostra "Atrasada há X dia(s)" ou "Vence dd/mm/aaaa".
+- Sem cobrança automática: nada é enviado nem bloqueado depois da venda. Editar o limite ou o prazo não muda vendas já feitas.
+- Funções em `fiado.js`: `dataLocal`, `vencimentoPara`, `diasAtraso`, `atrasada`, `situacaoAtraso`, `atrasosPorCliente`, `validarLimite`, `validarCadastroCredito`.
+- Testes: `tests/js/test_fiado.js` (regras) e `tests/js/test_fiado_app.js` (PDV, cadastro, lista e modal).
+
+### 2026-11-20 (validação de pagamento no servidor e linha de base ao carregar)
+- `Database.ValidarRecebimentosFiado` confere recebimentos de vendas gravadas: só venda fiado tem recebimento, valor maior que zero, forma conhecida (dinheiro, cartão, PIX) e soma não maior que o valor final. Usado por `ApplyChanges`, `ReplaceAll` e pela rota `POST /api/dados/alteracoes` (que devolve a mensagem para o usuário). Sem mudança de esquema.
+- Ao carregar, o app guarda o snapshot do que foi lido. A primeira gravação manda só o que mudou nesta sessão, e não regrava tabelas inteiras por cima de outro terminal.
+- Teste: `tests/js/test_carregamento.js` confere que a gravação após carregar envia só a venda alterada.
+- Pendente: a compilação C# não foi feita no sandbox (sem .NET); conferir no Windows com `dotnet build`.
+
+### 2026-11-20 (bloqueio de gravação sem leitura bem-sucedida)
+- Antes, `salvarDados` forçava `dataLoaded = true` quando havia produtos ou vendas em memória, e o cadastro/exclusão de produto também forçavam. Se a leitura inicial falhava, o app podia gravar tudo a partir da memória, regravando por cima de dados não lidos.
+- Agora, sem leitura bem-sucedida, nada é gravado. Se houver produtos, vendas ou clientes em memória, o usuário vê o aviso "Os dados não foram carregados do banco. Nenhuma alteração foi gravada. Recarregue o sistema."
+- Ao voltar o servidor, `servidorVoltou` só tenta gravar se a leitura já tiver dado certo; caso contrário, recarrega (sem isso, o app ficaria preso).
+- Teste: `tests/js/test_carregamento.js` (leitura que falha).
 

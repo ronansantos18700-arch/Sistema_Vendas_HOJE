@@ -58,6 +58,9 @@ const app = {
             topProfitable: null
         },
         dashboardFilter: '7d',
+        dashboardVisao: 'vendas',
+        relatorioPeriodo: 'mes',
+        relatorioFormato: 'xlsx',
         activeChartDatasets: ['faturamento', 'lucro', 'custo'],
         latestEntradasPage: 1,
         criticalStockPage: 1,
@@ -253,8 +256,11 @@ const app = {
         }
         try {
             // Grava o que ficou pendente antes de recarregar; se falhar, não recarrega (não perde nada).
-            const gravou = await this.salvarDados();
-            if (gravou === false) return;
+            // Se a leitura inicial nunca deu certo, não há o que gravar: só recarrega.
+            if (this.state.dataLoaded) {
+                const gravou = await this.salvarDados();
+                if (gravou === false) return;
+            }
             await this.carregarDados();
         } catch (err) {
             this.showNotification('error', err.message);
@@ -322,7 +328,7 @@ const app = {
                 this.state.mustChangePassword = true;
                 setTimeout(() => {
                     this.showAlert(
-                        '🔐 Troca de Senha Obrigatória',
+                        'Troca de Senha Obrigatória',
                         'Senha provisória detectada. Defina uma nova senha em Configurações > Usuários antes de continuar.',
                         'shield-alert'
                     );
@@ -559,7 +565,7 @@ const app = {
                 this.state.mustChangePassword = true;
                 setTimeout(() => {
                     this.showAlert(
-                        '🔐 Troca de Senha Obrigatória',
+                        'Troca de Senha Obrigatória',
                         'Senha provisória detectada. Defina uma nova senha em Configurações > Usuários antes de continuar.',
                         'shield-alert'
                     );
@@ -719,11 +725,7 @@ const app = {
             .slice(0, 5);
 
         const labels = top5.map(p => {
-            let name = p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
-            if (this.state.hotProductIds && this.state.hotProductIds.includes(p.id.toString())) {
-                name = `🔥 ${name}`;
-            }
-            return name;
+            return p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
         });
         const data = top5.map(p => p.profit);
 
@@ -945,6 +947,7 @@ const app = {
                 this.renderEstoque();
             });
         });
+        this.bindMovimentacoes();
 
         // Nova venda: abre o PDV (o switchView já foca o código de barras). Não limpa o carrinho atual.
         const btnNovaVenda = document.getElementById('btn-nova-venda');
@@ -1560,7 +1563,7 @@ const app = {
             // Aviso para senhas muito fracas
             if (this.config.weakPasswords.includes(password.toLowerCase())) {
                 this.showNotification('error',
-                    '⚠️ Senha muito fraca! Por segurança, escolha uma senha mais complexa.'
+                    'Senha muito fraca! Por segurança, escolha uma senha mais complexa.'
                 );
                 return;
             }
@@ -1839,6 +1842,8 @@ const app = {
             item.classList.remove('active');
         });
 
+        if (sectionName === 'relatorios') this.iniciarRelatorios();
+
         // Ativa a seção e o item do menu
         const targetSection = document.getElementById(`sv-section-${sectionName}`);
         if (targetSection) {
@@ -2050,6 +2055,198 @@ const app = {
             .join('');
     },
 
+    // --- Relatórios (exportação em Excel ou PDF) ---
+
+    /** Datas (YYYY-MM-DD, dia local) de um atalho de período. Null para "personalizado". */
+    intervaloRelatorio(periodo) {
+        const hoje = new Date();
+        const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const ano = hoje.getFullYear();
+        const mes = hoje.getMonth();
+        switch (periodo) {
+            case 'hoje': return { inicio: iso(hoje), fim: iso(hoje) };
+            case '7dias': return { inicio: iso(new Date(ano, mes, hoje.getDate() - 6)), fim: iso(hoje) };
+            case 'mes': return { inicio: iso(new Date(ano, mes, 1)), fim: iso(hoje) };
+            case 'mes_anterior': return { inicio: iso(new Date(ano, mes - 1, 1)), fim: iso(new Date(ano, mes, 0)) };
+            case 'ano': return { inicio: iso(new Date(ano, 0, 1)), fim: iso(hoje) };
+            case 'todos': return { inicio: '', fim: '' };
+            default: return null;
+        }
+    },
+
+    /** Ao abrir a sub-página: período e formato lembrados nesta sessão (padrão: mês atual, Excel). */
+    iniciarRelatorios() {
+        this.selecionarPeriodoRelatorio(this.state.relatorioPeriodo || 'mes');
+        this.selecionarFormatoRelatorio(this.state.relatorioFormato || 'xlsx');
+    },
+
+    selecionarPeriodoRelatorio(periodo) {
+        const validos = ['hoje', '7dias', 'mes', 'mes_anterior', 'ano', 'todos', 'personalizado'];
+        this.state.relatorioPeriodo = validos.includes(periodo) ? periodo : 'mes';
+        document.querySelectorAll('.rel-chip').forEach((b) => {
+            b.classList.toggle('active', b.dataset.periodo === this.state.relatorioPeriodo);
+        });
+        const intervalo = this.intervaloRelatorio(this.state.relatorioPeriodo);
+        if (intervalo) {
+            const ini = document.getElementById('rel-inicio');
+            const fim = document.getElementById('rel-fim');
+            if (ini) ini.value = intervalo.inicio;
+            if (fim) fim.value = intervalo.fim;
+        }
+        this.atualizarResumoRelatorio();
+    },
+
+    /** Data digitada à mão: o período passa a ser "personalizado". */
+    dataRelatorioAlterada() {
+        this.state.relatorioPeriodo = 'personalizado';
+        document.querySelectorAll('.rel-chip').forEach((b) => {
+            b.classList.toggle('active', b.dataset.periodo === 'personalizado');
+        });
+        this.atualizarResumoRelatorio();
+    },
+
+    selecionarFormatoRelatorio(formato) {
+        this.state.relatorioFormato = formato === 'pdf' ? 'pdf' : 'xlsx';
+        document.querySelectorAll('.rel-formato').forEach((b) => {
+            b.classList.toggle('active', b.dataset.formato === this.state.relatorioFormato);
+        });
+        this.atualizarResumoRelatorio();
+    },
+
+    marcarTodosRelatorios(marcar) {
+        ['vendas', 'lucro', 'estoque', 'pagamentos'].forEach((id) => {
+            const el = document.getElementById('rel-' + id);
+            if (el) el.checked = !!marcar;
+        });
+        this.atualizarResumoRelatorio();
+    },
+
+    /** Ids dos relatórios marcados, na ordem da tela. */
+    relatoriosSelecionados() {
+        return ['vendas', 'lucro', 'estoque', 'pagamentos'].filter((id) => {
+            const el = document.getElementById('rel-' + id);
+            return !!(el && el.checked);
+        });
+    },
+
+    /** Texto do período, contagem e formato; desabilita o botão se nada estiver marcado. */
+    atualizarResumoRelatorio() {
+        const ids = this.relatoriosSelecionados();
+        const ini = (document.getElementById('rel-inicio') || {}).value || '';
+        const fim = (document.getElementById('rel-fim') || {}).value || '';
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+
+        const personalizado = this.state.relatorioPeriodo === 'personalizado';
+        const datas = document.getElementById('rel-datas');
+        if (datas) datas.hidden = !personalizado;
+        const periodoEl = document.getElementById('rel-periodo-texto');
+        if (periodoEl) {
+            periodoEl.hidden = personalizado;
+            periodoEl.textContent = (ini || fim)
+                ? `Período: de ${dataBr(ini) || 'o início'} até ${dataBr(fim) || 'hoje'}.`
+                : 'Período: todo o histórico de vendas.';
+        }
+
+        const formatoTxt = this.state.relatorioFormato === 'pdf' ? 'PDF' : 'Excel (.xlsx)';
+        const resumo = document.getElementById('rel-resumo');
+        if (resumo) {
+            resumo.textContent = ids.length
+                ? `${ids.length} relatório(s) em ${formatoTxt}.`
+                : 'Escolha pelo menos um relatório.';
+        }
+        const btn = document.getElementById('rel-exportar');
+        if (btn) btn.disabled = ids.length === 0;
+
+        ['vendas', 'lucro', 'estoque', 'pagamentos'].forEach((id) => {
+            const el = document.getElementById('rel-' + id);
+            const cartao = document.getElementById('rel-opcao-' + id);
+            if (cartao) cartao.classList.toggle('selecionada', !!(el && el.checked));
+        });
+    },
+
+    niveisEstoque() {
+        const cfg = (this.state.settings && this.state.settings.notifications) || {};
+        return {
+            nivelBaixo: Number(cfg.stockLowVal) || 10,
+            nivelMedio: Number(cfg.stockMediumVal) || 25
+        };
+    },
+
+    /** Seções pedidas. Cada uma vem com id, título, colunas, linhas e totais. */
+    montarSecoesRelatorio(ids, inicio, fim) {
+        const R = window.Relatorios;
+        const vendas = R.filtrarVendas(this.state.sales, inicio, fim);
+        const { nivelBaixo, nivelMedio } = this.niveisEstoque();
+        const agrupar = (document.getElementById('rel-agrupar') || {}).value === 'mes' ? 'mes' : 'dia';
+        const construtores = {
+            vendas: () => R.secaoVendasPorPeriodo(vendas, agrupar),
+            lucro: () => R.secaoLucroPorProduto(vendas),
+            estoque: () => R.secaoEstoqueAtual(this.state.products, nivelBaixo, nivelMedio),
+            // Recebimentos usam o total de vendas: o fiado recebido no período entra pela data do pagamento
+            pagamentos: () => R.secaoRecebimentos(this.state.sales, inicio, fim)
+        };
+        return ids.map((id) => construtores[id]());
+    },
+
+    baixarArquivo(conteudo, tipo, nome) {
+        const blob = new Blob([conteudo], { type: tipo });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = nome;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
+    exportarRelatorios() {
+        if (this.requirePasswordChange()) return;
+        if (!this.requireAdmin('exportar relatórios')) return;
+
+        const ids = this.relatoriosSelecionados();
+        if (ids.length === 0) {
+            this.showNotification('error', 'Marque pelo menos um relatório.');
+            return;
+        }
+        const ini = (document.getElementById('rel-inicio') || {}).value || '';
+        const fim = (document.getElementById('rel-fim') || {}).value || '';
+        if (ini && fim && ini > fim) {
+            this.showNotification('error', 'A data inicial é depois da data final.');
+            return;
+        }
+
+        const formato = this.state.relatorioFormato === 'pdf' ? 'pdf' : 'xlsx';
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+        const periodoTexto = (ini ? dataBr(ini) : 'início') + ' a ' + (fim ? dataBr(fim) : 'hoje');
+        const sufixo = (ini || 'inicio') + '_a_' + (fim || 'hoje');
+        const cabecalho = {
+            titulo: 'Relatórios',
+            empresa: (this.state.settings || {}).companyName || '',
+            periodo: 'Período: ' + periodoTexto,
+            geradoEm: 'Gerado em ' + new Date().toLocaleString('pt-BR') + ' por ' + (this.state.currentUser?.username || 'sistema')
+        };
+
+        try {
+            const secoes = this.montarSecoesRelatorio(ids, ini, fim);
+            if (formato === 'pdf') {
+                const bytes = window.Relatorios.pdf(cabecalho, secoes);
+                this.baixarArquivo(bytes, 'application/pdf', 'relatorios_' + sufixo + '.pdf');
+            } else {
+                const bytes = window.Relatorios.xlsx(secoes, cabecalho);
+                this.baixarArquivo(bytes,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'relatorios_' + sufixo + '.xlsx');
+            }
+        } catch (err) {
+            this.showNotification('error', 'Erro ao gerar o relatório: ' + err.message);
+            return;
+        }
+
+        this.logAudit('RELATORIO_EXPORT', { formato, relatorios: ids, inicio: ini, fim });
+        this.showNotification('success', `Relatório exportado (${formato === 'pdf' ? 'PDF' : 'Excel'}, ${periodoTexto}).`);
+    },
+
     // --- Backup Logic ---
     async exportBackup() {
         if (this.requirePasswordChange()) return;
@@ -2057,7 +2254,7 @@ const app = {
         this.logAudit('BACKUP_EXPORT', {});
         this.setLoading(true);
         this.showNotification('info',
-            '🔒 Backup sendo gerado. Por segurança, usuários e senhas NÃO serão incluídos.'
+            'Backup sendo gerado. Por segurança, usuários e senhas NÃO serão incluídos.'
         );
         try {
             // Coletar todas as imagens únicas
@@ -2116,7 +2313,7 @@ const app = {
             URL.revokeObjectURL(url);
 
             this.showNotification('success',
-                '✅ Backup exportado com sucesso! (Produtos, clientes, vendas e imagens incluídos. Usuários excluídos por segurança)'
+                'Backup exportado com sucesso! (Produtos, clientes, vendas e imagens incluídos. Usuários excluídos por segurança)'
             );
         } catch (err) {
             this.showNotification('error', 'Erro ao exportar backup: ' + err.message);
@@ -2239,7 +2436,7 @@ const app = {
 
         this.logAudit('BACKUP_IMPORT', { file: nomeArquivo });
         this.showNotification('success',
-            '✅ Backup restaurado com sucesso! Seus usuários atuais foram mantidos (não alterados por segurança).'
+            'Backup restaurado com sucesso! Seus usuários atuais foram mantidos (não alterados por segurança).'
         );
         setTimeout(() => window.location.reload(), 1500);
     },
@@ -2386,13 +2583,14 @@ const app = {
     },
 
     async salvarDados() {
-        // Forçar dataLoaded se tivermos itens no estado (indica que o sistema está operacional)
-        if (!this.state.dataLoaded && (this.state.products.length > 0 || this.state.sales.length > 0)) {
-            this.state.dataLoaded = true;
-        }
-
+        // Sem leitura bem-sucedida, a memória não é o banco: gravar tudo a partir dela regravaria por cima
+        // de dados que não foram lidos. Por isso nada é gravado. Só avisa quando há dados do usuário em memória.
         if (!this.state.dataLoaded) {
             console.warn("Tentativa de salvar dados antes de carregar. Operação cancelada.");
+            const temDados = [this.state.products, this.state.sales, this.state.customers].some(l => l && l.length > 0);
+            if (temDados) {
+                this.showNotification('error', 'Os dados não foram carregados do banco. Nenhuma alteração foi gravada. Recarregue o sistema.');
+            }
             return false;
         }
 
@@ -2533,7 +2731,9 @@ const app = {
                         // Venda paga em mais de uma forma: mantém a divisão (vem de _extra no banco)
                         pagamentos: Array.isArray(s.pagamentos) ? s.pagamentos : undefined,
                         troco: s.troco !== undefined ? (Number(s.troco) || 0) : undefined,
-                        items: items
+                        items: items,
+                        // Fiado: recebimentos e id do cliente (vêm de _extra no banco)
+                        ...Fiado.camposFiado(s)
                     };
                 });
 
@@ -2649,6 +2849,20 @@ const app = {
             this.setLoading(false);
         }
 
+        // Linha de base: o que acabou de ser lido é o que está no banco. Assim a próxima gravação
+        // manda só o que mudou nesta sessão, e não regrava a tabela inteira por cima de outro terminal.
+        if (this.state.dataLoaded) {
+            const colecoesBase = this.colecoesParaSalvar();
+            if (this.emModoServidor()) delete colecoesBase.users;
+            this.snapshotSalvo = this.criarSnapshot(colecoesBase);
+        }
+
+        // Vendas fiado antigas (sem id do cliente): liga pelo nome quando ele é único; grava só essas.
+        if (this.state.dataLoaded) {
+            const vinculo = Fiado.vincularLegado(this.state.sales, this.state.customers);
+            if (vinculo.vinculadas > 0) await this.salvarDados();
+        }
+
         this.iniciarHistoricoEstoque();
 
         if (this.state.products.length === 0 && !window.chrome?.webview) {
@@ -2702,127 +2916,32 @@ const app = {
         const canvasLine = document.getElementById('lineChart');
         if (!canvasLine) return;
 
-        const ctxLine = canvasLine.getContext('2d');
+        // Série do gráfico pelo módulo Dashboard: dia local, uma passagem pelas vendas.
+        const serie = Dashboard.serieLinha(this.state.sales || [], this.state.dashboardFilter, new Date(), (d) => this.parseDate(d));
+        const theme = this.getThemeColors();
 
-        // Destruir apenas o gráfico de linha que este método gerencia
-        if (this.state.charts.line) {
-            this.state.charts.line.destroy();
+        const ativos = ['faturamento', 'lucro', 'custo'].filter((k) => this.state.activeChartDatasets.includes(k));
+        const definicoes = {
+            faturamento: { label: 'Faturamento', data: serie.revenue, cor: '#4070f4', fundo: 'rgba(64, 112, 244, 0.1)' },
+            lucro: { label: 'Lucro', data: serie.profit, cor: '#8a9099', fundo: 'rgba(138, 144, 153, 0.1)' },
+            custo: { label: 'Custo', data: serie.cost, cor: '#d64545', fundo: 'rgba(214, 69, 69, 0.1)' }
+        };
+
+        // Mesmas linhas, mesmo período e mesmo tema: só troca os valores, sem recriar o gráfico.
+        const chave = ativos.join(',') + '|' + this.state.dashboardFilter + '|' + theme.text + '|' + theme.grid;
+        const atual = this.state.charts.line;
+        if (atual && this.state.charts.lineChave === chave) {
+            atual.data.labels = serie.labels;
+            ativos.forEach((k, i) => { atual.data.datasets[i].data = definicoes[k].data; });
+            atual.update('none');
+            return;
+        }
+        if (atual) {
+            atual.destroy();
             this.state.charts.line = null;
         }
 
-        const filteredSales = this.getFilteredSales();
-        const labels = [];
-        const revenueData = [];
-        const profitData = [];
-        const costData = [];
-
-        const now = new Date();
-        const filterType = this.state.dashboardFilter;
-
-        if (filterType === '7d') {
-            for (let i = 6; i >= 0; i--) {
-                const day = new Date(now);
-                day.setDate(now.getDate() - i);
-                const dayKey = day.toISOString().slice(0, 10);
-                labels.push(day.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
-
-                let dayTotal = 0;
-                let dayProfit = 0;
-                let dayCost = 0;
-
-                filteredSales.forEach(s => {
-                    const dateStr = s.date || s.Data;
-                    const d = this.parseDate(dateStr);
-                    if (!d) return;
-                    const key = d.toISOString().slice(0, 10);
-                    if (key !== dayKey) return;
-
-                    const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                    const desconto = s.desconto ?? s.Desconto ?? 0;
-                    const totalFinal = subtotal - desconto;
-                    const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                    const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                    dayTotal += Number(totalFinal) || 0;
-                    dayProfit += Number(lucro) || 0;
-                    dayCost += Number(custo) || 0;
-                });
-
-                revenueData.push(dayTotal);
-                profitData.push(dayProfit);
-                costData.push(dayCost);
-            }
-        } else if (filterType === 'month') {
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            for (let i = 1; i <= daysInMonth; i++) {
-                const day = new Date(year, month, i);
-                const dayKey = day.toISOString().slice(0, 10);
-                labels.push(i.toString());
-
-                let dayTotal = 0;
-                let dayProfit = 0;
-                let dayCost = 0;
-
-                filteredSales.forEach(s => {
-                    const dateStr = s.date || s.Data;
-                    const d = this.parseDate(dateStr);
-                    if (!d) return;
-                    const key = d.toISOString().slice(0, 10);
-                    if (key !== dayKey) return;
-
-                    const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                    const desconto = s.desconto ?? s.Desconto ?? 0;
-                    const totalFinal = subtotal - desconto;
-                    const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                    const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                    dayTotal += Number(totalFinal) || 0;
-                    dayProfit += Number(lucro) || 0;
-                    dayCost += Number(custo) || 0;
-                });
-
-                revenueData.push(dayTotal);
-                profitData.push(dayProfit);
-                costData.push(dayCost);
-            }
-        } else if (filterType === 'year') {
-            const year = now.getFullYear();
-            const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-            for (let i = 0; i < 12; i++) {
-                labels.push(monthNames[i]);
-
-                let monthTotal = 0;
-                let monthProfit = 0;
-                let monthCost = 0;
-
-                filteredSales.forEach(s => {
-                    const dateStr = s.date || s.Data;
-                    const d = this.parseDate(dateStr);
-                    if (!d) return;
-                    if (d.getFullYear() !== year || d.getMonth() !== i) return;
-
-                    const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                    const desconto = s.desconto ?? s.Desconto ?? 0;
-                    const totalFinal = subtotal - desconto;
-                    const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                    const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                    monthTotal += Number(totalFinal) || 0;
-                    monthProfit += Number(lucro) || 0;
-                    monthCost += Number(custo) || 0;
-                });
-
-                revenueData.push(monthTotal);
-                profitData.push(monthProfit);
-                costData.push(monthCost);
-            }
-        }
-
-        const theme = this.getThemeColors();
+        const ctxLine = canvasLine.getContext('2d');
         Chart.defaults.color = theme.text;
         Chart.defaults.font.family = "'SV Poppins', 'Segoe UI', system-ui, sans-serif";
         Chart.defaults.font.size = 13;
@@ -2839,48 +2958,21 @@ const app = {
         Chart.defaults.plugins.tooltip.titleColor = theme.tooltipText;
         Chart.defaults.plugins.tooltip.bodyColor = theme.tooltipText;
 
-        const datasets = [];
-        if (this.state.activeChartDatasets.includes('faturamento')) {
-            datasets.push({
-                label: 'Faturamento',
-                data: revenueData,
-                borderColor: '#4070f4',
-                backgroundColor: 'rgba(64, 112, 244, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
-        if (this.state.activeChartDatasets.includes('lucro')) {
-            datasets.push({
-                label: 'Lucro',
-                data: profitData,
-                borderColor: '#8a9099',
-                backgroundColor: 'rgba(138, 144, 153, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
-        if (this.state.activeChartDatasets.includes('custo')) {
-            datasets.push({
-                label: 'Custo',
-                data: costData,
-                borderColor: '#d64545',
-                backgroundColor: 'rgba(214, 69, 69, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
+        const datasets = ativos.map((k) => ({
+            label: definicoes[k].label,
+            data: definicoes[k].data,
+            borderColor: definicoes[k].cor,
+            backgroundColor: definicoes[k].fundo,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6
+        }));
 
         this.state.charts.line = new Chart(ctxLine, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: serie.labels,
                 datasets: datasets
             },
             options: {
@@ -2909,6 +3001,7 @@ const app = {
                 }
             }
         });
+        this.state.charts.lineChave = chave;
     },
 
     toggleChartDataset(dataset) {
@@ -2937,34 +3030,6 @@ const app = {
     renderDashboard() {
         this.updateDashboardStats();
         
-        // Identificar produtos "Hot" (Top 5 vendidos E Top 5 lucrativos)
-        const filteredSales = this.getFilteredSales();
-        const soldStats = {};
-        const profitStats = {};
-
-        filteredSales.forEach(sale => {
-            if (sale.items && Array.isArray(sale.items)) {
-                sale.items.forEach(item => {
-                    const id = item.productId || item.id;
-                    if (!id) return;
-                    
-                    const qty = Number(item.qtySold) || Number(item.qty) || 0;
-                    const price = Number(item.price) || 0;
-                    const cost = Number(item.cost) || 0;
-
-                    if (!soldStats[id]) soldStats[id] = 0;
-                    soldStats[id] += qty;
-
-                    if (!profitStats[id]) profitStats[id] = 0;
-                    profitStats[id] += (price - cost) * qty;
-                });
-            }
-        });
-
-        const top5SoldIds = Object.entries(soldStats).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-        const top5ProfitIds = Object.entries(profitStats).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-        this.state.hotProductIds = top5SoldIds.filter(id => top5ProfitIds.includes(id));
-
         this.renderTopProductsChart();
         this.renderTopProfitableProductsChart();
         this.renderCriticalStockTable();
@@ -2972,6 +3037,138 @@ const app = {
         this.renderSalesByHourChart();
         this.renderProfitMarginPercentChart();
         this.renderRecentSalesDashboard();
+        this.renderDashboardKpis();
+        this.renderDashboardDestaques();
+    },
+
+    /** KPIs estratégicos: estoque (últimos 30 dias, fixo) e vendas (período do filtro). */
+    renderDashboardKpis() {
+        const R = window.Dashboard;
+        if (!R || !document.getElementById('dash-est-ruptura')) return;
+
+        const parse = (d) => this.parseDate(d);
+        const est = R.kpisEstoque(this.state.products, this.state.sales, new Date(), { parseDate: parse });
+        const ven = R.kpisVendas(this.getFilteredSales(), this.state.products, parse);
+        const txt = (id, valor) => { const el = document.getElementById(id); if (el) el.textContent = valor; };
+        const pct = (v) => v == null ? '—' : v.toFixed(1).replace('.', ',') + '%';
+        const pad = (n) => String(n).padStart(2, '0');
+
+        txt('dash-est-ruptura', pct(est.taxaRuptura));
+        txt('dash-est-ruptura-sub', `${est.zerados} de ${est.totalProdutos} produtos sem saldo`);
+        txt('dash-est-cobertura', est.coberturaMediaDias == null ? '—' : `${Math.round(est.coberturaMediaDias)} dias`);
+        txt('dash-est-parado', this.formatCurrency(est.valorParado));
+        txt('dash-est-parado-sub', `${est.paradosQuantidade} produto(s) com saldo e sem venda`);
+        txt('dash-est-giro', est.giro == null ? '—' : est.giro.toFixed(2).replace('.', ',') + 'x');
+
+        const reposicao = document.getElementById('dash-est-reposicao');
+        if (reposicao) {
+            const linhas = est.reposicao.slice(0, 5).map((i) => {
+                const dura = i.cobertura < 1 ? 'menos de 1 dia' : `${Math.round(i.cobertura)} dias`;
+                const classe = i.cobertura < R.COBERTURA_CRITICA_DIAS ? 'dash-alerta-zero' : 'dash-alerta-baixo';
+                return `<tr>
+                    <td>${this.esc(i.produto)}</td>
+                    <td>${i.saldo} un.</td>
+                    <td class="${classe}">${dura}</td>
+                    <td>${i.sugestao > 0 ? i.sugestao + ' un.' : '—'}</td>
+                </tr>`;
+            });
+            reposicao.innerHTML = linhas.length
+                ? linhas.join('')
+                : '<tr><td colspan="4" class="dash-vazio">Nenhum produto precisa de reposição agora.</td></tr>';
+        }
+
+        txt('dash-ven-margem', pct(ven.margemBruta));
+        txt('dash-ven-margem-sub', ven.vendas ? `lucro de ${this.formatCurrency(ven.lucro)} em ${ven.vendas} venda(s)` : 'sem vendas no período');
+        txt('dash-ven-dia', ven.diaPico || '—');
+        txt('dash-ven-hora', ven.horaPico == null ? '—' : `${pad(ven.horaPico)}h às ${pad((ven.horaPico + 1) % 24)}h`);
+        this.renderDashboardInsights(R, est, ven);
+        txt('dash-ven-recorrencia', pct(ven.taxaRecorrencia));
+        txt('dash-ven-recorrencia-sub', ven.clientesDistintos
+            ? `${ven.clientesRecorrentes} de ${ven.clientesDistintos} clientes com 2 ou mais compras`
+            : 'nenhum cliente identificado no período');
+
+        const lucro = document.getElementById('dash-ven-lucro');
+        if (lucro) {
+            lucro.innerHTML = ven.produtosLucro.length
+                ? ven.produtosLucro.map((p) => `<tr>
+                    <td>${this.esc(p.nome)}</td>
+                    <td>${p.qtd}</td>
+                    <td>${this.formatCurrency(p.lucro)}</td>
+                    <td>${pct(p.margem)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="4" class="dash-vazio">Sem vendas no período.</td></tr>';
+        }
+    },
+
+    /** Textos de insight das duas visões (Vendas e Estoque), gerados pela lógica pura de dashboard.js. */
+    renderDashboardInsights(R, est, ven) {
+        const filtro = this.state.dashboardFilter;
+        const agora = new Date();
+        const parse = (d) => this.parseDate(d);
+        const serie = R.serieLinha(this.state.sales || [], filtro, agora, parse);
+        const indiceAtual = filtro === '7d' ? 6 : filtro === 'month' ? agora.getDate() - 1 : agora.getMonth();
+        const anterior = this.calculateTotalsFromSales(this.getPreviousPeriodSales(filtro));
+
+        const preencher = (id, textos) => {
+            const ul = document.getElementById(id);
+            if (!ul) return;
+            ul.innerHTML = '';
+            textos.forEach((t) => {
+                const li = document.createElement('li');
+                li.textContent = t;
+                ul.appendChild(li);
+            });
+        };
+        preencher('dash-insight-vendas', R.insightsVendas(serie, indiceAtual,
+            { faturamento: ven.faturamento, vendas: ven.vendas }, { faturamento: anterior.faturamento }, ven));
+        preencher('dash-insight-estoque', R.insightsEstoque(est));
+    },
+
+    /** Troca a visão do dashboard: Vendas ou Estoque. Só o bloco escolhido fica visível. */
+    setDashboardVisao(visao) {
+        this.state.dashboardVisao = visao === 'estoque' ? 'estoque' : 'vendas';
+        const view = document.getElementById('dashboard-view');
+        if (view) view.dataset.visao = this.state.dashboardVisao;
+        document.querySelectorAll('.dash-visao-btn').forEach((btn) => {
+            const ativo = btn.dataset.visao === this.state.dashboardVisao;
+            btn.classList.toggle('active', ativo);
+            btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+    },
+
+    /** Troca o período (7 dias, mês ou ano) e redesenha o dashboard. */
+    setDashboardFilter(filtro) {
+        this.state.dashboardFilter = ['7d', 'month', 'year'].includes(filtro) ? filtro : '7d';
+        const sel = document.getElementById('dash-periodo');
+        if (sel) sel.value = this.state.dashboardFilter;
+        this.renderDashboard();
+    },
+
+    /** Destaques: alertas de estoque (sem saldo e baixo) e produtos mais vendidos no período. */
+    renderDashboardDestaques() {
+        const R = window.Dashboard;
+        const elAlertas = document.getElementById('dash-alertas');
+        const elTop = document.getElementById('dash-top-produtos');
+        if (!R || (!elAlertas && !elTop)) return;
+
+        if (elAlertas) {
+            const nCfg = this.state.settings.notifications || {};
+            const a = R.alertasEstoque(this.state.products, Number(nCfg.stockLowVal) || 10);
+            const itens = [
+                ...a.semEstoque.map((x) => `<li class="dash-alerta-zero">${this.esc(x.produto)}: sem estoque</li>`),
+                ...a.estoqueBaixo.map((x) => `<li class="dash-alerta-baixo">${this.esc(x.produto)}: ${x.saldo} un.</li>`)
+            ];
+            elAlertas.innerHTML = itens.length ? `<ul>${itens.join('')}</ul>` : '<p class="dash-vazio">Nenhum produto em alerta.</p>';
+        }
+
+        if (elTop) {
+            const top = R.rankingProdutos(this.getFilteredSales(), this.state.products)
+                .sort((a, b) => b.qtd - a.qtd)
+                .slice(0, 5);
+            elTop.innerHTML = top.length
+                ? `<ol>${top.map((x) => `<li>${this.esc(x.nome)} <span class="dash-meta">${x.qtd} un. · ${this.formatCurrency(x.lucro)} de lucro</span></li>`).join('')}</ol>`
+                : '<p class="dash-vazio">Sem vendas no período.</p>';
+        }
     },
 
     renderTopProductsChart() {
@@ -3007,11 +3204,7 @@ const app = {
             .slice(0, 5);
 
         const labels = top5.map(p => {
-            let name = p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
-            if (this.state.hotProductIds && this.state.hotProductIds.includes(p.id.toString())) {
-                name = `🔥 ${name}`;
-            }
-            return name;
+            return p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
         });
         const data = top5.map(p => p.qtySold);
 
@@ -3089,7 +3282,7 @@ const app = {
         filteredSales.forEach(sale => {
             const method = sale.pagamento || sale.PaymentMethod || sale.formaPagamento || 'Outros';
             const amount = sale.valor_total ?? sale["Valor Total"] ?? sale.total ?? 0;
-            
+
             if (!paymentStats[method]) {
                 paymentStats[method] = { count: 0, revenue: 0 };
             }
@@ -3098,76 +3291,66 @@ const app = {
             totalRevenue += amount;
         });
 
-        const labels = Object.keys(paymentStats).map(m => m.charAt(0).toUpperCase() + m.slice(1));
-        const data = Object.values(paymentStats).map(stat => 
-            totalRevenue > 0 ? ((stat.revenue / totalRevenue) * 100).toFixed(1) : 0
-        );
-        const revenues = Object.values(paymentStats).map(stat => stat.revenue);
-        const counts = Object.values(paymentStats).map(stat => stat.count);
+        // Ordem do maior para o menor faturamento: o principal meio fica no topo.
+        const metodos = Object.entries(paymentStats).sort((a, b) => b[1].revenue - a[1].revenue);
+        const labels = metodos.map(([m, st]) => {
+            const pct = totalRevenue > 0 ? (st.revenue / totalRevenue) * 100 : 0;
+            return `${m.charAt(0).toUpperCase() + m.slice(1)} (${pct.toFixed(0)}%)`;
+        });
+        const revenues = metodos.map(([, st]) => st.revenue);
+        const counts = metodos.map(([, st]) => st.count);
+        const percentuais = metodos.map(([, st]) => totalRevenue > 0 ? ((st.revenue / totalRevenue) * 100).toFixed(1) : 0);
 
         if (this.state.charts.paymentMethods) {
             this.state.charts.paymentMethods.destroy();
         }
 
-        if (data.length === 0) return;
+        if (metodos.length === 0) return;
 
         const theme = this.getThemeColors();
         this.state.charts.paymentMethods = new Chart(ctx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    data: data,
-                    backgroundColor: [
-                        'rgba(64, 112, 244, 0.7)', // Purple
-                        'rgba(127, 165, 142, 0.7)',  // Green
-                        'rgba(249, 115, 22, 0.7)',  // Orange
-                        'rgba(6, 182, 212, 0.7)',   // Cyan
-                        'rgba(214, 69, 69, 0.7)'    // Red
-                    ],
-                    borderColor: theme.border,
-                    borderWidth: 2,
-                    hoverOffset: 10
+                    data: revenues,
+                    backgroundColor: 'rgba(64, 112, 244, 0.65)',
+                    hoverBackgroundColor: 'rgba(64, 112, 244, 0.9)',
+                    borderRadius: 6,
+                    barThickness: 18
                 }]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '60%',
-                layout: {
-                    padding: { top: 25, bottom: 25, left: 10, right: 10 }
-                },
                 plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: theme.text,
-                            padding: 12,
-                            font: { size: 11 },
-                            usePointStyle: true,
-                            boxWidth: 8
-                        }
-                    },
+                    legend: { display: false },
                     tooltip: {
                         backgroundColor: theme.tooltipBg,
                         titleColor: theme.tooltipText,
                         bodyColor: theme.tooltipText,
-                        padding: 12,
+                        padding: 10,
                         cornerRadius: 8,
-                        displayColors: true,
                         callbacks: {
                             label: (context) => {
-                                const index = context.dataIndex;
-                                const revenue = revenues[index];
-                                const count = counts[index];
-                                const percentage = data[index];
+                                const i = context.dataIndex;
                                 return [
-                                    ` ${context.label}: ${percentage}%`,
-                                    ` Faturamento: ${this.formatCurrency(revenue)}`,
-                                    ` Nº de vendas: ${count}`
+                                    ` Faturamento: ${this.formatCurrency(revenues[i])} (${percentuais[i]}%)`,
+                                    ` Nº de vendas: ${counts[i]}`
                                 ];
                             }
                         }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: theme.grid },
+                        ticks: { color: theme.text, font: { size: 11 }, callback: (v) => this.formatCurrency(v) }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: theme.text, font: { size: 12 } }
                     }
                 }
             }
@@ -4075,10 +4258,25 @@ const app = {
     },
 
     // Texto da forma de pagamento para histórico e recibo
+    /** Situação do fiado logo abaixo do valor final da venda: falta pagar ou quitado. Venda à vista não mostra nada. */
+    statusFiadoVendaHtml(sale) {
+        if (!Fiado.ehFiado(sale)) return '';
+        const falta = Fiado.saldoAberto(sale);
+        const total = Number(sale.valor_final) || 0;
+        const titulo = `Pago ${this.formatCurrency(Fiado.recebido(sale))} de ${this.formatCurrency(total)}`;
+        return falta > 0
+            ? `<small class="fiado-status-aberto" style="display:block" title="${titulo}">Falta ${this.formatCurrency(falta)}</small>`
+            : `<small class="fiado-status-quitado" style="display:block" title="${titulo}">Quitado</small>`;
+    },
+
     rotuloPagamento(sale) {
         if (Array.isArray(sale.pagamentos) && sale.pagamentos.length) {
             const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
             return 'Misto: ' + sale.pagamentos.map(p => `${nomes[p.forma] || p.forma} ${this.formatCurrency(p.valor)}`).join(' + ');
+        }
+        if (sale.pagamento === 'fiado') {
+            const saldo = Fiado.saldoAberto(sale);
+            return saldo > 0 ? `Fiado · em aberto ${this.formatCurrency(saldo)}` : 'Fiado · quitado';
         }
         return sale.pagamento || sale["Forma de Pagamento"] || 'N/A';
     },
@@ -4108,7 +4306,23 @@ const app = {
             pagamentoVenda = { pagamento: 'misto', pagamentos: pg.pagamentos, troco: pg.troco };
         }
         const customerEl = document.getElementById('pos-customer');
-        let cliente = (customerEl && customerEl.value) || 'Consumidor Final';
+        const clienteCadastro = customerEl && customerEl.value ? this.clientePorId(customerEl.value) : null;
+        const cliente = clienteCadastro ? clienteCadastro.name : 'Consumidor Final';
+
+        if (pagamentoVenda.pagamento === 'fiado') {
+            const checagem = Fiado.validarVendaFiado(clienteCadastro ? String(clienteCadastro.id) : '');
+            if (!checagem.ok) {
+                this.showNotification('error', checagem.motivo);
+                return;
+            }
+            const limite = Fiado.validarLimite(this.state.sales, String(clienteCadastro.id), clienteCadastro.limite_credito, totalFinal);
+            if (!limite.ok) {
+                this.showNotification('error', `${limite.motivo} Disponível para fiado: ${this.formatCurrency(limite.disponivel)}.`);
+                return;
+            }
+            const vencimento = Fiado.vencimentoPara(new Date(), clienteCadastro.prazo_dias);
+            pagamentoVenda = { pagamento: 'fiado', recebimentos: [], cliente_id: String(clienteCadastro.id), ...(vencimento ? { vencimento } : {}) };
+        }
 
         // Armazena a venda pendente no estado
         this.state.pendingSale = {
@@ -4452,8 +4666,6 @@ const app = {
                 stock: { type: 'number', min: 0, label: 'Estoque' }
             });
 
-            this.state.dataLoaded = true; // Forçar flag antes de salvar para evitar bloqueio
-
             if (this.state.editingId) {
                 const index = this.state.products.findIndex(p => p.id === this.state.editingId);
                 if (index !== -1) {
@@ -4507,7 +4719,6 @@ const app = {
             'Deseja realmente excluir este produto?',
             async () => {
                 this.logAudit('DELETE_PRODUCT', { productId: id });
-                this.state.dataLoaded = true; // Garantir flag
                 this.state.products = this.state.products.filter(p => p.id !== id);
                 await this.salvarDados();
                 this.showNotification('success', 'Produto excluído com sucesso!');
@@ -4523,6 +4734,11 @@ const app = {
     async handleCustomerSubmit(e) {
         e.preventDefault();
         try {
+            const limiteRaw = document.getElementById('cust-limite').value.trim();
+            const prazoRaw = document.getElementById('cust-prazo').value.trim();
+            const credito = Fiado.validarCadastroCredito(limiteRaw, prazoRaw);
+            if (!credito.ok) throw new Error(credito.motivo);
+
             const customer = {
                 id: this.state.editingId || 'C' + Date.now().toString(),
                 name: document.getElementById('cust-name').value.trim(),
@@ -4530,7 +4746,9 @@ const app = {
                 email: document.getElementById('cust-email').value.trim(),
                 obs: document.getElementById('cust-obs').value.trim(),
                 date: new Date().toISOString(),
-                image: document.getElementById('cust-image-url').value
+                image: document.getElementById('cust-image-url').value,
+                limite_credito: limiteRaw === '' ? null : Number(limiteRaw),
+                prazo_dias: prazoRaw === '' ? null : Number(prazoRaw)
             };
 
             this.validate(customer, {
@@ -4540,7 +4758,11 @@ const app = {
 
             if (this.state.editingId) {
                 const index = this.state.customers.findIndex(c => c.id === this.state.editingId);
+                const nomeAnterior = index !== -1 ? this.state.customers[index].name : null;
                 if (index !== -1) this.state.customers[index] = customer;
+                if (nomeAnterior !== null && nomeAnterior !== customer.name) {
+                    Fiado.renomearCliente(this.state.sales, customer.id, customer.name);
+                }
             } else {
                 this.state.customers.push(customer);
             }
@@ -4555,6 +4777,7 @@ const app = {
     },
 
     renderCustomers(query = '') {
+        this.renderFiadoPendentes();
         const container = document.getElementById('customers-items-container');
         if (!container) return;
         const filtered = this.state.customers.filter(c => c.name.toLowerCase().includes(query.toLowerCase()));
@@ -4564,23 +4787,255 @@ const app = {
             return;
         }
 
-        container.innerHTML = filtered.map(c => `
+        const resumos = Fiado.resumosPorCliente(this.state.sales);
+        const atrasos = Fiado.atrasosPorCliente(this.state.sales);
+        const textoFiado = (r, at) => {
+            if (!r || r.totalPrazo <= 0) return '<span class="fiado-sem">-</span>';
+            if (r.falta > 0) {
+                const aviso = at && at.quantidade > 0
+                    ? `<span class="fiado-atraso">${at.quantidade} venda(s) em atraso · ${at.diasMax} dia(s)</span>`
+                    : '';
+                return `<span class="fiado-falta"><strong>${this.formatCurrency(r.falta)}</strong> em aberto</span>` +
+                    `<small>Pago ${this.formatCurrency(r.pago)} de ${this.formatCurrency(r.totalPrazo)}</small>` + aviso;
+            }
+            return `<span class="fiado-quitado">Quitado</span><small>${this.formatCurrency(r.totalPrazo)} a prazo</small>`;
+        };
+        container.innerHTML = filtered.map(c => {
+            const r = resumos.get(String(c.id));
+            const receber = r && r.falta > 0
+                ? `<button type="button" class="btn-fiado-receber-lista" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button>`
+                : '';
+            const extrato = r && r.totalPrazo > 0
+                ? `<button type="button" class="btn-fiado-extrato" onclick="app.abrirExtratoFiado('${c.id}')">Extrato</button>`
+                : '';
+            return `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
                     <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
+                    <span class="col-fiado" data-label="FIADO">${textoFiado(r, atrasos.get(String(c.id)))}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
                     <span class="col-date" data-label="DATA">${this.parseDate(c.date) ? this.parseDate(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
                     <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
                     <div class="col-actions" data-label="AÇÕES">
+                        ${receber}
+                        ${extrato}
                         <button class="btn-action-edit" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
                         <button class="btn-action-delete" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+        }).join('');
         this.initLucide();
     },
 
+    /** Cliente cadastrado pelo id (texto), ou null. */
+    clientePorId(id) {
+        if (id === undefined || id === null || id === '') return null;
+        return this.state.customers.find(x => String(x.id) === String(id)) || null;
+    },
+
+    /** Abre o recebimento de fiado de um cliente: saldo, vendas em aberto e valor sugerido (saldo total). */
+    abrirRecebimentoFiado(customerId) {
+        if (this.requirePasswordChange()) return;
+        const c = this.clientePorId(customerId);
+        if (!c) return;
+        const saldo = Fiado.saldoCliente(this.state.sales, c.id);
+        if (saldo <= 0) {
+            this.showNotification('error', 'Este cliente não tem saldo em aberto.');
+            return;
+        }
+        this.state.fiadoCliente = String(c.id);
+        document.getElementById('fiado-valor').value = saldo.toFixed(2);
+        document.getElementById('fiado-forma').value = 'dinheiro';
+        document.getElementById('fiado-erro').classList.add('hidden');
+        this.atualizarModalFiado();
+        this.openModal('fiado');
+    },
+
+    /** Preenche o modal de Fiado: totais (total, pago, falta), andamento de cada venda e recebimentos. */
+    atualizarModalFiado() {
+        const c = this.clientePorId(this.state.fiadoCliente);
+        if (!c) return;
+        const r = Fiado.resumoCliente(this.state.sales, c.id);
+        const m = (v) => this.formatCurrency(v);
+        document.getElementById('fiado-titulo').textContent = `Receber fiado · ${c.name}`;
+        document.getElementById('fiado-total').textContent = m(r.totalPrazo);
+        document.getElementById('fiado-pago').textContent = m(r.pago);
+        document.getElementById('fiado-saldo').textContent = m(r.falta);
+        document.getElementById('fiado-lista').innerHTML = r.vendas.map(v => {
+            const data = new Date(v.date).toLocaleDateString('pt-BR');
+            const situacao = v.falta > 0 ? `<strong>Falta ${m(v.falta)}</strong>` : '<span class="fiado-quitado">Quitada</span>';
+            const orig = this.state.sales.find(s => String(s.id) === String(v.vendaId));
+            const venc = orig && orig.vencimento ? orig.vencimento : '';
+            const atraso = v.falta > 0 ? Fiado.diasAtraso(venc) : 0;
+            const prazo = venc && v.falta > 0
+                ? (atraso > 0 ? ` · <span class="fiado-atraso">Atrasada há ${atraso} dia(s)</span>` : ` · <small>Vence ${venc.split('-').reverse().join('/')}</small>`)
+                : '';
+            return `<div class="fiado-linha fiado-venda"><span>${data} · venda #${this.esc(String(v.vendaId).slice(-6))}${prazo}</span><span>Total ${m(v.total)} · Pago ${m(v.pago)} · ${situacao}</span></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhuma venda a prazo.</span></div>';
+
+        const admin = this.state.currentUser?.role === 'admin';
+        const operacoes = Fiado.operacoes(this.state.sales, c.id);
+        document.getElementById('fiado-recebidos').innerHTML = operacoes.map(o => {
+            const data = new Date(o.date).toLocaleDateString('pt-BR');
+            const forma = Fiado.NOMES_FORMA[o.forma] || o.forma;
+            const estornar = admin
+                ? `<button type="button" class="btn-fiado-estornar" onclick="app.estornarRecebimentoFiado('${this.esc(o.operacao)}')">Estornar</button>`
+                : '';
+            return `<div class="fiado-linha"><span>${data} · ${this.esc(forma)}</span><span><strong>${this.formatCurrency(o.valor)}</strong>${estornar}</span></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhum pagamento recebido ainda.</span></div>';
+
+        this.atualizarPreviaFiado();
+    },
+
+    /** Abre o extrato do cliente: todas as compras a prazo e pagamentos, mesmo depois de quitado. */
+    abrirExtratoFiado(customerId) {
+        const c = this.clientePorId(customerId);
+        if (!c) return;
+        this.state.extratoClienteId = String(c.id);
+        this.atualizarExtratoFiado();
+        this.openModal('extrato');
+    },
+
+    atualizarExtratoFiado() {
+        const c = this.clientePorId(this.state.extratoClienteId);
+        if (!c) return;
+        const e = Fiado.extratoCliente(this.state.sales, c.id);
+        const m = (v) => this.formatCurrency(v);
+        document.getElementById('extrato-titulo').textContent = `Extrato · ${c.name}`;
+        document.getElementById('extrato-total').textContent = m(e.totalPrazo);
+        document.getElementById('extrato-pago').textContent = m(e.pago);
+        document.getElementById('extrato-falta').textContent = m(e.falta);
+        document.getElementById('extrato-lista').innerHTML = e.movimentos.map(x => {
+            const data = new Date(x.date).toLocaleDateString('pt-BR');
+            if (x.tipo === 'venda') {
+                const itens = x.itens ? ` · ${x.itens} ${x.itens === 1 ? 'produto' : 'produtos'}` : '';
+                return `<div class="extrato-linha extrato-venda"><span class="extrato-data">${data}</span><span class="extrato-desc">Compra a prazo · venda #${this.esc(String(x.vendaId).slice(-6))}${itens}</span><span class="extrato-valor">+ ${m(x.valor)}</span><span class="extrato-saldo">Saldo ${m(x.saldoApos)}</span></div>`;
+            }
+            const forma = Fiado.NOMES_FORMA[x.forma] || x.forma;
+            return `<div class="extrato-linha extrato-pagamento"><span class="extrato-data">${data}</span><span class="extrato-desc">Pagamento · ${this.esc(forma)}</span><span class="extrato-valor">- ${m(x.valor)}</span><span class="extrato-saldo">Saldo ${m(x.saldoApos)}</span></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhuma compra a prazo ainda.</span></div>';
+        document.getElementById('extrato-receber').classList.toggle('hidden', e.falta <= 0);
+    },
+
+    /** Enquanto digita o valor, mostra quanto fica em aberto depois do recebimento. Não grava nada. */
+    atualizarPreviaFiado() {
+        const c = this.clientePorId(this.state.fiadoCliente);
+        const previa = document.getElementById('fiado-previa');
+        const campo = document.getElementById('fiado-valor');
+        if (!c || !previa || !campo) return;
+        const falta = Fiado.saldoCliente(this.state.sales, c.id);
+        const valor = Number(campo.value);
+        const r = Fiado.restanteAposRecebimento(falta, valor);
+        if (!r.ok) {
+            previa.className = 'fiado-previa fiado-previa-erro';
+            previa.textContent = r.motivo;
+            return;
+        }
+        previa.className = 'fiado-previa';
+        previa.textContent = r.restante > 0
+            ? `Recebendo ${this.formatCurrency(valor)}: ficam ${this.formatCurrency(r.restante)} em aberto.`
+            : `Recebendo ${this.formatCurrency(valor)}: a conta fica quitada.`;
+    },
+
+    /** Estorna uma operação de recebimento inteira (administrador). Pede confirmação antes. */
+    estornarRecebimentoFiado(operacao) {
+        if (this.requirePasswordChange()) return;
+        if (!this.requireAdmin('estornar recebimento de fiado')) return;
+        const c = this.clientePorId(this.state.fiadoCliente);
+        this.confirmAction(
+            'Estornar recebimento',
+            'O valor volta para o saldo em aberto das vendas em que foi recebido. Deseja continuar?',
+            async () => {
+                const resultado = Fiado.estornarRecebimento(this.state.sales, operacao);
+                if (!resultado.ok) {
+                    this.showNotification('error', resultado.motivo);
+                    return;
+                }
+                this.logAudit('FIADO_ESTORNO', { cliente: c ? c.name : '', clienteId: c ? c.id : null, operacao: operacao, valor: resultado.valor, vendas: resultado.vendas });
+                await this.salvarDados();
+                this.showNotification('success', `Recebimento de ${this.formatCurrency(resultado.valor)} estornado.`);
+                this.atualizarModalFiado();
+                this.renderCustomers();
+                this.renderHistory();
+                this.updateDashboardStats();
+                // O confirm fecha os demais modais; reabre o recebimento depois da gravação.
+                this.openModal('fiado');
+            },
+            'trash-2'
+        );
+    },
+
+    async confirmarRecebimentoFiado() {
+        if (this.requirePasswordChange()) return;
+        const c = this.clientePorId(this.state.fiadoCliente);
+        const erro = document.getElementById('fiado-erro');
+        const valor = Number(document.getElementById('fiado-valor').value);
+        const forma = document.getElementById('fiado-forma').value;
+        const resultado = Fiado.registrarRecebimento(this.state.sales, c ? c.id : '', valor, forma, new Date().toISOString(), 'R' + Date.now());
+        if (!resultado.ok) {
+            erro.textContent = resultado.motivo;
+            erro.classList.remove('hidden');
+            return;
+        }
+        this.logAudit('FIADO_RECEBIMENTO', { cliente: c.name, clienteId: c.id, valor: valor, forma: forma, vendas: resultado.aplicacoes });
+        this.state.fiadoCliente = null;
+        this.closeModal();
+        await this.salvarDados();
+        this.showNotification('success', `Recebimento de ${this.formatCurrency(valor)} registrado.`);
+        this.renderCustomers();
+        this.renderHistory();
+        this.updateDashboardStats();
+    },
+
+    /** Painel na tela de Clientes: vendas fiado com saldo que ainda não têm cliente (nome repetido ou sem cadastro). */
+    renderFiadoPendentes() {
+        const box = document.getElementById('fiado-pendentes');
+        if (!box) return;
+        const pendentes = Fiado.pendentesSemCliente(this.state.sales);
+        this.state.fiadoPendentes = pendentes;
+        if (pendentes.length === 0) {
+            box.classList.add('hidden');
+            box.innerHTML = '';
+            return;
+        }
+        const opcoes = this.state.customers.map(c => `<option value="${this.esc(c.id)}">${this.esc(c.name)}</option>`).join('');
+        box.innerHTML = `
+            <div class="fiado-pendentes-titulo">Fiado sem cliente identificado (${pendentes.length})</div>
+            <div class="fiado-pendentes-texto">Estas vendas a prazo não estão ligadas a um cliente, então o saldo não aparece em nenhum cliente. Escolha o cliente correto em cada uma.</div>
+            ${pendentes.map((p, i) => `
+                <div class="fiado-pendente-linha">
+                    <span>${new Date(p.date).toLocaleDateString('pt-BR')} · ${this.esc(p.cliente || 'sem nome')} · <strong>${this.formatCurrency(p.saldo)}</strong></span>
+                    <select id="fiado-pend-${i}" class="glass-input-labs">${opcoes}</select>
+                    <button type="button" class="btn-fiado-receber" onclick="app.vincularFiadoPendente(${i})">Vincular</button>
+                </div>`).join('')}`;
+        box.classList.remove('hidden');
+    },
+
+    /** Liga uma venda fiado pendente ao cliente escolhido no painel. */
+    async vincularFiadoPendente(i) {
+        if (this.requirePasswordChange()) return;
+        const p = (this.state.fiadoPendentes || [])[i];
+        const sel = document.getElementById('fiado-pend-' + i);
+        const cliente = sel && sel.value ? this.clientePorId(sel.value) : null;
+        const resultado = Fiado.vincular(this.state.sales, p ? p.vendaId : null, cliente);
+        if (!resultado.ok) {
+            this.showNotification('error', resultado.motivo);
+            return;
+        }
+        this.logAudit('FIADO_VINCULO', { vendaId: p.vendaId, cliente: cliente.name, clienteId: cliente.id, saldo: p.saldo });
+        await this.salvarDados();
+        this.showNotification('success', `Venda vinculada a ${cliente.name}.`);
+        this.renderCustomers();
+        this.renderHistory();
+        this.updateDashboardStats();
+    },
+
     async deleteCustomer(id) {
+        const saldo = Fiado.saldoCliente(this.state.sales, id);
+        if (saldo > 0) {
+            this.showNotification('error', `Este cliente tem ${this.formatCurrency(saldo)} em aberto. Receba o fiado antes de excluir.`);
+            return;
+        }
         this.confirmAction(
             'Excluir Cliente',
             'Deseja realmente excluir este cliente?',
@@ -4604,6 +5059,8 @@ const app = {
         document.getElementById('cust-email').value = c.email || '';
         document.getElementById('cust-obs').value = c.obs || '';
         document.getElementById('cust-image-url').value = c.image || '';
+        document.getElementById('cust-limite').value = c.limite_credito ?? '';
+        document.getElementById('cust-prazo').value = c.prazo_dias ?? '';
 
         this.openModal('customer');
     },
@@ -4667,7 +5124,7 @@ const app = {
                     <span class="col-name" data-label="CLIENTE">${this.esc(cliente)}</span>
                     <span class="col-subtotal" data-label="TOTAL">${this.formatCurrency(subtotal)}</span>
                     <span class="col-discount" data-label="DESC.">${this.formatCurrency(desconto)}</span>
-                    <span class="col-total-final" data-label="FINAL">${this.formatCurrency(totalFinal)}</span>
+                    <span class="col-total-final" data-label="FINAL">${this.formatCurrency(totalFinal)}${this.statusFiadoVendaHtml(s)}</span>
                     <span class="col-cost" data-label="CUSTO">${this.formatCurrency(custo)}</span>
                     <span class="col-profit" data-label="LUCRO">${this.formatCurrency(lucro)}</span>
                     <div class="col-items-action" data-label="ITENS">
@@ -4690,6 +5147,11 @@ const app = {
     },
 
     async deleteSale(id) {
+        const vendaRef = this.state.sales.find(s => (s.ID || s.id) === id);
+        if (vendaRef && Fiado.recebido(vendaRef) > 0) {
+            this.showNotification('error', 'Esta venda já tem recebimentos. Não é possível excluí-la.');
+            return;
+        }
         this.confirmAction(
             'Excluir Venda',
             'Deseja realmente excluir este registro de saída? O estoque dos produtos será estornado automaticamente.',
@@ -4741,19 +5203,33 @@ const app = {
         }
         this.state.saleEditId = String(sale.id || sale.ID);
 
-        const nomesCliente = ['Consumidor Final', ...this.state.customers.map(c => c.name)];
-        if (sale.cliente && !nomesCliente.includes(sale.cliente)) nomesCliente.push(sale.cliente);
+        // Select por id do cliente. '' = Consumidor Final; '__atual__' = nome antigo que não tem cadastro único.
         const clienteSel = document.getElementById('sale-edit-cliente');
-        clienteSel.innerHTML = [...new Set(nomesCliente)]
-            .map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
-        clienteSel.value = sale.cliente || 'Consumidor Final';
+        const opcoesCliente = ['<option value="">Consumidor Final</option>'];
+        this.state.customers.forEach(c => opcoesCliente.push(`<option value="${this.esc(c.id)}">${this.esc(c.name)}</option>`));
+        let valorCliente = '';
+        if (this.clientePorId(Fiado.clienteIdDe(sale))) {
+            valorCliente = Fiado.clienteIdDe(sale);
+        } else if (sale.cliente && sale.cliente !== 'Consumidor Final') {
+            const iguais = this.state.customers.filter(c => c.name === sale.cliente);
+            if (iguais.length === 1) {
+                valorCliente = String(iguais[0].id);
+            } else {
+                opcoesCliente.push(`<option value="__atual__">${this.esc(sale.cliente)} (sem cadastro)</option>`);
+                valorCliente = '__atual__';
+            }
+        }
+        clienteSel.innerHTML = opcoesCliente.join('');
+        clienteSel.value = valorCliente;
 
-        const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
+        const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX', fiado: 'Fiado (a prazo)' };
         const misto = Array.isArray(sale.pagamentos) && sale.pagamentos.length > 0;
+        const comRecebimento = Fiado.recebido(sale) > 0;
+        const formas = comRecebimento ? ['fiado'] : [...EdicaoVenda.FORMAS, 'fiado'];
         const pagSel = document.getElementById('sale-edit-pagamento');
         pagSel.innerHTML = (misto ? '<option value="manter">Manter pagamento dividido</option>' : '')
-            + EdicaoVenda.FORMAS.map(f => `<option value="${f}">${nomesForma[f]}</option>`).join('');
-        pagSel.value = misto ? 'manter' : (EdicaoVenda.FORMAS.includes(sale.pagamento) ? sale.pagamento : 'dinheiro');
+            + formas.map(f => `<option value="${f}">${nomesForma[f]}</option>`).join('');
+        pagSel.value = misto ? 'manter' : (formas.includes(sale.pagamento) ? sale.pagamento : 'dinheiro');
 
         document.getElementById('sale-edit-desconto').value = Number(sale.desconto) || 0;
         document.getElementById('sale-edit-title').textContent = `Editar venda #${String(sale.id || sale.ID).slice(-6)}`;
@@ -4820,13 +5296,29 @@ const app = {
 
         const qtds = this.lerQuantidadesEdicao();
         const desconto = Number(document.getElementById('sale-edit-desconto').value) || 0;
-        const cliente = document.getElementById('sale-edit-cliente').value || 'Consumidor Final';
+        const escolhaCliente = document.getElementById('sale-edit-cliente').value;
+        const cadastro = escolhaCliente && escolhaCliente !== '__atual__' ? this.clientePorId(escolhaCliente) : null;
+        const cliente = cadastro ? cadastro.name : (escolhaCliente === '__atual__' ? sale.cliente : 'Consumidor Final');
+        const clienteId = cadastro ? String(cadastro.id) : '';
         const escolha = document.getElementById('sale-edit-pagamento').value;
 
         let totais, pag, plano;
         try {
             totais = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
-            pag = EdicaoVenda.pagamentoAposEdicao(sale, totais.valor_final, escolha);
+            if (escolha === 'fiado' || Fiado.recebido(sale) > 0) {
+                const checagem = Fiado.validarEdicao(sale, totais.valor_final, escolha, clienteId);
+                if (!checagem.ok) throw new Error(checagem.motivo);
+                if (Fiado.recebido(sale) > 0 && clienteId !== Fiado.clienteIdDe(sale)) {
+                    throw new Error('Esta venda já tem recebimentos: não é possível trocar o cliente.');
+                }
+                if (escolha === 'fiado') {
+                    const limite = Fiado.validarLimiteEdicao(this.state.sales, sale, clienteId, cadastro ? cadastro.limite_credito : null, totais.valor_final);
+                    if (!limite.ok) throw new Error(`${limite.motivo} Disponível para fiado: ${this.formatCurrency(limite.disponivel)}.`);
+                }
+            }
+            pag = escolha === 'fiado'
+                ? { pagamento: 'fiado' }
+                : EdicaoVenda.pagamentoAposEdicao(sale, totais.valor_final, escolha);
             plano = EdicaoVenda.planejarEdicao(this.state.movimentacoes, sale, qtds);
         } catch (e) {
             this.mostrarErroEdicaoVenda(e.message);
@@ -4856,6 +5348,8 @@ const app = {
         delete sale.pagamentos;
         delete sale.troco;
         Object.assign(sale, pag);
+        if (escolha === 'fiado') sale.cliente_id = clienteId;
+        else delete sale.cliente_id;
 
         this.logAudit('EDIT_SALE', {
             saleId: saleId,
@@ -5206,6 +5700,12 @@ const app = {
         const historyModal = document.getElementById('product-history-modal');
         if (historyModal) historyModal.classList.toggle('hidden', type !== 'product-history-modal');
 
+        const fiadoModal = document.getElementById('fiado-modal');
+        if (fiadoModal) fiadoModal.classList.toggle('hidden', type !== 'fiado');
+
+        const extratoModal = document.getElementById('extrato-modal');
+        if (extratoModal) extratoModal.classList.toggle('hidden', type !== 'extrato');
+
         this.initLucide();
 
         // Reset form if not editing and not stock adjustment
@@ -5279,7 +5779,7 @@ const app = {
     },
     updatePOSCustomerList() {
         const select = document.getElementById('pos-customer');
-        if (select) select.innerHTML = '<option value="">Consumidor Final</option>' + this.state.customers.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        if (select) select.innerHTML = '<option value="">Consumidor Final</option>' + this.state.customers.map(c => `<option value="${this.esc(c.id)}">${this.esc(c.name)}</option>`).join('');
     },
     updatePOSProductList() {
         this.renderPosCatalog();
@@ -5862,7 +6362,234 @@ const app = {
             + '<tbody>' + linhas + '</tbody></table></div>';
     },
 
+    /** Estado do histórico de movimentações (filtros e paginação). */
+    _movEstado() {
+        if (!this._mov) this._mov = { periodo: 'tudo', produto: '', tipos: [], busca: '', limite: 50 };
+        return this._mov;
+    },
+
+    /**
+     * Aba ativa de Estoque ('produtos' ou 'movimentos') e visibilidade das abas.
+     * Movimentações são só para administrador: para os demais a aba some e volta a Produtos.
+     */
+    sincronizarAbaEstoque() {
+        const isAdmin = this.state.currentUser?.role === 'admin';
+        const aba = isAdmin && this._abaEstoque === 'movimentos' ? 'movimentos' : 'produtos';
+        document.getElementById('estoque-abas')?.classList.toggle('hidden', !isAdmin);
+        document.querySelectorAll('#estoque-abas button').forEach(b => b.classList.toggle('active', b.dataset.aba === aba));
+        document.getElementById('estoque-produtos')?.classList.toggle('hidden', aba !== 'produtos');
+        document.getElementById('estoque-mov')?.classList.toggle('hidden', aba !== 'movimentos');
+        return aba;
+    },
+
+    bindMovimentacoes() {
+        const estado = this._movEstado();
+        const recarregar = () => { estado.limite = 50; this.renderMovimentacoes(); };
+
+        document.querySelectorAll('#estoque-abas button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._abaEstoque = btn.dataset.aba;
+                this.renderEstoque();
+            });
+        });
+
+        const tipos = document.getElementById('mov-tipos');
+        if (tipos) {
+            tipos.innerHTML = HistoricoMov.TIPOS.map(t =>
+                `<button type="button" class="mov-chip" data-tipo="${t}">${HistoricoMov.ROTULOS[t]}</button>`
+            ).join('');
+            tipos.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-tipo]');
+                if (!btn) return;
+                const t = btn.dataset.tipo;
+                const marcados = new Set(estado.tipos);
+                if (marcados.has(t)) marcados.delete(t); else marcados.add(t);
+                estado.tipos = [...marcados];
+                recarregar();
+            });
+        }
+
+        document.querySelectorAll('#mov-periodo [data-periodo]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                estado.periodo = btn.dataset.periodo;
+                recarregar();
+            });
+        });
+        ['mov-inicio', 'mov-fim'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', recarregar);
+        });
+        document.getElementById('mov-produto')?.addEventListener('change', (e) => {
+            estado.produto = e.target.value;
+            recarregar();
+        });
+        document.getElementById('mov-busca')?.addEventListener('input', (e) => {
+            estado.busca = e.target.value.trim();
+            recarregar();
+        });
+        document.getElementById('mov-mais')?.addEventListener('click', () => {
+            estado.limite += 50;
+            this.renderMovimentacoes();
+        });
+        document.getElementById('mov-xlsx')?.addEventListener('click', () => this.exportarMovimentacoes('xlsx'));
+        document.getElementById('mov-pdf')?.addEventListener('click', () => this.exportarMovimentacoes('pdf'));
+    },
+
+    /** Intervalo do filtro de período, em dias YYYY-MM-DD (vazio = sem limite). */
+    intervaloMovimentos() {
+        const estado = this._movEstado();
+        const hoje = new Date();
+        const dia = (n) => HistoricoMov.diaLocal(new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - n));
+        switch (estado.periodo) {
+            case 'hoje': return { inicio: dia(0), fim: dia(0) };
+            case '7': return { inicio: dia(6), fim: dia(0) };
+            case '30': return { inicio: dia(29), fim: dia(0) };
+            case 'personalizado':
+                return {
+                    inicio: (document.getElementById('mov-inicio') || {}).value || '',
+                    fim: (document.getElementById('mov-fim') || {}).value || ''
+                };
+            default: return { inicio: '', fim: '' };
+        }
+    },
+
+    /** Linhas do histórico que passam nos filtros atuais (mais recentes primeiro). */
+    movimentosFiltrados() {
+        const estado = this._movEstado();
+        const { inicio, fim } = this.intervaloMovimentos();
+        const todas = HistoricoMov.linhas(this.state.movimentacoes || [], this.state.products || [], Estoque.historico);
+        const filtradas = HistoricoMov.filtrar(todas, {
+            inicio, fim, produtoId: estado.produto, tipos: estado.tipos, busca: estado.busca
+        });
+        return { filtradas, total: todas.length, inicio, fim };
+    },
+
+    renderMovimentacoes() {
+        const estado = this._movEstado();
+        const { filtradas, total } = this.movimentosFiltrados();
+        const visiveis = HistoricoMov.paginar(filtradas, estado.limite);
+        const t = HistoricoMov.totais(filtradas);
+
+        document.querySelectorAll('#mov-periodo [data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === estado.periodo));
+        document.querySelectorAll('#mov-tipos [data-tipo]').forEach(b => b.classList.toggle('active', estado.tipos.includes(b.dataset.tipo)));
+        document.getElementById('mov-datas')?.classList.toggle('hidden', estado.periodo !== 'personalizado');
+
+        const sel = document.getElementById('mov-produto');
+        if (sel) {
+            const produtos = [...(this.state.products || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            sel.innerHTML = '<option value="">Todos os produtos</option>' + produtos.map(p =>
+                `<option value="${this.esc(String(p.id))}">${this.esc(p.name || String(p.id))}</option>`).join('');
+            sel.value = estado.produto;
+            estado.produto = sel.value;
+        }
+
+        const totaisEl = document.getElementById('mov-totais');
+        if (totaisEl) {
+            const sinal = (n) => (n > 0 ? '+' : '') + n;
+            totaisEl.innerHTML = [
+                ['Entradas', '+' + t.entradas, 'entrada'],
+                ['Saídas', t.saidas > 0 ? '-' + t.saidas : '0', 'saida'],
+                ['Ajustes', sinal(t.ajustes), 'ajuste'],
+                ['Ignoradas', String(t.ignoradas), 'ignorada']
+            ].map(([rotulo, valor, tom]) =>
+                `<div class="mov-total mov-total-${tom}"><span>${rotulo}</span><strong>${valor}${tom === 'ignorada' ? '' : ' un.'}</strong></div>`
+            ).join('');
+        }
+
+        const tbody = document.getElementById('mov-tbody');
+        if (tbody) {
+            if (total === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="mov-vazio">Nenhuma movimentação registrada.</td></tr>';
+            } else if (filtradas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="mov-vazio">Nenhuma movimentação com esses filtros.</td></tr>';
+            } else {
+                tbody.innerHTML = visiveis.map(l => {
+                    const qtd = l.qtd > 0 ? `+${l.qtd}` : `${l.qtd}`;
+                    const custo = l.custoUnit == null ? '—' : this.formatCurrency(l.custoUnit);
+                    const tag = l.ignorada ? ' <span class="mov-tag-ignorada">ignorada</span>' : '';
+                    return `<tr class="${l.ignorada ? 'mov-apagada' : ''}">`
+                        + `<td>${HistoricoMov.dataHoraBr(l.data)}</td>`
+                        + `<td>${this.esc(l.produto)}</td>`
+                        + `<td><span class="mov-tipo-tag mov-tipo-${l.tipo}">${this.esc(l.rotulo)}</span>${tag}</td>`
+                        + `<td class="num">${qtd}</td>`
+                        + `<td class="num">${custo}</td>`
+                        + `<td class="num">${l.saldoApos == null ? '—' : l.saldoApos}</td>`
+                        + `<td>${this.esc(l.origem)}</td>`
+                        + `<td>${this.esc(l.obs) || '—'}</td>`
+                        + '</tr>';
+                }).join('');
+            }
+        }
+
+        const contagem = document.getElementById('mov-contagem');
+        if (contagem) {
+            contagem.textContent = filtradas.length === 0
+                ? ''
+                : `Mostrando ${visiveis.length} de ${filtradas.length} movimentações`;
+        }
+        document.getElementById('mov-mais')?.classList.toggle('hidden', filtradas.length <= estado.limite);
+    },
+
+    /** Exporta o histórico filtrado (todas as linhas, não só as visíveis). Só administrador. */
+    exportarMovimentacoes(formato) {
+        if (this.requirePasswordChange()) return;
+        if (!this.requireAdmin('exportar o histórico de movimentações')) return;
+
+        const estado = this._movEstado();
+        const { filtradas, inicio, fim } = this.movimentosFiltrados();
+        if (filtradas.length === 0) {
+            this.showNotification('error', 'Nenhuma movimentação para exportar.');
+            return;
+        }
+
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+        const periodoTexto = !inicio && !fim
+            ? 'todo o período'
+            : (inicio ? dataBr(inicio) : 'início') + ' a ' + (fim ? dataBr(fim) : 'hoje');
+        const sufixo = inicio || fim ? (inicio || 'inicio') + '_a_' + (fim || 'hoje') : 'todas';
+
+        const partes = ['Período: ' + periodoTexto];
+        if (estado.produto) {
+            const p = (this.state.products || []).find(x => String(x.id) === estado.produto);
+            partes.push('Produto: ' + (p ? p.name : estado.produto));
+        }
+        if (estado.tipos.length) partes.push('Tipos: ' + estado.tipos.map(t => HistoricoMov.ROTULOS[t]).join(', '));
+        if (estado.busca) partes.push('Busca: "' + estado.busca + '"');
+
+        const cabecalho = {
+            titulo: 'Histórico de movimentações',
+            empresa: (this.state.settings || {}).companyName || '',
+            periodo: partes.join(' · '),
+            geradoEm: 'Gerado em ' + new Date().toLocaleString('pt-BR') + ' por ' + (this.state.currentUser?.username || 'sistema')
+        };
+
+        try {
+            const secoes = [HistoricoMov.secao(filtradas)];
+            if (formato === 'pdf') {
+                const bytes = window.Relatorios.pdf(cabecalho, secoes);
+                this.baixarArquivo(bytes, 'application/pdf', 'movimentacoes_' + sufixo + '.pdf');
+            } else {
+                const bytes = window.Relatorios.xlsx(secoes, cabecalho);
+                this.baixarArquivo(bytes,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'movimentacoes_' + sufixo + '.xlsx');
+            }
+        } catch (err) {
+            this.showNotification('error', 'Erro ao gerar o arquivo: ' + err.message);
+            return;
+        }
+
+        this.logAudit('MOVIMENTACOES_EXPORT', {
+            formato, linhas: filtradas.length, inicio, fim, produto: estado.produto, tipos: estado.tipos, busca: estado.busca
+        });
+        this.showNotification('success', `Histórico exportado (${formato === 'pdf' ? 'PDF' : 'Excel'}, ${filtradas.length} movimentações).`);
+    },
+
     renderEstoque() {
+        const aba = this.sincronizarAbaEstoque();
+        if (aba === 'movimentos') {
+            this.renderMovimentacoes();
+            return;
+        }
         const grid = document.getElementById('estoque-grid');
         if (!grid) return;
 

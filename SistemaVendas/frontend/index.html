@@ -60,6 +60,10 @@
                 <h1 id="brand-name">SV Ultra</h1>
             </div>
             <nav class="nav-links">
+                <button class="nav-btn" data-view="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </button>
                 <button class="nav-btn" data-view="pos">
                     <i data-lucide="shopping-bag"></i>
                     <span>PDV</span>
@@ -161,7 +165,21 @@
             <!-- Views Container -->
             <div class="view-container">
                 <!-- Dashboard View -->
-                <section id="dashboard-view" class="view dashboard-view">
+                <section id="dashboard-view" class="view dashboard-view" data-visao="vendas">
+                    <div class="dash-barra">
+                        <div class="dash-visao" role="group" aria-label="Escolher análise">
+                            <button type="button" class="dash-visao-btn active" data-visao="vendas" aria-pressed="true" onclick="app.setDashboardVisao('vendas')">Vendas</button>
+                            <button type="button" class="dash-visao-btn" data-visao="estoque" aria-pressed="false" onclick="app.setDashboardVisao('estoque')">Estoque</button>
+                        </div>
+                        <label class="dash-periodo">
+                            <span>Período</span>
+                            <select id="dash-periodo" onchange="app.setDashboardFilter(this.value)">
+                                <option value="7d">Últimos 7 dias</option>
+                                <option value="month">Mês atual</option>
+                                <option value="year">Ano atual</option>
+                            </select>
+                        </label>
+                    </div>
                     <div class="stats-grid-labs">
                         <div class="stat-card-labs glass-inner">
                             <div class="stat-card-header">
@@ -217,8 +235,110 @@
                         </div>
                     </div>
 
+                    <!-- Estoque: só o que pede ação -->
+                    <div class="dash-secao" data-visao-bloco="estoque">
+                        <div class="dash-secao-titulo">
+                            <h4>Estoque: o que precisa de atenção</h4>
+                            <span class="dash-nota">Ritmo de venda dos últimos 30 dias</span>
+                        </div>
+                        <ul class="dash-insights" id="dash-insight-estoque"></ul>
+                        <div class="dash-kpis">
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Ruptura</span>
+                                <strong id="dash-est-ruptura">0%</strong>
+                                <small id="dash-est-ruptura-sub">0 de 0 produtos sem saldo</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Cobertura média</span>
+                                <strong id="dash-est-cobertura">—</strong>
+                                <small>tempo que o estoque atual dura</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Dinheiro parado</span>
+                                <strong id="dash-est-parado">R$ 0,00</strong>
+                                <small id="dash-est-parado-sub">0 produtos com saldo e sem venda</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Giro do estoque</span>
+                                <strong id="dash-est-giro">—</strong>
+                                <small>custo vendido ÷ valor em estoque</small>
+                            </div>
+                        </div>
+                        <div class="glass-inner dash-tabela-box">
+                            <div class="dash-tabela-titulo">Repor primeiro (5 mais urgentes)</div>
+                            <table class="custom-table-labs">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Saldo</th>
+                                        <th>Dura</th>
+                                        <th>Sugestão de compra</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-est-reposicao"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Vendas: rentabilidade, ritmo e clientes -->
+                    <div class="dash-secao" data-visao-bloco="vendas">
+                        <div class="dash-secao-titulo">
+                            <h4>Vendas: rentabilidade e ritmo</h4>
+                            <span class="dash-nota">Período selecionado acima</span>
+                        </div>
+                        <ul class="dash-insights" id="dash-insight-vendas"></ul>
+                        <div class="dash-kpis">
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Margem bruta</span>
+                                <strong id="dash-ven-margem">—</strong>
+                                <small id="dash-ven-margem-sub">lucro sobre faturamento</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Dia de pico</span>
+                                <strong id="dash-ven-dia">—</strong>
+                                <small>dia da semana com mais faturamento</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Horário de pico</span>
+                                <strong id="dash-ven-hora">—</strong>
+                                <small>hora com mais faturamento</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Recorrência</span>
+                                <strong id="dash-ven-recorrencia">—</strong>
+                                <small id="dash-ven-recorrencia-sub">clientes com 2 ou mais compras</small>
+                            </div>
+                        </div>
+                        <div class="glass-inner dash-tabela-box">
+                            <div class="dash-tabela-titulo">Lucro por produto (5 maiores)</div>
+                            <table class="custom-table-labs">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Qtd</th>
+                                        <th>Lucro</th>
+                                        <th>Margem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-ven-lucro"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Destaques: alertas e mais vendidos -->
+                    <div class="dash-destaques">
+                        <div class="glass-inner dash-destaque" data-visao-bloco="estoque">
+                            <h4>Alertas de estoque</h4>
+                            <div id="dash-alertas"></div>
+                        </div>
+                        <div class="glass-inner dash-destaque" data-visao-bloco="vendas">
+                            <h4>Mais vendidos no período</h4>
+                            <div id="dash-top-produtos"></div>
+                        </div>
+                    </div>
+
                     <div class="charts-grid">
-                        <div class="chart-card-labs glass-inner full-width">
+                        <div class="chart-card-labs glass-inner full-width" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Evolução de Vendas</h4>
                                 <div class="chart-dataset-toggles">
@@ -238,7 +358,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Vendas por Horário</h4>
                             </div>
@@ -247,7 +367,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Margem de Lucro (%)</h4>
                             </div>
@@ -256,7 +376,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Top 5 Produtos (Mais Vendidos)</h4>
                             </div>
@@ -265,7 +385,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Top 5 Produtos Mais Lucrativos</h4>
                             </div>
@@ -274,16 +394,16 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Vendas por Pagamento</h4>
                             </div>
-                            <div class="chart-container-labs" style="max-width: 90%; margin: 0 auto;">
+                            <div class="chart-container-labs chart-compacto">
                                 <canvas id="paymentMethodsChart"></canvas>
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="estoque">
                             <div class="chart-header-actions">
                                 <h4>Alertas de Estoque Crítico</h4>
                                 <div class="table-pagination-controls">
@@ -313,7 +433,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner full-width">
+                        <div class="chart-card-labs glass-inner full-width" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Últimas 25 Vendas</h4>
                                 <div class="table-pagination-controls">
@@ -409,6 +529,7 @@
                                     <button type="button" class="pos-pay-btn active" data-pay="dinheiro">Dinheiro</button>
                                     <button type="button" class="pos-pay-btn" data-pay="cartao">Cartão</button>
                                     <button type="button" class="pos-pay-btn" data-pay="pix">PIX</button>
+                                    <button type="button" class="pos-pay-btn" data-pay="fiado" title="Venda a prazo: exige cliente cadastrado">Fiado</button>
                                 </div>
                                 <button type="button" id="btn-split-pay" class="pos-split-toggle">Dividir pagamento</button>
                                 <div id="pos-split" class="pos-split hidden">
@@ -422,6 +543,7 @@
                                     <option value="dinheiro">Dinheiro</option>
                                     <option value="cartao">Cartão</option>
                                     <option value="pix">PIX</option>
+                                    <option value="fiado">Fiado (a prazo)</option>
                                 </select>
                                 <div id="pos-paid-group" class="pos-paid-group">
                                     <input type="number" id="pos-paid" inputmode="decimal" placeholder="Valor pago (R$)" autocomplete="off">
@@ -473,6 +595,11 @@
 
                 <!-- Estoque em tempo real -->
                 <section id="estoque-view" class="view estoque-view">
+                    <div id="estoque-abas" class="seg-toggle estoque-abas hidden" role="group" aria-label="Seção do estoque">
+                        <button type="button" data-aba="produtos" class="active">Produtos</button>
+                        <button type="button" data-aba="movimentos">Movimentações</button>
+                    </div>
+                    <div id="estoque-produtos" class="estoque-produtos">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
                             <input type="text" id="filter-estoque" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por nome ou código..." autocomplete="off">
@@ -488,6 +615,57 @@
                         <span id="estoque-resumo" class="estoque-resumo"></span>
                     </div>
                     <div id="estoque-grid" class="estoque-grid"></div>
+                    </div>
+
+                    <!-- Histórico de movimentações (somente administrador, somente leitura) -->
+                    <div id="estoque-mov" class="mov-painel hidden">
+                        <div class="mov-filtros">
+                            <div class="mov-linha">
+                                <div class="mov-chips" id="mov-periodo" role="group" aria-label="Período">
+                                    <button type="button" class="mov-chip" data-periodo="hoje">Hoje</button>
+                                    <button type="button" class="mov-chip" data-periodo="7">7 dias</button>
+                                    <button type="button" class="mov-chip" data-periodo="30">30 dias</button>
+                                    <button type="button" class="mov-chip active" data-periodo="tudo">Tudo</button>
+                                    <button type="button" class="mov-chip" data-periodo="personalizado">Personalizado</button>
+                                </div>
+                                <div class="mov-datas hidden" id="mov-datas">
+                                    <label>De <input type="date" id="mov-inicio"></label>
+                                    <label>até <input type="date" id="mov-fim"></label>
+                                </div>
+                                <select id="mov-produto" class="glass-input-labs mov-campo" aria-label="Produto">
+                                    <option value="">Todos os produtos</option>
+                                </select>
+                                <input type="text" id="mov-busca" class="glass-input-labs mov-campo mov-busca" placeholder="Buscar observação, origem ou produto" autocomplete="off">
+                            </div>
+                            <div class="mov-chips" id="mov-tipos" role="group" aria-label="Tipos de movimentação"></div>
+                        </div>
+                        <div id="mov-totais" class="mov-totais"></div>
+                        <div class="table-container-labs mov-tabela-wrap">
+                            <table class="custom-table-labs mov-tabela">
+                                <thead>
+                                    <tr>
+                                        <th>Data e hora</th>
+                                        <th>Produto</th>
+                                        <th>Tipo</th>
+                                        <th class="num">Qtd</th>
+                                        <th class="num">Custo unit.</th>
+                                        <th class="num">Saldo após</th>
+                                        <th>Origem</th>
+                                        <th>Observação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mov-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div class="mov-rodape">
+                            <span id="mov-contagem" class="mov-contagem"></span>
+                            <div class="mov-acoes">
+                                <button type="button" id="mov-mais" class="btn-ghost-labs" hidden>Mostrar mais</button>
+                                <button type="button" id="mov-xlsx" class="btn-ghost-labs"><i class="bx bx-spreadsheet"></i> Excel (.xlsx)</button>
+                                <button type="button" id="mov-pdf" class="btn-ghost-labs"><i class="bx bxs-file-pdf"></i> PDF</button>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Customers View -->
@@ -498,10 +676,12 @@
                         </div>
                         <button class="btn-save" onclick="app.openModal('customer')">Novo Cliente</button>
                     </div>
+                    <div id="fiado-pendentes" class="fiado-pendentes hidden"></div>
                     <div id="customers-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
                         <div class="list-header-labs">
                             <span class="col-id">ID</span>
                             <span class="col-name">NOME DO CLIENTE</span>
+                            <span class="col-fiado">FIADO</span>
                             <span class="col-whatsapp">WHATSAPP</span>
                             <span class="col-date">DATA CADASTRO</span>
                             <span class="col-obs">OBSERVAÇÕES / ENDEREÇO</span>
@@ -590,6 +770,10 @@
                             <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('notificacoes')">
                                 <i data-lucide="bell"></i>
                                 <span>Notificações</span>
+                            </button>
+                            <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('relatorios')">
+                                <i data-lucide="receipt"></i>
+                                <span>Relatórios</span>
                             </button>
                             <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('aparencia')" hidden>
                                 <i data-lucide="monitor"></i>
@@ -697,7 +881,7 @@
                                         <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                                             <i data-lucide="info" style="width: 20px; height: 20px; color: #7fa58e; flex-shrink: 0; margin-top: 2px;"></i>
                                             <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-dim);">
-                                                <strong style="color: var(--text-white); display: block; margin-bottom: 0.25rem;">💡 Informação de Segurança</strong>
+                                                <strong style="color: var(--text-white); display: block; margin-bottom: 0.25rem;">Informação de Segurança</strong>
                                                 Por questões de segurança, <strong>usuários e senhas NÃO são incluídos nos backups</strong>. 
                                                 Se você restaurar um backup em outro computador, será necessário recriar os usuários manualmente.
                                                 As senhas são protegidas com hash PBKDF2 (100.000 iterações, SHA-256) com salt e nunca são armazenadas em texto puro.
@@ -808,6 +992,124 @@
                                 </div>
                             </section>
 
+                            <!-- Seção Relatórios: período, informações e formato, sem rolagem em 1366x768 -->
+                            <section id="sv-section-relatorios" class="sv-settings-section">
+                                <div class="sv-settings-card rel-pagina">
+                                    <div class="rel-cabecalho">
+                                        <h4>Exportar Relatórios</h4>
+                                        <p>Escolha o período, as informações e o formato. O arquivo é baixado para o seu computador.</p>
+                                    </div>
+
+                                    <div class="rel-grade">
+                                        <div class="rel-coluna">
+                                            <div class="rel-bloco">
+                                                <div class="rel-bloco-titulo"><span class="rel-passo">1</span> Período</div>
+                                                <div class="rel-chips" role="group" aria-label="Período do relatório">
+                                                    <button type="button" class="rel-chip" data-periodo="hoje" onclick="app.selecionarPeriodoRelatorio('hoje')">Hoje</button>
+                                                    <button type="button" class="rel-chip" data-periodo="7dias" onclick="app.selecionarPeriodoRelatorio('7dias')">Últimos 7 dias</button>
+                                                    <button type="button" class="rel-chip" data-periodo="mes" onclick="app.selecionarPeriodoRelatorio('mes')">Mês atual</button>
+                                                    <button type="button" class="rel-chip" data-periodo="mes_anterior" onclick="app.selecionarPeriodoRelatorio('mes_anterior')">Mês anterior</button>
+                                                    <button type="button" class="rel-chip" data-periodo="ano" onclick="app.selecionarPeriodoRelatorio('ano')">Ano atual</button>
+                                                    <button type="button" class="rel-chip" data-periodo="todos" onclick="app.selecionarPeriodoRelatorio('todos')">Todos os períodos</button>
+                                                    <button type="button" class="rel-chip" data-periodo="personalizado" onclick="app.selecionarPeriodoRelatorio('personalizado')">Personalizado</button>
+                                                </div>
+                                                <!-- Mesma altura nos dois modos: texto (atalhos) ou datas (personalizado) -->
+                                                <div class="rel-periodo-linha">
+                                                    <p class="rel-nota" id="rel-periodo-texto"></p>
+                                                    <div class="rel-datas" id="rel-datas" hidden>
+                                                        <label class="rel-campo">
+                                                            <span>De</span>
+                                                            <input type="date" id="rel-inicio" onchange="app.dataRelatorioAlterada()">
+                                                        </label>
+                                                        <label class="rel-campo">
+                                                            <span>Até</span>
+                                                            <input type="date" id="rel-fim" onchange="app.dataRelatorioAlterada()">
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="rel-bloco">
+                                                <div class="rel-bloco-titulo"><span class="rel-passo">3</span> Formato</div>
+                                                <div class="rel-formatos" role="group" aria-label="Formato do arquivo">
+                                                    <button type="button" class="rel-formato" data-formato="xlsx" onclick="app.selecionarFormatoRelatorio('xlsx')">
+                                                        <span class="rel-formato-icone xlsx"><i data-lucide="layout-grid"></i></span>
+                                                        <span class="rel-formato-texto">
+                                                            <strong>Planilha Excel</strong>
+                                                            <small>.xlsx · uma aba por relatório</small>
+                                                        </span>
+                                                    </button>
+                                                    <button type="button" class="rel-formato" data-formato="pdf" onclick="app.selecionarFormatoRelatorio('pdf')">
+                                                        <span class="rel-formato-icone pdf"><i data-lucide="printer"></i></span>
+                                                        <span class="rel-formato-texto">
+                                                            <strong>Documento PDF</strong>
+                                                            <small>.pdf · para imprimir</small>
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="rel-coluna">
+                                            <div class="rel-bloco">
+                                                <div class="rel-bloco-titulo">
+                                                    <span class="rel-passo">2</span> Informações
+                                                    <span class="rel-acoes-rapidas">
+                                                        <button type="button" onclick="app.marcarTodosRelatorios(true)">Marcar todos</button>
+                                                        <button type="button" onclick="app.marcarTodosRelatorios(false)">Desmarcar</button>
+                                                    </span>
+                                                </div>
+                                                <div class="rel-lista">
+                                                    <label class="rel-item" id="rel-opcao-vendas">
+                                                        <input type="checkbox" id="rel-vendas" checked onchange="app.atualizarResumoRelatorio()">
+                                                        <span class="rel-item-icone"><i data-lucide="line-chart"></i></span>
+                                                        <span class="rel-item-texto">
+                                                            <strong>Vendas por período</strong>
+                                                            <small>Quantidade, faturamento, custo, lucro e ticket</small>
+                                                        </span>
+                                                        <select id="rel-agrupar" class="rel-select" onclick="event.stopPropagation()" onchange="app.atualizarResumoRelatorio()" aria-label="Agrupar vendas">
+                                                            <option value="dia">Por dia</option>
+                                                            <option value="mes">Por mês</option>
+                                                        </select>
+                                                    </label>
+                                                    <label class="rel-item" id="rel-opcao-lucro">
+                                                        <input type="checkbox" id="rel-lucro" checked onchange="app.atualizarResumoRelatorio()">
+                                                        <span class="rel-item-icone"><i data-lucide="trending-up"></i></span>
+                                                        <span class="rel-item-texto">
+                                                            <strong>Lucro por produto</strong>
+                                                            <small>Quantidade, receita, custo, lucro e margem</small>
+                                                        </span>
+                                                    </label>
+                                                    <label class="rel-item" id="rel-opcao-estoque">
+                                                        <input type="checkbox" id="rel-estoque" checked onchange="app.atualizarResumoRelatorio()">
+                                                        <span class="rel-item-icone"><i data-lucide="package"></i></span>
+                                                        <span class="rel-item-texto">
+                                                            <strong>Estoque atual</strong>
+                                                            <small>Saldo, custo, valor parado e situação</small>
+                                                        </span>
+                                                    </label>
+                                                    <label class="rel-item" id="rel-opcao-pagamentos">
+                                                        <input type="checkbox" id="rel-pagamentos" checked onchange="app.atualizarResumoRelatorio()">
+                                                        <span class="rel-item-icone"><i data-lucide="credit-card"></i></span>
+                                                        <span class="rel-item-texto">
+                                                            <strong>Recebimentos por pagamento</strong>
+                                                            <small>Valor recebido em dinheiro, cartão e PIX</small>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                                <p class="rel-nota">Estoque atual não depende do período.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="rel-rodape">
+                                        <p class="rel-resumo" id="rel-resumo"></p>
+                                        <button type="button" class="btn-save-labs rel-exportar" id="rel-exportar" onclick="app.exportarRelatorios()">
+                                            <i data-lucide="download"></i> Exportar relatório
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
                         </main>
                     </div>
                 </section>
@@ -948,6 +1250,66 @@
                 <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
                     <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Cancelar</button>
                     <button class="btn-save-labs" id="sale-edit-salvar" onclick="app.salvarEdicaoVenda()" style="flex: 1;">Salvar alterações</button>
+                </div>
+            </div>
+
+            <!-- Modal Receber Fiado (somente leitura do saldo e do rateio) -->
+            <div id="fiado-modal" class="modal hidden" style="max-width: 560px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 id="fiado-titulo" style="margin: 0;">Receber fiado</h3>
+                    <button class="btn-action-delete" onclick="app.closeModal()" title="Fechar">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="fiado-totais">
+                    <div class="fiado-total-card"><span>Total a prazo</span><strong id="fiado-total">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-pago"><span>Já pago</span><strong id="fiado-pago">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-falta"><span>Falta pagar</span><strong id="fiado-saldo">R$ 0,00</strong></div>
+                </div>
+                <div class="fiado-subtitulo">Vendas a prazo</div>
+                <div id="fiado-lista" class="fiado-lista"></div>
+                <div class="fiado-subtitulo">Pagamentos recebidos</div>
+                <div id="fiado-recebidos" class="fiado-lista"></div>
+                <div class="modal-grid-labs" style="grid-template-columns: 1fr 1fr; margin-top: 1rem;">
+                    <div class="input-group-labs">
+                        <label class="input-label-labs">VALOR RECEBIDO (parcial ou total)</label>
+                        <input type="number" id="fiado-valor" class="glass-input-labs" inputmode="decimal" step="0.01" min="0.01" autocomplete="off" oninput="app.atualizarPreviaFiado()">
+                    </div>
+                    <div class="input-group-labs">
+                        <label class="input-label-labs">FORMA</label>
+                        <select id="fiado-forma" class="glass-input-labs">
+                            <option value="dinheiro">Dinheiro</option>
+                            <option value="cartao">Cartão</option>
+                            <option value="pix">PIX</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="fiado-previa" class="fiado-previa"></div>
+                <div id="fiado-erro" class="login-error-msg hidden" style="margin-top: 0.75rem;"></div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Cancelar</button>
+                    <button class="btn-save-labs" id="fiado-confirmar" onclick="app.confirmarRecebimentoFiado()" style="flex: 1;">Registrar recebimento</button>
+                </div>
+            </div>
+
+            <!-- Modal Extrato do cliente (fiado) -->
+            <div id="extrato-modal" class="modal hidden" style="max-width: 720px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 id="extrato-titulo" style="margin: 0;">Extrato</h3>
+                    <button class="btn-action-delete" onclick="app.closeModal()" title="Fechar">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="fiado-totais">
+                    <div class="fiado-total-card"><span>Total a prazo</span><strong id="extrato-total">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-pago"><span>Já pago</span><strong id="extrato-pago">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-falta"><span>Falta pagar</span><strong id="extrato-falta">R$ 0,00</strong></div>
+                </div>
+                <div class="fiado-subtitulo">Movimentos (do mais antigo ao mais recente)</div>
+                <div id="extrato-lista" class="extrato-lista"></div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Fechar</button>
+                    <button class="btn-save-labs" id="extrato-receber" onclick="app.abrirRecebimentoFiado(app.state.extratoClienteId)" style="flex: 1;">Receber</button>
                 </div>
             </div>
 
@@ -1210,6 +1572,16 @@
                             <input type="email" id="cust-email" placeholder="cliente@email.com" class="glass-input-labs" autocomplete="off">
                         </div>
                     </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">LIMITE DE CRÉDITO (R$)</label>
+                            <input type="number" id="cust-limite" min="0" step="0.01" placeholder="Sem limite" class="glass-input-labs" autocomplete="off">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">PRAZO PARA PAGAR (DIAS)</label>
+                            <input type="number" id="cust-prazo" min="0" max="3650" step="1" placeholder="Sem prazo" class="glass-input-labs" autocomplete="off">
+                        </div>
+                    </div>
                     <div style="margin-bottom: 1.5rem;">
                         <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; display: block;">OBSERVAÇÕES / ENDEREÇO</label>
                         <textarea id="cust-obs" class="glass-input-labs" style="height: 80px; resize: none;" placeholder="Informações adicionais..." autocomplete="off"></textarea>
@@ -1405,10 +1777,14 @@
     </div>
 
     <script src="estoque.js"></script>
+    <script src="historico_movimentos.js"></script>
+    <script src="fiado.js"></script>
     <script src="sha256.js"></script>
     <script src="api.js"></script>
     <script src="edicao_venda.js"></script>
     <script src="backup.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="relatorios.js"></script>
     <script src="app.js"></script>
     <script src="tabela.js"></script>
     
