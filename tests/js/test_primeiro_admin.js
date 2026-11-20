@@ -81,6 +81,28 @@ function servidorFalso(extra = {}) {
 const testes = [];
 const teste = (nome, fn) => testes.push([nome, fn]);
 
+teste('banco vazio com servidor não cria dados de demonstração nem grava nada no servidor', async () => {
+  const servidor = servidorFalso({
+    lerDados: async () => '[]',
+    listarUsuarios: async () => []
+  });
+  const { app, ctx } = criarAmbiente({ servidor });
+  ctx.SvServidor = { origemDeDados: (s) => ({ GetData: async (t) => s.lerDados(t), SaveChanges: async (j) => { await s.salvarAlteracoes(JSON.parse(j)); return true; } }) };
+  app.state.dataLoaded = false; app.state.products = []; app.state.customers = []; app.state.sales = [];
+  await app.carregarDados();
+  assert.strictEqual(app.state.products.length, 0);
+  assert.strictEqual(app.state.customers.length, 0);
+  assert.strictEqual(servidor.salvos, 0);
+});
+
+teste('sem servidor, banco vazio continua mostrando os dados de demonstração', async () => {
+  const { app, ctx } = criarAmbiente({ servidor: null });
+  app.state.dataLoaded = false; app.state.products = []; app.state.customers = []; app.state.sales = [];
+  ctx.localStorage._d = {};
+  await app.carregarDados();
+  assert.strictEqual(app.state.products.length, 2);
+});
+
 teste('banco sem usuários mostra o formulário do primeiro administrador (e esconde o login)', async () => {
   const { app, elementos } = criarAmbiente({ servidor: servidorFalso() });
   await app.verificarPrimeiroAdministrador();

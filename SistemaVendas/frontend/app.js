@@ -2958,7 +2958,9 @@ const app = {
 
         this.iniciarHistoricoEstoque();
 
-        if (this.state.products.length === 0 && !window.chrome?.webview) {
+        // Dados de demonstração só no modo local (sem servidor e sem desktop). Com servidor, criar e gravar
+        // esses itens sujaria o banco central (ex.: depois de apagar todos os dados).
+        if (this.state.products.length === 0 && !this.servidor && !window.chrome?.webview) {
             this.state.products = [
                 { id: '1', name: 'MacBook Pro M3', code: '1001', cost: 8000, price: 14500, stock: 5, image: '' },
                 { id: '2', name: 'iPhone 15 Pro', code: '1002', cost: 4500, price: 8900, stock: 12, image: '' }
