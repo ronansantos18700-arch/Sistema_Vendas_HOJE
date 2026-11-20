@@ -13,55 +13,17 @@
     // Cada tabela: contêiner que recebe as linhas, host onde fica a paginação
     // e o cabeçalho com as colunas (na mesma ordem das células).
     const TABELAS = [
-        { container: 'products-items-container', host: 'products-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card', pageSize: 7, pageSizeCards: 8, rowHeight: 52 },
-        { container: 'customers-items-container', host: 'customers-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row', pageSize: 7, rowHeight: 56 },
-        { container: 'history-items-container', host: 'history-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row', pageSize: 7, rowHeight: 52 },
-        { container: 'entradas-items-container', host: 'entradas-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card', pageSize: 7, pageSizeCards: 8, rowHeight: 48 },
-        { container: 'estoque-grid', host: 'estoque-grid', tabela: true, pageSize: 7, rowHeight: 48 },
+        { container: 'products-items-container', host: 'products-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card', pageSize: 7, pageSizeCards: 8 },
+        { container: 'customers-items-container', host: 'customers-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row', pageSize: 7 },
+        { container: 'history-items-container', host: 'history-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row', pageSize: 7 },
+        { container: 'entradas-items-container', host: 'entradas-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card', pageSize: 7, pageSizeCards: 8 },
+        { container: 'estoque-grid', host: 'estoque-grid', tabela: true, pageSize: 7 },
     ];
 
-    function calcularLinhasQueCabem(cfg, container, linhas) {
-        if (typeof window === 'undefined' || !window.innerHeight) return null;
-        if (window.innerWidth && window.innerWidth <= 900) return null;
-        if (container && container.dataset && container.dataset.visao === 'cards') return null;
-        const host = hostDe(cfg, container);
-        if (!host || typeof host.getBoundingClientRect !== 'function') return null;
-        const rect = host.getBoundingClientRect();
-        if (!rect || rect.width <= 0 || rect.top <= 0) return null;
-
-        const cab = cabecalhoDe(cfg, container);
-        const cabH = cab && typeof cab.getBoundingClientRect === 'function'
-            ? Math.max(36, cab.getBoundingClientRect().height || 38)
-            : 38;
-        const pagerH = 46;
-        const margemInferior = 18;
-        const disponivel = window.innerHeight - rect.top - cabH - pagerH - margemInferior;
-        if (disponivel < 160) return 4;
-
-        let linhaH = cfg.rowHeight || 52;
-        if (Array.isArray(linhas)) {
-            let maxMedido = 0;
-            let amostras = 0;
-            for (let i = 0; i < linhas.length && amostras < 5; i++) {
-                const l = linhas[i];
-                if (!l || l.hidden || typeof l.getBoundingClientRect !== 'function') continue;
-                const h = l.getBoundingClientRect().height;
-                if (h >= 36 && h <= 84) {
-                    if (h > maxMedido) maxMedido = h;
-                    amostras++;
-                }
-            }
-            if (maxMedido > 0) linhaH = Math.max(linhaH, Math.ceil(maxMedido));
-        }
-        return Math.max(4, Math.min(15, Math.floor(disponivel / linhaH)));
-    }
-
-    function pageSizeDe(cfg, container, linhas) {
+    function pageSizeDe(cfg, container) {
         if (container && container.dataset && container.dataset.visao === 'cards' && cfg.pageSizeCards) {
             return cfg.pageSizeCards;
         }
-        const ajustado = calcularLinhasQueCabem(cfg, container, linhas);
-        if (ajustado !== null) return ajustado;
         return cfg.pageSize || PAGE_SIZE;
     }
 
@@ -187,7 +149,7 @@
     function paginar(cfg, container, st) {
         const linhas = linhasDe(cfg, container);
         const total = linhas.length;
-        const porPagina = pageSizeDe(cfg, container, linhas);
+        const porPagina = pageSizeDe(cfg, container);
         const pags = Math.max(1, Math.ceil(total / porPagina));
         if (st.page > pags) st.page = pags;
         if (st.page < 1) st.page = 1;
@@ -295,11 +257,6 @@
         if (cfg) prepararCabecalho(cfg, container, st);
     }
 
-    function reajustarTodas() {
-        if (typeof document === 'undefined') return;
-        TABELAS.forEach(cfg => aplicar(cfg, false));
-    }
-
     function iniciar() {
         if (typeof document === 'undefined') return;
         TABELAS.forEach(cfg => {
@@ -311,16 +268,9 @@
             obs.observe(container, opcoes);
             aplicar(cfg, false);
         });
-        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-            let timer = null;
-            window.addEventListener('resize', () => {
-                clearTimeout(timer);
-                timer = setTimeout(reajustarTodas, 120);
-            });
-        }
     }
 
-    const API = { chaveDe, comparar, resetarOrdenacao, reajustarTodas, PAGE_SIZE };
+    const API = { chaveDe, comparar, resetarOrdenacao, PAGE_SIZE };
     raiz.Tabela = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 

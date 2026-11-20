@@ -598,7 +598,7 @@
                             <button class="btn-save" onclick="app.openModal('product')">Novo Produto</button>
                         </div>
                     </div>
-                    <div id="products-list-labs" class="glass-inner">
+                    <div id="products-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
                         <div class="list-header-labs">
                             <span class="col-id">ID</span>
                             <span class="col-product">PRODUTO</span>
@@ -606,7 +606,7 @@
                             <span class="col-cost">CUSTO</span>
                             <span class="col-price">VENDA</span>
                             <span class="col-stock">ESTOQUE</span>
-                            <span class="col-actions">AÇÕES</span>
+                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
                         </div>
                         <div id="products-items-container">
                             <!-- Dynamic items -->
@@ -667,24 +667,14 @@
                         <div id="mov-totais" class="mov-totais"></div>
                         <div class="table-container-labs mov-tabela-wrap">
                             <table class="custom-table-labs mov-tabela">
-                                <colgroup>
-                                    <col style="width: 14%;">
-                                    <col style="width: 18%;">
-                                    <col style="width: 11%;">
-                                    <col style="width: 7%;">
-                                    <col style="width: 10%;">
-                                    <col style="width: 9%;">
-                                    <col style="width: 11%;">
-                                    <col style="width: 20%;">
-                                </colgroup>
                                 <thead>
                                     <tr>
-                                        <th>Data / hora</th>
+                                        <th>Data e hora</th>
                                         <th>Produto</th>
                                         <th>Tipo</th>
                                         <th class="num">Qtd</th>
-                                        <th class="num">Custo</th>
-                                        <th class="num">Saldo</th>
+                                        <th class="num">Custo unit.</th>
+                                        <th class="num">Saldo após</th>
                                         <th>Origem</th>
                                         <th>Observação</th>
                                     </tr>
@@ -723,15 +713,15 @@
                         <button type="button" class="btn-save" onclick="app.openModal('customer')">Novo Cliente</button>
                     </div>
                     <div id="fiado-pendentes" class="fiado-pendentes hidden"></div>
-                    <div id="customers-list-labs" class="glass-inner">
+                    <div id="customers-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
                         <div class="list-header-labs">
                             <span class="col-id">ID</span>
-                            <span class="col-name">CLIENTE</span>
+                            <span class="col-name">NOME DO CLIENTE</span>
                             <span class="col-fiado">FIADO</span>
                             <span class="col-whatsapp">WHATSAPP</span>
-                            <span class="col-date">CADASTRO</span>
-                            <span class="col-obs">OBSERVAÇÕES</span>
-                            <span class="col-actions">AÇÕES</span>
+                            <span class="col-date">DATA CADASTRO</span>
+                            <span class="col-obs">OBSERVAÇÕES / ENDEREÇO</span>
+                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
                         </div>
                         <div id="customers-items-container">
                             <!-- Dynamic items -->
@@ -757,17 +747,19 @@
                             <button type="button" id="btn-clear-history-filters" class="btn-limpar-filtros hidden">Limpar filtros</button>
                         </div>
                     </div>
-                    <div id="history-list-labs" class="glass-inner">
+                    <div id="history-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
                         <div class="list-header-labs">
                             <span class="col-id">ID</span>
                             <span class="col-date">DATA</span>
                             <span class="col-name">CLIENTE</span>
-                            <span class="col-total-final">VALOR FINAL</span>
+                            <span class="col-subtotal">TOTAL</span>
+                            <span class="col-discount">DESC.</span>
+                            <span class="col-total-final">FINAL</span>
                             <span class="col-cost">CUSTO</span>
                             <span class="col-profit">LUCRO</span>
                             <span class="col-items-action">ITENS</span>
                             <span class="col-payment">PAGAMENTO</span>
-                            <span class="col-actions">AÇÕES</span>
+                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
                         </div>
                         <div id="history-items-container">
                             <!-- Dynamic items -->
@@ -793,7 +785,7 @@
                         </button>
                         </div>
                     </div>
-                    <div id="entradas-list-labs" class="glass-inner">
+                    <div id="entradas-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px; overflow: hidden;">
                         <div class="list-header-labs">
                             <span class="col-id">ID</span>
                             <span class="col-date">DATA</span>
@@ -801,7 +793,7 @@
                             <span class="col-code">Nº NOTA</span>
                             <span class="col-qty-sum">ITENS</span>
                             <span class="col-price">CUSTO TOTAL</span>
-                            <span class="col-actions">AÇÕES</span>
+                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
                         </div>
                         <div id="entradas-items-container">
                             <!-- Dynamic items -->

@@ -1451,10 +1451,6 @@ const app = {
         if (viewId === 'entradas') this.renderEntradas();
         if (viewId === 'estoque') this.renderEstoque();
 
-        if (typeof requestAnimationFrame === 'function' && window.Tabela && typeof window.Tabela.reajustarTodas === 'function') {
-            requestAnimationFrame(() => window.Tabela.reajustarTodas());
-        }
-
         this.initLucide();
     },
 
@@ -4722,7 +4718,6 @@ const app = {
 
             const cat = this.state.categories.find(c => c.id === p.category);
             const categoryBadge = cat ? `<span class="category-badge">${this.esc(cat.name)}</span>` : '';
-            const obsTexto = p.obs ? this.esc(p.obs) : '';
 
             return `
                 <div class="nested-item-labs-row">
@@ -4730,14 +4725,12 @@ const app = {
                     <div class="col-product" data-label="PRODUTO">
                         ${avatar}
                         <div class="product-info-mini">
-                            <div class="product-title-line">
-                                <span class="product-name-mini" title="${this.esc(p.name)}">${this.esc(p.name)}</span>
-                                ${categoryBadge}
-                            </div>
-                            ${obsTexto ? `<span class="product-obs-mini" title="${obsTexto}">${obsTexto}</span>` : ''}
+                            <span class="product-name-mini">${this.esc(p.name)}</span>
+                            ${categoryBadge}
+                            <span class="product-obs-mini">${this.esc(p.obs) || 'Sem observação'}</span>
                         </div>
                     </div>
-                    <span class="col-code" data-label="CÓDIGO" title="${this.esc(p.code) || 'N/A'}">${this.esc(p.code) || '—'}</span>
+                    <span class="col-code" data-label="CÓDIGO">${this.esc(p.code) || 'N/A'}</span>
                     <span class="col-cost num" data-label="CUSTO" data-sort="${Number(p.cost) || 0}">${this.formatCurrency(p.cost)}</span>
                     <span class="col-price num" data-label="VENDA" data-sort="${Number(p.price) || 0}">${this.formatCurrency(p.price)}</span>
                     <div class="col-stock" data-label="ESTOQUE" data-sort="${Number(p.stock) || 0}">
@@ -5015,11 +5008,11 @@ const app = {
             return `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
-                    <span class="col-name" data-label="CLIENTE" title="${this.esc(c.name)}">${this.esc(c.name)}</span>
+                    <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
                     <span class="col-fiado" data-label="FIADO" data-sort="${sortFiado}">${textoFiado(r, atrasos.get(String(c.id)))}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
-                    <span class="col-date" data-label="CADASTRO" data-sort="${dataCad ? dataCad.getTime() : 0}">${dataCad ? dataCad.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</span>
-                    <span class="col-obs" data-label="OBSERVAÇÕES" title="${this.esc(c.obs) || ''}">${this.esc(c.obs) || '—'}</span>
+                    <span class="col-date" data-label="DATA" data-sort="${dataCad ? dataCad.getTime() : 0}">${dataCad ? dataCad.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
+                    <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
                     <div class="col-actions" data-label="AÇÕES">
                         ${receber}
                         ${extrato}
@@ -5331,31 +5324,20 @@ const app = {
             const pagamento = this.rotuloPagamento(s);
             const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty ?? item.qtySold) || 0), 0) : 0;
 
-            const descHtml = desconto > 0
-                ? `<small class="col-desconto-inline">Desc. ${this.formatCurrency(desconto)}</small>`
-                : '';
-            const totalTitle = desconto > 0
-                ? `Subtotal ${this.formatCurrency(subtotal)} · Desconto ${this.formatCurrency(desconto)}`
-                : this.formatCurrency(totalFinal);
-            const pagNorm = pagamento.toLowerCase();
-            const pagTom = pagNorm.includes('pix') ? 'pix'
-                : pagNorm.includes('cart') ? 'cartao'
-                : pagNorm.includes('dinheiro') ? 'dinheiro'
-                : pagNorm.includes('fiado') ? 'fiado'
-                : 'misto';
-
             return `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${id.toString().slice(-4)}</span>
                     <span class="col-date" data-label="DATA" data-sort="${dObj ? dObj.getTime() : 0}">${dataTxt}${horaTxt ? `<small class="col-date-hora">${horaTxt}</small>` : ''}</span>
-                    <span class="col-name" data-label="CLIENTE" title="${this.esc(cliente)}">${this.esc(cliente)}</span>
-                    <span class="col-total-final num" data-label="VALOR FINAL" data-sort="${totalFinal}" title="${totalTitle}"><strong>${this.formatCurrency(totalFinal)}</strong>${descHtml}${this.statusFiadoVendaHtml(s)}</span>
+                    <span class="col-name" data-label="CLIENTE">${this.esc(cliente)}</span>
+                    <span class="col-subtotal num" data-label="TOTAL" data-sort="${subtotal}">${this.formatCurrency(subtotal)}</span>
+                    <span class="col-discount num" data-label="DESC." data-sort="${desconto}">${this.formatCurrency(desconto)}</span>
+                    <span class="col-total-final num" data-label="FINAL" data-sort="${totalFinal}">${this.formatCurrency(totalFinal)}${this.statusFiadoVendaHtml(s)}</span>
                     <span class="col-cost num" data-label="CUSTO" data-sort="${custo}">${this.formatCurrency(custo)}</span>
-                    <span class="col-profit num ${lucro < 0 ? 'valor-negativo' : ''}" data-label="LUCRO" data-sort="${lucro}">${this.formatCurrency(lucro)}</span>
+                    <span class="col-profit num" data-label="LUCRO" data-sort="${lucro}">${this.formatCurrency(lucro)}</span>
                     <div class="col-items-action" data-label="ITENS" data-sort="${itemsCount}">
                         <button type="button" class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver itens da venda (${itemsCount} un.)" aria-label="Ver itens da venda"><i class="bx bx-list-ul"></i>Ver</button>
                     </div>
-                    <span class="col-payment" data-label="PAGAMENTO" title="${this.esc(pagamento)}"><span class="pay-badge pay-badge-${pagTom}">${this.esc(pagamento)}</span></span>
+                    <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
                     <div class="col-actions" data-label="AÇÕES">
                         <button type="button" class="btn-action-edit" title="Editar venda" aria-label="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
                         <button type="button" class="btn-action-view" title="Gerar Recibo" aria-label="Gerar recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
@@ -6552,22 +6534,20 @@ const app = {
         }
         container.innerHTML = filtered.map(e => {
             const dEnt = this.parseDate(e.date);
-            const forn = this.esc(e.fornecedor || '—');
-            const nota = this.esc(e.nota || '—');
             return `
             <div class="nested-item-labs-row">
                 <span class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</span>
-                <span class="col-date" data-label="DATA" data-sort="${dEnt ? dEnt.getTime() : 0}">${dEnt ? dEnt.toLocaleDateString('pt-BR') : '—'}</span>
-                <span class="col-name" data-label="FORNECEDOR" title="${forn}">${forn}</span>
-                <span class="col-code" data-label="Nº NOTA" title="${nota}">${nota}</span>
+                <span class="col-date" data-label="DATA" data-sort="${dEnt ? dEnt.getTime() : 0}">${dEnt ? dEnt.toLocaleDateString('pt-BR') : 'N/A'}</span>
+                <span class="col-name" data-label="FORNECEDOR">${this.esc(e.fornecedor || '---')}</span>
+                <span class="col-code" data-label="Nº NOTA">${this.esc(e.nota || '---')}</span>
                 <span class="col-qty-sum num" data-label="ITENS" data-sort="${e.items.length}">${e.items.length} itens</span>
-                <span class="col-price num" data-label="CUSTO TOTAL" data-sort="${Number(e.totalCusto) || 0}">${this.formatCurrency(e.totalCusto)}</span>
-                <div class="col-actions" data-label="AÇÕES">
+                <span class="col-price num" data-label="CUSTO" data-sort="${Number(e.totalCusto) || 0}">${this.formatCurrency(e.totalCusto)}</span>
+                <div class="col-actions" data-label="AÇÕES" style="justify-content: flex-end;">
                     <button type="button" class="btn-action-view" onclick="app.showEntradaDetails('${e.id}')" title="Ver Detalhes" aria-label="Ver detalhes da entrada">
-                        <i data-lucide="eye"></i>
+                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
                     </button>
                     <button type="button" class="btn-action-delete" onclick="app.deleteEntrada('${e.id}')" title="Excluir Entrada" aria-label="Excluir entrada">
-                        <i data-lucide="trash-2"></i>
+                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                     </button>
                 </div>
             </div>
@@ -6594,10 +6574,10 @@ const app = {
                 ? `<button type="button" class="btn-action-edit" onclick="app.adjustStock('${this.esc(id)}', 2)" title="Ajustar estoque" aria-label="Ajustar estoque"><i data-lucide="edit-3"></i></button>`
                 : '';
             return '<tr class="estoque-linha estoque-' + nv + '">'
-                + '<td><div class="estoque-nome-tab"><strong title="' + this.esc(p.name) + '">' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
+                + '<td><div class="estoque-nome-tab"><strong>' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
                 + '<td class="num" data-sort="' + qtd + '">' + qtd + '</td>'
                 + '<td class="col-center"><span class="estoque-status">' + rotulo[nv] + '</span></td>'
-                + '<td data-sort="' + sortCobertura + '" title="' + cobertura + '">' + cobertura + '</td>'
+                + '<td data-sort="' + sortCobertura + '">' + cobertura + '</td>'
                 + '<td class="num" data-sort="' + vendas + '">' + vendas + ' un.</td>'
                 + '<td class="num" data-sort="' + capital + '">' + moeda(capital) + '</td>'
                 + '<td data-sort="' + (ultimaMov[id] || 0) + '">' + ultima + '</td>'
@@ -6605,8 +6585,7 @@ const app = {
                 + '</tr>';
         }).join('');
         return '<div class="table-container-labs"><table class="custom-table-labs estoque-tabela">'
-            + '<colgroup><col style="width:23%"><col style="width:8%"><col style="width:11%"><col style="width:12%"><col style="width:11%"><col style="width:15%"><col style="width:11%"><col style="width:9%"></colgroup>'
-            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th class="col-center">Situação</th><th>Cobertura</th><th class="num">Vendas 30d</th><th class="num">Valor em estoque</th><th>Última mov.</th><th class="col-actions-head">Ações</th></tr></thead>'
+            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th class="col-center">Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Valor em estoque</th><th>Última movimentação</th><th class="col-actions-head">Ações</th></tr></thead>'
             + '<tbody>' + linhas + '</tbody></table></div>';
     },
 
@@ -6702,34 +6681,6 @@ const app = {
         });
         document.getElementById('mov-xlsx')?.addEventListener('click', () => this.confirmarExportacaoMovimentacoes('xlsx'));
         document.getElementById('mov-pdf')?.addEventListener('click', () => this.confirmarExportacaoMovimentacoes('pdf'));
-        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-            let movResizeTimer = null;
-            window.addEventListener('resize', () => {
-                clearTimeout(movResizeTimer);
-                movResizeTimer = setTimeout(() => {
-                    const painel = document.getElementById('estoque-mov');
-                    if (painel && !painel.classList.contains('hidden')) this.renderMovimentacoes();
-                }, 140);
-            });
-        }
-    },
-
-    /** Quantas linhas de Movimentações cabem na altura útil da tela (desktop), mantendo 7 em testes/mobile. */
-    _movPageSizeAtual() {
-        const padrao = Math.max(1, Number(this._movEstado().pageSize) || 7);
-        if (typeof window === 'undefined' || !window.innerHeight || (window.innerWidth && window.innerWidth <= 900)) {
-            return padrao;
-        }
-        const wrap = document.querySelector('#estoque-mov .mov-tabela-wrap');
-        if (!wrap || typeof wrap.getBoundingClientRect !== 'function') return padrao;
-        const rect = wrap.getBoundingClientRect();
-        if (!rect || rect.width <= 0 || rect.top <= 0) return padrao;
-        const theadH = 38;
-        const rodapeH = 54;
-        const margem = 18;
-        const disponivel = window.innerHeight - rect.top - theadH - rodapeH - margem;
-        if (disponivel < 150) return 4;
-        return Math.max(4, Math.min(14, Math.floor(disponivel / 44)));
     },
 
     /** Intervalo do filtro de período, em dias YYYY-MM-DD (vazio = sem limite). */
@@ -6764,7 +6715,7 @@ const app = {
     renderMovimentacoes() {
         const estado = this._movEstado();
         const { filtradas, total } = this.movimentosFiltrados();
-        const porPagina = this._movPageSizeAtual();
+        const porPagina = Math.max(1, Number(estado.pageSize) || 7);
         const totalPags = Math.max(1, Math.ceil(filtradas.length / porPagina));
         if (!Number.isInteger(estado.page) || estado.page < 1) estado.page = 1;
         if (estado.page > totalPags) estado.page = totalPags;
@@ -6812,18 +6763,15 @@ const app = {
                     const qtd = l.qtd > 0 ? `+${l.qtd}` : `${l.qtd}`;
                     const custo = l.custoUnit == null ? '—' : this.formatCurrency(l.custoUnit);
                     const tag = l.ignorada ? ' <span class="mov-tag-ignorada">ignorada</span>' : '';
-                    const prodEsc = this.esc(l.produto);
-                    const origEsc = this.esc(l.origem);
-                    const obsEsc = this.esc(l.obs) || '—';
                     return `<tr class="${l.ignorada ? 'mov-apagada' : ''}">`
                         + `<td>${HistoricoMov.dataHoraBr(l.data)}</td>`
-                        + `<td title="${prodEsc}">${prodEsc}</td>`
+                        + `<td>${this.esc(l.produto)}</td>`
                         + `<td><span class="mov-tipo-tag mov-tipo-${l.tipo}">${this.esc(l.rotulo)}</span>${tag}</td>`
                         + `<td class="num">${qtd}</td>`
                         + `<td class="num">${custo}</td>`
                         + `<td class="num">${l.saldoApos == null ? '—' : l.saldoApos}</td>`
-                        + `<td title="${origEsc}">${origEsc}</td>`
-                        + `<td title="${obsEsc}">${obsEsc}</td>`
+                        + `<td>${this.esc(l.origem)}</td>`
+                        + `<td>${this.esc(l.obs) || '—'}</td>`
                         + '</tr>';
                 }).join('');
             }

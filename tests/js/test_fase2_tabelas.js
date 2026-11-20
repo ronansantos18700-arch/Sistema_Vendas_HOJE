@@ -589,10 +589,8 @@ function criarAmbienteApp() {
         assert.ok(modalHeaders.length >= 3, 'os 3 cabeçalhos de tabela em modal devem usar .modal-list-header');
         assert.ok(html.includes('id="mov-paginacao"') && html.includes('id="mov-prev"') && html.includes('id="mov-next"'), 'Movimentações deve ter paginação real');
         assert.ok(!html.includes('id="mov-mais"'), 'botão legado Mostrar mais removido em favor da paginação');
-        assert.ok(css.includes('overflow-x: auto;'), 'style.css deve habilitar rolagem horizontal segura no mobile/cards');
-        assert.ok(css.includes('overflow: hidden !important;'), 'tabelas no desktop não devem ultrapassar a tela nem gerar barra de rolagem');
-        assert.ok(css.includes('table-layout: fixed;'), 'tabelas nativas devem respeitar 100% da largura da tela');
-        assert.ok(css.includes('min-width: 0 !important;'), 'tabelas em grade não podem forçar largura maior que a tela');
+        assert.ok(css.includes('overflow-x: auto;'), 'style.css deve habilitar rolagem horizontal segura nas listas');
+        assert.ok(css.includes('overflow-y: visible !important;'), 'tabelas paginadas não devem ter rolagem vertical interna');
         assert.ok(css.includes('flex-direction: row !important;'), 'cabeçalhos e células numéricas devem alinhar em linha única');
         assert.ok(css.includes('/* Clientes: 7 colunas equilibradas'), 'style.css deve corrigir grade 7 colunas de Clientes');
         assert.ok(css.includes('.estoque-abas button {\n    width: auto;'), 'botões Produtos/Movimentações devem ter largura automática sem sobreposição');
