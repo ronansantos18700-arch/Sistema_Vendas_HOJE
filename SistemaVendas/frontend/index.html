@@ -217,6 +217,106 @@
                         </div>
                     </div>
 
+                    <!-- Estoque: só o que pede ação -->
+                    <div class="dash-secao">
+                        <div class="dash-secao-titulo">
+                            <h4>Estoque: o que precisa de atenção</h4>
+                            <span class="dash-nota">Ritmo de venda dos últimos 30 dias</span>
+                        </div>
+                        <div class="dash-kpis">
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Ruptura</span>
+                                <strong id="dash-est-ruptura">0%</strong>
+                                <small id="dash-est-ruptura-sub">0 de 0 produtos sem saldo</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Cobertura média</span>
+                                <strong id="dash-est-cobertura">—</strong>
+                                <small>tempo que o estoque atual dura</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Dinheiro parado</span>
+                                <strong id="dash-est-parado">R$ 0,00</strong>
+                                <small id="dash-est-parado-sub">0 produtos com saldo e sem venda</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Giro do estoque</span>
+                                <strong id="dash-est-giro">—</strong>
+                                <small>custo vendido ÷ valor em estoque</small>
+                            </div>
+                        </div>
+                        <div class="glass-inner dash-tabela-box">
+                            <div class="dash-tabela-titulo">Repor primeiro (5 mais urgentes)</div>
+                            <table class="custom-table-labs">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Saldo</th>
+                                        <th>Dura</th>
+                                        <th>Sugestão de compra</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-est-reposicao"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Vendas: rentabilidade, ritmo e clientes -->
+                    <div class="dash-secao">
+                        <div class="dash-secao-titulo">
+                            <h4>Vendas: rentabilidade e ritmo</h4>
+                            <span class="dash-nota">Período selecionado acima</span>
+                        </div>
+                        <div class="dash-kpis">
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Margem bruta</span>
+                                <strong id="dash-ven-margem">—</strong>
+                                <small id="dash-ven-margem-sub">lucro sobre faturamento</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Dia de pico</span>
+                                <strong id="dash-ven-dia">—</strong>
+                                <small>dia da semana com mais faturamento</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Horário de pico</span>
+                                <strong id="dash-ven-hora">—</strong>
+                                <small>hora com mais faturamento</small>
+                            </div>
+                            <div class="dash-kpi glass-inner">
+                                <span class="dash-kpi-rotulo">Recorrência</span>
+                                <strong id="dash-ven-recorrencia">—</strong>
+                                <small id="dash-ven-recorrencia-sub">clientes com 2 ou mais compras</small>
+                            </div>
+                        </div>
+                        <div class="glass-inner dash-tabela-box">
+                            <div class="dash-tabela-titulo">Lucro por produto (5 maiores)</div>
+                            <table class="custom-table-labs">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Qtd</th>
+                                        <th>Lucro</th>
+                                        <th>Margem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-ven-lucro"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Destaques: alertas e mais vendidos -->
+                    <div class="dash-destaques">
+                        <div class="glass-inner dash-destaque">
+                            <h4>Alertas de estoque</h4>
+                            <div id="dash-alertas"></div>
+                        </div>
+                        <div class="glass-inner dash-destaque">
+                            <h4>Mais vendidos no período</h4>
+                            <div id="dash-top-produtos"></div>
+                        </div>
+                    </div>
+
                     <div class="charts-grid">
                         <div class="chart-card-labs glass-inner full-width">
                             <div class="chart-header-actions">
@@ -1409,6 +1509,7 @@
     <script src="api.js"></script>
     <script src="edicao_venda.js"></script>
     <script src="backup.js"></script>
+    <script src="dashboard.js"></script>
     <script src="app.js"></script>
     <script src="tabela.js"></script>
     

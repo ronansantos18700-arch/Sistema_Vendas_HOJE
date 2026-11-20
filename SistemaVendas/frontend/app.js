@@ -2702,127 +2702,32 @@ const app = {
         const canvasLine = document.getElementById('lineChart');
         if (!canvasLine) return;
 
-        const ctxLine = canvasLine.getContext('2d');
+        // Série do gráfico pelo módulo Dashboard: dia local, uma passagem pelas vendas.
+        const serie = Dashboard.serieLinha(this.state.sales || [], this.state.dashboardFilter, new Date(), (d) => this.parseDate(d));
+        const theme = this.getThemeColors();
 
-        // Destruir apenas o gráfico de linha que este método gerencia
-        if (this.state.charts.line) {
-            this.state.charts.line.destroy();
+        const ativos = ['faturamento', 'lucro', 'custo'].filter((k) => this.state.activeChartDatasets.includes(k));
+        const definicoes = {
+            faturamento: { label: 'Faturamento', data: serie.revenue, cor: '#4070f4', fundo: 'rgba(64, 112, 244, 0.1)' },
+            lucro: { label: 'Lucro', data: serie.profit, cor: '#8a9099', fundo: 'rgba(138, 144, 153, 0.1)' },
+            custo: { label: 'Custo', data: serie.cost, cor: '#d64545', fundo: 'rgba(214, 69, 69, 0.1)' }
+        };
+
+        // Mesmas linhas, mesmo período e mesmo tema: só troca os valores, sem recriar o gráfico.
+        const chave = ativos.join(',') + '|' + this.state.dashboardFilter + '|' + theme.text + '|' + theme.grid;
+        const atual = this.state.charts.line;
+        if (atual && this.state.charts.lineChave === chave) {
+            atual.data.labels = serie.labels;
+            ativos.forEach((k, i) => { atual.data.datasets[i].data = definicoes[k].data; });
+            atual.update('none');
+            return;
+        }
+        if (atual) {
+            atual.destroy();
             this.state.charts.line = null;
         }
 
-        const filteredSales = this.getFilteredSales();
-        const labels = [];
-        const revenueData = [];
-        const profitData = [];
-        const costData = [];
-
-        const now = new Date();
-        const filterType = this.state.dashboardFilter;
-
-        if (filterType === '7d') {
-            for (let i = 6; i >= 0; i--) {
-                const day = new Date(now);
-                day.setDate(now.getDate() - i);
-                const dayKey = day.toISOString().slice(0, 10);
-                labels.push(day.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
-
-                let dayTotal = 0;
-                let dayProfit = 0;
-                let dayCost = 0;
-
-                filteredSales.forEach(s => {
-                    const dateStr = s.date || s.Data;
-                    const d = this.parseDate(dateStr);
-                    if (!d) return;
-                    const key = d.toISOString().slice(0, 10);
-                    if (key !== dayKey) return;
-
-                    const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                    const desconto = s.desconto ?? s.Desconto ?? 0;
-                    const totalFinal = subtotal - desconto;
-                    const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                    const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                    dayTotal += Number(totalFinal) || 0;
-                    dayProfit += Number(lucro) || 0;
-                    dayCost += Number(custo) || 0;
-                });
-
-                revenueData.push(dayTotal);
-                profitData.push(dayProfit);
-                costData.push(dayCost);
-            }
-        } else if (filterType === 'month') {
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            for (let i = 1; i <= daysInMonth; i++) {
-                const day = new Date(year, month, i);
-                const dayKey = day.toISOString().slice(0, 10);
-                labels.push(i.toString());
-
-                let dayTotal = 0;
-                let dayProfit = 0;
-                let dayCost = 0;
-
-                filteredSales.forEach(s => {
-                    const dateStr = s.date || s.Data;
-                    const d = this.parseDate(dateStr);
-                    if (!d) return;
-                    const key = d.toISOString().slice(0, 10);
-                    if (key !== dayKey) return;
-
-                    const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                    const desconto = s.desconto ?? s.Desconto ?? 0;
-                    const totalFinal = subtotal - desconto;
-                    const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                    const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                    dayTotal += Number(totalFinal) || 0;
-                    dayProfit += Number(lucro) || 0;
-                    dayCost += Number(custo) || 0;
-                });
-
-                revenueData.push(dayTotal);
-                profitData.push(dayProfit);
-                costData.push(dayCost);
-            }
-        } else if (filterType === 'year') {
-            const year = now.getFullYear();
-            const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-            for (let i = 0; i < 12; i++) {
-                labels.push(monthNames[i]);
-
-                let monthTotal = 0;
-                let monthProfit = 0;
-                let monthCost = 0;
-
-                filteredSales.forEach(s => {
-                    const dateStr = s.date || s.Data;
-                    const d = this.parseDate(dateStr);
-                    if (!d) return;
-                    if (d.getFullYear() !== year || d.getMonth() !== i) return;
-
-                    const subtotal = s.valor_total ?? s["Valor Total"] ?? s.total ?? 0;
-                    const desconto = s.desconto ?? s.Desconto ?? 0;
-                    const totalFinal = subtotal - desconto;
-                    const custo = s.cost ?? s.custo ?? s.Custo ?? s.custoTotal ?? 0;
-                    const lucro = s.lucro ?? s.Lucro ?? (totalFinal - custo);
-
-                    monthTotal += Number(totalFinal) || 0;
-                    monthProfit += Number(lucro) || 0;
-                    monthCost += Number(custo) || 0;
-                });
-
-                revenueData.push(monthTotal);
-                profitData.push(monthProfit);
-                costData.push(monthCost);
-            }
-        }
-
-        const theme = this.getThemeColors();
+        const ctxLine = canvasLine.getContext('2d');
         Chart.defaults.color = theme.text;
         Chart.defaults.font.family = "'SV Poppins', 'Segoe UI', system-ui, sans-serif";
         Chart.defaults.font.size = 13;
@@ -2839,48 +2744,21 @@ const app = {
         Chart.defaults.plugins.tooltip.titleColor = theme.tooltipText;
         Chart.defaults.plugins.tooltip.bodyColor = theme.tooltipText;
 
-        const datasets = [];
-        if (this.state.activeChartDatasets.includes('faturamento')) {
-            datasets.push({
-                label: 'Faturamento',
-                data: revenueData,
-                borderColor: '#4070f4',
-                backgroundColor: 'rgba(64, 112, 244, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
-        if (this.state.activeChartDatasets.includes('lucro')) {
-            datasets.push({
-                label: 'Lucro',
-                data: profitData,
-                borderColor: '#8a9099',
-                backgroundColor: 'rgba(138, 144, 153, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
-        if (this.state.activeChartDatasets.includes('custo')) {
-            datasets.push({
-                label: 'Custo',
-                data: costData,
-                borderColor: '#d64545',
-                backgroundColor: 'rgba(214, 69, 69, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
+        const datasets = ativos.map((k) => ({
+            label: definicoes[k].label,
+            data: definicoes[k].data,
+            borderColor: definicoes[k].cor,
+            backgroundColor: definicoes[k].fundo,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6
+        }));
 
         this.state.charts.line = new Chart(ctxLine, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: serie.labels,
                 datasets: datasets
             },
             options: {
@@ -2909,6 +2787,7 @@ const app = {
                 }
             }
         });
+        this.state.charts.lineChave = chave;
     },
 
     toggleChartDataset(dataset) {
@@ -2972,6 +2851,93 @@ const app = {
         this.renderSalesByHourChart();
         this.renderProfitMarginPercentChart();
         this.renderRecentSalesDashboard();
+        this.renderDashboardKpis();
+        this.renderDashboardDestaques();
+    },
+
+    /** KPIs estratégicos: estoque (últimos 30 dias, fixo) e vendas (período do filtro). */
+    renderDashboardKpis() {
+        const R = window.Dashboard;
+        if (!R || !document.getElementById('dash-est-ruptura')) return;
+
+        const parse = (d) => this.parseDate(d);
+        const est = R.kpisEstoque(this.state.products, this.state.sales, new Date(), { parseDate: parse });
+        const ven = R.kpisVendas(this.getFilteredSales(), this.state.products, parse);
+        const txt = (id, valor) => { const el = document.getElementById(id); if (el) el.textContent = valor; };
+        const pct = (v) => v == null ? '—' : v.toFixed(1).replace('.', ',') + '%';
+        const pad = (n) => String(n).padStart(2, '0');
+
+        txt('dash-est-ruptura', pct(est.taxaRuptura));
+        txt('dash-est-ruptura-sub', `${est.zerados} de ${est.totalProdutos} produtos sem saldo`);
+        txt('dash-est-cobertura', est.coberturaMediaDias == null ? '—' : `${Math.round(est.coberturaMediaDias)} dias`);
+        txt('dash-est-parado', this.formatCurrency(est.valorParado));
+        txt('dash-est-parado-sub', `${est.paradosQuantidade} produto(s) com saldo e sem venda`);
+        txt('dash-est-giro', est.giro == null ? '—' : est.giro.toFixed(2).replace('.', ',') + 'x');
+
+        const reposicao = document.getElementById('dash-est-reposicao');
+        if (reposicao) {
+            const linhas = est.reposicao.slice(0, 5).map((i) => {
+                const dura = i.cobertura < 1 ? 'menos de 1 dia' : `${Math.round(i.cobertura)} dias`;
+                const classe = i.cobertura < R.COBERTURA_CRITICA_DIAS ? 'dash-alerta-zero' : 'dash-alerta-baixo';
+                return `<tr>
+                    <td>${this.esc(i.produto)}</td>
+                    <td>${i.saldo} un.</td>
+                    <td class="${classe}">${dura}</td>
+                    <td>${i.sugestao > 0 ? i.sugestao + ' un.' : '—'}</td>
+                </tr>`;
+            });
+            reposicao.innerHTML = linhas.length
+                ? linhas.join('')
+                : '<tr><td colspan="4" class="dash-vazio">Nenhum produto precisa de reposição agora.</td></tr>';
+        }
+
+        txt('dash-ven-margem', pct(ven.margemBruta));
+        txt('dash-ven-margem-sub', ven.vendas ? `lucro de ${this.formatCurrency(ven.lucro)} em ${ven.vendas} venda(s)` : 'sem vendas no período');
+        txt('dash-ven-dia', ven.diaPico || '—');
+        txt('dash-ven-hora', ven.horaPico == null ? '—' : `${pad(ven.horaPico)}h às ${pad((ven.horaPico + 1) % 24)}h`);
+        txt('dash-ven-recorrencia', pct(ven.taxaRecorrencia));
+        txt('dash-ven-recorrencia-sub', ven.clientesDistintos
+            ? `${ven.clientesRecorrentes} de ${ven.clientesDistintos} clientes com 2 ou mais compras`
+            : 'nenhum cliente identificado no período');
+
+        const lucro = document.getElementById('dash-ven-lucro');
+        if (lucro) {
+            lucro.innerHTML = ven.produtosLucro.length
+                ? ven.produtosLucro.map((p) => `<tr>
+                    <td>${this.esc(p.nome)}</td>
+                    <td>${p.qtd}</td>
+                    <td>${this.formatCurrency(p.lucro)}</td>
+                    <td>${pct(p.margem)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="4" class="dash-vazio">Sem vendas no período.</td></tr>';
+        }
+    },
+
+    /** Destaques: alertas de estoque (sem saldo e baixo) e produtos mais vendidos no período. */
+    renderDashboardDestaques() {
+        const R = window.Dashboard;
+        const elAlertas = document.getElementById('dash-alertas');
+        const elTop = document.getElementById('dash-top-produtos');
+        if (!R || (!elAlertas && !elTop)) return;
+
+        if (elAlertas) {
+            const nCfg = this.state.settings.notifications || {};
+            const a = R.alertasEstoque(this.state.products, Number(nCfg.stockLowVal) || 10);
+            const itens = [
+                ...a.semEstoque.map((x) => `<li class="dash-alerta-zero">${this.esc(x.produto)}: sem estoque</li>`),
+                ...a.estoqueBaixo.map((x) => `<li class="dash-alerta-baixo">${this.esc(x.produto)}: ${x.saldo} un.</li>`)
+            ];
+            elAlertas.innerHTML = itens.length ? `<ul>${itens.join('')}</ul>` : '<p class="dash-vazio">Nenhum produto em alerta.</p>';
+        }
+
+        if (elTop) {
+            const top = R.rankingProdutos(this.getFilteredSales(), this.state.products)
+                .sort((a, b) => b.qtd - a.qtd)
+                .slice(0, 5);
+            elTop.innerHTML = top.length
+                ? `<ol>${top.map((x) => `<li>${this.esc(x.nome)} <span class="dash-meta">${x.qtd} un. · ${this.formatCurrency(x.lucro)} de lucro</span></li>`).join('')}</ol>`
+                : '<p class="dash-vazio">Sem vendas no período.</p>';
+        }
     },
 
     renderTopProductsChart() {

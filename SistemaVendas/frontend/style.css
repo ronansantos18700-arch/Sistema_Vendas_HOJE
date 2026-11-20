@@ -5904,3 +5904,25 @@ i.bx {
 .win-btn i.bx { font-size: 18px; }
 .win-btn:hover { border-color: #4070f4; color: #4070f4; }
 .win-btn-close:hover { border-color: #e5484d; background: #e5484d; color: #ffffff; }
+
+/* Dashboard: KPIs de estoque e vendas e destaques (decisão primeiro) */
+.dash-secao { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.dash-secao-titulo { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.dash-secao-titulo h4 { margin: 0; }
+.dash-nota { font-size: 0.8rem; color: var(--text-dim); }
+.dash-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; }
+.dash-kpi { padding: 0.9rem 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.25rem; }
+.dash-kpi-rotulo { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+.dash-kpi strong { font-size: 1.5rem; line-height: 1.2; }
+.dash-kpi small { font-size: 0.78rem; color: var(--text-dim); }
+.dash-tabela-box { padding: 0.9rem 1rem; border-radius: 12px; }
+.dash-tabela-titulo { font-weight: 600; margin-bottom: 0.5rem; }
+.dash-destaques { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.dash-destaque { padding: 1rem; border-radius: 12px; }
+.dash-destaque h4 { margin: 0 0 0.5rem 0; }
+.dash-destaque ul, .dash-destaque ol { margin: 0.25rem 0 0 1.1rem; padding: 0; }
+.dash-meta { font-size: 0.8rem; color: var(--text-dim); }
+.dash-vazio { color: var(--text-dim); padding: 0.5rem 0; }
+.dash-alerta-zero { color: #e5484d; }
+.dash-alerta-baixo { color: #d97706; }
+@media (max-width: 900px) { .dash-destaques { grid-template-columns: 1fr; } }

@@ -54,6 +54,7 @@ O SV Ultra (SistemaVendas) é um PDV desktop (aplicativo Windows Forms independe
 ### Dashboard
 
 - Cards e gráficos (ex.: Evolução de Vendas) com filtros (Faturamento/Lucro/Custo).
+- KPIs de estoque (ruptura, cobertura, dinheiro parado, giro, reposição) e de vendas (margem, lucro por produto, pico de dia e horário, recorrência), alertas de estoque e mais vendidos. Lógica em `frontend/dashboard.js`.
 
 ### PDV
 
@@ -274,6 +275,21 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Saídas: coluna AÇÕES com três botões (editar, recibo, excluir) e larguras ajustadas para caber em 1366 px sem cortar. A regra efetiva da grade é a do bloco "Saídas: colunas com larguras fixas".
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
+
+### 2026-11-20 (dashboard reexibido e otimizado)
+
+- Origem: a reversão da PR #39 (commit `65c827f`, já no origin) tirou os destaques do dashboard. Esta entrada refaz o dashboard sobre o `master` (43c889a), com foco em decisão.
+- Novo `frontend/dashboard.js` (lógica pura, sem DOM; `window.Dashboard` e `module.exports`): `serieLinha`, `kpisEstoque`, `kpisVendas`, `rankingProdutos`, `alertasEstoque`, `valoresVenda`, `chaveDia`, `escaparHtml`.
+- Bug corrigido no gráfico de evolução: o agrupamento por dia usava `toISOString` (UTC). No Brasil, venda depois das 21h caía no dia seguinte. Agora o dia é o local, igual a `parseDate`.
+- Gráfico de evolução: a série vem de `Dashboard.serieLinha`. Se o período e as séries visíveis não mudam, só os valores são atualizados (sem recriar o gráfico).
+- Seções novas no dashboard, abaixo dos 4 cards (que foram mantidos):
+  - Estoque (janela fixa de 30 dias): ruptura (% de produtos sem saldo), cobertura média, dinheiro parado (saldo × custo, sem venda na janela), giro (custo vendido ÷ valor em estoque) e os 5 produtos mais urgentes para repor.
+  - Vendas (período do filtro): margem bruta, dia e horário de pico, recorrência de clientes (2 ou mais compras, sem "Consumidor Final") e os 5 maiores lucros por produto.
+  - Destaques: alertas de estoque (sem saldo e abaixo de `stockLowVal`) e mais vendidos no período.
+- Regras: cobertura = saldo ÷ venda média por dia na janela; repor = cobertura abaixo de 30 dias; crítico = abaixo de 7 dias. Sugestão de compra = média × 30 − saldo. Itens lidos como o app: `productId` ou `id`, e `qtySold` ou `qty`. Desconto da venda repartido entre os itens.
+- Fora do escopo desta entrada: "fiado em aberto" (o sistema não tem venda a prazo nem conta a receber) e os relatórios exportáveis (CSV/PDF). Ficam para depois, um de cada vez.
+- Testes: `tests/js/test_dashboard.js` (cálculos, em 3 fusos) e `tests/js/test_dashboard_app.js` (integração com DOM simulado, escape e atualização do gráfico). Suíte JS completa passou.
+- Não verificado visualmente: o sandbox não tem navegador. O layout precisa de conferência no Windows.
 
 ### 2026-11-19 (servidor central — etapa 2)
 
