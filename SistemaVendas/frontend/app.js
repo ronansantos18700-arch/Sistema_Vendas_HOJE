@@ -325,7 +325,7 @@ const app = {
                 this.state.mustChangePassword = true;
                 setTimeout(() => {
                     this.showAlert(
-                        '🔐 Troca de Senha Obrigatória',
+                        'Troca de Senha Obrigatória',
                         'Senha provisória detectada. Defina uma nova senha em Configurações > Usuários antes de continuar.',
                         'shield-alert'
                     );
@@ -562,7 +562,7 @@ const app = {
                 this.state.mustChangePassword = true;
                 setTimeout(() => {
                     this.showAlert(
-                        '🔐 Troca de Senha Obrigatória',
+                        'Troca de Senha Obrigatória',
                         'Senha provisória detectada. Defina uma nova senha em Configurações > Usuários antes de continuar.',
                         'shield-alert'
                     );
@@ -1559,7 +1559,7 @@ const app = {
             // Aviso para senhas muito fracas
             if (this.config.weakPasswords.includes(password.toLowerCase())) {
                 this.showNotification('error',
-                    '⚠️ Senha muito fraca! Por segurança, escolha uma senha mais complexa.'
+                    'Senha muito fraca! Por segurança, escolha uma senha mais complexa.'
                 );
                 return;
             }
@@ -2249,7 +2249,7 @@ const app = {
         this.logAudit('BACKUP_EXPORT', {});
         this.setLoading(true);
         this.showNotification('info',
-            '🔒 Backup sendo gerado. Por segurança, usuários e senhas NÃO serão incluídos.'
+            'Backup sendo gerado. Por segurança, usuários e senhas NÃO serão incluídos.'
         );
         try {
             // Coletar todas as imagens únicas
@@ -2308,7 +2308,7 @@ const app = {
             URL.revokeObjectURL(url);
 
             this.showNotification('success',
-                '✅ Backup exportado com sucesso! (Produtos, clientes, vendas e imagens incluídos. Usuários excluídos por segurança)'
+                'Backup exportado com sucesso! (Produtos, clientes, vendas e imagens incluídos. Usuários excluídos por segurança)'
             );
         } catch (err) {
             this.showNotification('error', 'Erro ao exportar backup: ' + err.message);
@@ -2431,7 +2431,7 @@ const app = {
 
         this.logAudit('BACKUP_IMPORT', { file: nomeArquivo });
         this.showNotification('success',
-            '✅ Backup restaurado com sucesso! Seus usuários atuais foram mantidos (não alterados por segurança).'
+            'Backup restaurado com sucesso! Seus usuários atuais foram mantidos (não alterados por segurança).'
         );
         setTimeout(() => window.location.reload(), 1500);
     },
