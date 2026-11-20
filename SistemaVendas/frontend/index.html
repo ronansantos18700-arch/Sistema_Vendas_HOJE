@@ -598,18 +598,12 @@
                             <button class="btn-save" onclick="app.openModal('product')">Novo Produto</button>
                         </div>
                     </div>
-                    <div id="products-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
-                        <div class="list-header-labs">
-                            <span class="col-id">ID</span>
-                            <span class="col-product">PRODUTO</span>
-                            <span class="col-code">CÓDIGO</span>
-                            <span class="col-cost">CUSTO</span>
-                            <span class="col-price">VENDA</span>
-                            <span class="col-stock">ESTOQUE</span>
-                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
+                    <div id="products-list-labs" class="sv-dt-card">
+                        <div class="sv-dt-subbar">
+                            <div class="sv-dt-chips is-empty" aria-label="Filtros ativos"></div>
                         </div>
-                        <div id="products-items-container">
-                            <!-- Dynamic items -->
+                        <div id="products-items-container" class="sv-dt-body-slot">
+                            <!-- Dynamic semantic table or cards -->
                         </div>
                     </div>
                 </section>
@@ -665,31 +659,46 @@
                             </div>
                         </div>
                         <div id="mov-totais" class="mov-totais"></div>
-                        <div class="table-container-labs mov-tabela-wrap">
-                            <table class="custom-table-labs mov-tabela">
+                        <div class="sv-dt-subbar">
+                            <div class="sv-dt-chips is-empty" aria-label="Filtros ativos"></div>
+                        </div>
+                        <div class="sv-dt-scroll mov-tabela-wrap">
+                            <table class="sv-dt custom-table-labs mov-tabela" data-dt="movimentacoes">
                                 <thead>
                                     <tr>
-                                        <th>Data e hora</th>
-                                        <th>Produto</th>
-                                        <th>Tipo</th>
-                                        <th class="num">Qtd</th>
-                                        <th class="num">Custo unit.</th>
-                                        <th class="num">Saldo após</th>
-                                        <th>Origem</th>
-                                        <th>Observação</th>
+                                        <th scope="col" data-col-key="data" data-col-label="Data e hora" data-col-locked="true">Data e hora</th>
+                                        <th scope="col" data-col-key="produto" data-col-label="Produto" data-col-locked="true">Produto</th>
+                                        <th scope="col" data-col-key="tipo" data-col-label="Tipo">Tipo</th>
+                                        <th scope="col" class="num" data-col-key="qtd" data-col-label="Quantidade">Qtd</th>
+                                        <th scope="col" class="num" data-col-key="custo" data-col-label="Custo unit.">Custo unit.</th>
+                                        <th scope="col" class="num" data-col-key="saldo" data-col-label="Saldo após">Saldo após</th>
+                                        <th scope="col" data-col-key="origem" data-col-label="Origem">Origem</th>
+                                        <th scope="col" data-col-key="obs" data-col-label="Observação">Observação</th>
                                     </tr>
                                 </thead>
                                 <tbody id="mov-tbody"></tbody>
                             </table>
                         </div>
                         <div class="mov-rodape">
-                            <span id="mov-contagem" class="mov-contagem"></span>
+                            <div class="tabela-pager-esq">
+                                <span id="mov-contagem" class="mov-contagem"></span>
+                                <label class="tabela-pager-size">
+                                    <span>Por página</span>
+                                    <select id="mov-pagesize" aria-label="Movimentações por página">
+                                        <option value="7" selected>7</option>
+                                        <option value="10">10</option>
+                                        <option value="15">15</option>
+                                        <option value="25">25</option>
+                                    </select>
+                                </label>
+                            </div>
                             <div class="mov-rodape-dir">
-                                <div id="mov-paginacao" class="tabela-pager-controles mov-paginacao">
+                                <nav id="mov-paginacao" class="tabela-pager-controles mov-paginacao" aria-label="Paginação de movimentações">
                                     <button type="button" id="mov-prev" class="tabela-pager-btn" title="Página anterior" aria-label="Página anterior"><i class="bx bx-chevron-left" aria-hidden="true"></i></button>
-                                    <span id="mov-page-info" class="tabela-pager-num">1 / 1</span>
+                                    <span id="mov-page-nums" class="mov-page-nums"></span>
+                                    <span id="mov-page-info" class="sr-only tabela-pager-num">1 / 1</span>
                                     <button type="button" id="mov-next" class="tabela-pager-btn" title="Próxima página" aria-label="Próxima página"><i class="bx bx-chevron-right" aria-hidden="true"></i></button>
-                                </div>
+                                </nav>
                                 <div class="mov-acoes">
                                     <button type="button" id="mov-xlsx" class="btn-ghost-labs"><i class="bx bx-spreadsheet"></i> Excel (.xlsx)</button>
                                     <button type="button" id="mov-pdf" class="btn-ghost-labs"><i class="bx bxs-file-pdf"></i> PDF</button>
@@ -713,18 +722,27 @@
                         <button type="button" class="btn-save" onclick="app.openModal('customer')">Novo Cliente</button>
                     </div>
                     <div id="fiado-pendentes" class="fiado-pendentes hidden"></div>
-                    <div id="customers-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
-                        <div class="list-header-labs">
-                            <span class="col-id">ID</span>
-                            <span class="col-name">NOME DO CLIENTE</span>
-                            <span class="col-fiado">FIADO</span>
-                            <span class="col-whatsapp">WHATSAPP</span>
-                            <span class="col-date">DATA CADASTRO</span>
-                            <span class="col-obs">OBSERVAÇÕES / ENDEREÇO</span>
-                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
+                    <div id="customers-list-labs" class="sv-dt-card">
+                        <div class="sv-dt-subbar">
+                            <div class="sv-dt-chips is-empty" aria-label="Filtros ativos"></div>
                         </div>
-                        <div id="customers-items-container">
-                            <!-- Dynamic items -->
+                        <div class="sv-dt-scroll">
+                            <table class="sv-dt sv-dt-customers" data-dt="customers">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" class="col-id" data-col-key="id" data-col-label="ID">ID</th>
+                                        <th scope="col" class="col-name" data-col-key="nome" data-col-label="Cliente" data-col-locked="true">Cliente</th>
+                                        <th scope="col" class="col-fiado" data-col-key="fiado" data-col-label="Fiado">Fiado</th>
+                                        <th scope="col" class="col-whatsapp" data-col-key="whatsapp" data-col-label="WhatsApp">WhatsApp</th>
+                                        <th scope="col" class="col-date" data-col-key="cadastro" data-col-label="Cadastro">Cadastro</th>
+                                        <th scope="col" class="col-obs" data-col-key="obs" data-col-label="Observações">Observações</th>
+                                        <th scope="col" class="col-actions" data-col-key="acoes" data-col-label="Ações" data-col-locked="true">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customers-items-container">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -747,22 +765,31 @@
                             <button type="button" id="btn-clear-history-filters" class="btn-limpar-filtros hidden">Limpar filtros</button>
                         </div>
                     </div>
-                    <div id="history-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px;">
-                        <div class="list-header-labs">
-                            <span class="col-id">ID</span>
-                            <span class="col-date">DATA</span>
-                            <span class="col-name">CLIENTE</span>
-                            <span class="col-subtotal">TOTAL</span>
-                            <span class="col-discount">DESC.</span>
-                            <span class="col-total-final">FINAL</span>
-                            <span class="col-cost">CUSTO</span>
-                            <span class="col-profit">LUCRO</span>
-                            <span class="col-items-action">ITENS</span>
-                            <span class="col-payment">PAGAMENTO</span>
-                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
+                    <div id="history-list-labs" class="sv-dt-card">
+                        <div class="sv-dt-subbar">
+                            <div class="sv-dt-chips is-empty" aria-label="Filtros ativos"></div>
                         </div>
-                        <div id="history-items-container">
-                            <!-- Dynamic items -->
+                        <div class="sv-dt-scroll">
+                            <table class="sv-dt sv-dt-history" data-dt="history">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" class="col-id" data-col-key="id" data-col-label="ID">ID</th>
+                                        <th scope="col" class="col-date" data-col-key="data" data-col-label="Data">Data</th>
+                                        <th scope="col" class="col-name" data-col-key="cliente" data-col-label="Cliente" data-col-locked="true">Cliente</th>
+                                        <th scope="col" class="col-subtotal num" data-col-key="subtotal" data-col-label="Subtotal" data-col-default="hidden">Subtotal</th>
+                                        <th scope="col" class="col-discount num" data-col-key="desconto" data-col-label="Desconto" data-col-default="hidden">Desconto</th>
+                                        <th scope="col" class="col-total-final num" data-col-key="final" data-col-label="Valor final" data-col-locked="true">Valor final</th>
+                                        <th scope="col" class="col-cost num" data-col-key="custo" data-col-label="Custo">Custo</th>
+                                        <th scope="col" class="col-profit num" data-col-key="lucro" data-col-label="Lucro">Lucro</th>
+                                        <th scope="col" class="col-items-action col-center" data-col-key="itens" data-col-label="Itens">Itens</th>
+                                        <th scope="col" class="col-payment" data-col-key="pagamento" data-col-label="Pagamento">Pagamento</th>
+                                        <th scope="col" class="col-actions" data-col-key="acoes" data-col-label="Ações" data-col-locked="true">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-items-container">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -785,18 +812,12 @@
                         </button>
                         </div>
                     </div>
-                    <div id="entradas-list-labs" class="glass-inner" style="padding: 0; border-radius: 12px; overflow: hidden;">
-                        <div class="list-header-labs">
-                            <span class="col-id">ID</span>
-                            <span class="col-date">DATA</span>
-                            <span class="col-name">FORNECEDOR</span>
-                            <span class="col-code">Nº NOTA</span>
-                            <span class="col-qty-sum">ITENS</span>
-                            <span class="col-price">CUSTO TOTAL</span>
-                            <span class="col-actions" style="justify-content: flex-end;">AÇÕES</span>
+                    <div id="entradas-list-labs" class="sv-dt-card">
+                        <div class="sv-dt-subbar">
+                            <div class="sv-dt-chips is-empty" aria-label="Filtros ativos"></div>
                         </div>
-                        <div id="entradas-items-container">
-                            <!-- Dynamic items -->
+                        <div id="entradas-items-container" class="sv-dt-body-slot">
+                            <!-- Dynamic semantic table or cards -->
                         </div>
                     </div>
                 </section>

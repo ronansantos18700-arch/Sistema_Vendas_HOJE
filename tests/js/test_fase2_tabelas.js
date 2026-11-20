@@ -583,19 +583,65 @@ function criarAmbienteApp() {
         assert.ok(elementos['mov-limpar'].classList.contains('hidden'), 'volta a ficar oculto após limpar');
     });
 
-    await testar('index.html e style.css: sem cabeçalhos escuros #11111e, paginação real em Movimentações, Clientes 7 colunas e alinhamento consistente', () => {
+    await testar('index.html e style.css: todas as 6 tabelas semânticas Setproduct, sem #11111e, paginação numerada e alinhamento nativo', () => {
         assert.ok(!html.includes('#11111e'), 'index.html não deve conter cabeçalhos escuros hardcoded #11111e');
         const modalHeaders = html.match(/modal-list-header/g) || [];
         assert.ok(modalHeaders.length >= 3, 'os 3 cabeçalhos de tabela em modal devem usar .modal-list-header');
         assert.ok(html.includes('id="mov-paginacao"') && html.includes('id="mov-prev"') && html.includes('id="mov-next"'), 'Movimentações deve ter paginação real');
+        assert.ok(html.includes('id="mov-pagesize"') && html.includes('id="mov-page-nums"'), 'Movimentações deve ter seletor de linhas e paginação numerada');
         assert.ok(!html.includes('id="mov-mais"'), 'botão legado Mostrar mais removido em favor da paginação');
+        // Todas as 6 tabelas usam <table class="sv-dt"> semântica (3 estáticas no HTML + 3 dinâmicas com modo cards em app.js)
+        const appJs = fs.readFileSync(path.join(front, 'app.js'), 'utf8');
+        const tabelasHtml = html.match(/<table class="sv-dt\b/g) || [];
+        const tabelasApp = appJs.match(/<table class="sv-dt\b/g) || [];
+        assert.ok(tabelasHtml.length >= 3, 'Clientes, Saídas e Movimentações devem usar <table class="sv-dt"> no index.html');
+        assert.ok(tabelasApp.length >= 3, 'Produtos, Entradas e Estoque-Produtos devem usar <table class="sv-dt"> em app.js');
+        const scopes = (html.match(/<th scope="col"/g) || []).length + (appJs.match(/<th scope="col"/g) || []).length;
+        assert.ok(scopes >= 40, 'todas as 6 tabelas devem declarar <th scope="col"> em seus cabeçalhos');
+        assert.ok(html.includes('data-col-key="subtotal"') && html.includes('data-col-default="hidden"'), 'Saídas deve ocultar Subtotal/Desconto por padrão com opção de reexibir');
         assert.ok(css.includes('overflow-x: auto;'), 'style.css deve habilitar rolagem horizontal segura nas listas');
         assert.ok(css.includes('overflow-y: visible !important;'), 'tabelas paginadas não devem ter rolagem vertical interna');
-        assert.ok(css.includes('flex-direction: row !important;'), 'cabeçalhos e células numéricas devem alinhar em linha única');
-        assert.ok(css.includes('/* Clientes: 7 colunas equilibradas'), 'style.css deve corrigir grade 7 colunas de Clientes');
+        assert.ok(css.includes('display: table-row !important;'), 'linhas semânticas devem forçar display: table-row sobre regras legadas');
+        assert.ok(css.includes('display: table-cell !important;'), 'células semânticas devem preservar display: table-cell');
+        assert.ok(css.includes('[data-dt-density="compacta"]') && css.includes('[data-dt-density="espacosa"]'), 'style.css deve definir tokens para os 3 modos de densidade');
         assert.ok(css.includes('.estoque-abas button {\n    width: auto;'), 'botões Produtos/Movimentações devem ter largura automática sem sobreposição');
-        assert.ok(css.includes('display: table-cell;'), 'td.col-actions-tab deve preservar display: table-cell');
         assert.ok(css.includes('flex-wrap: nowrap;'), 'col-actions deve manter botões na horizontal');
+    });
+
+    await testar('tabela.js: Setproduct — gerarPaginas com reticências, densidade persistida, linhas por página e estado vazio distinto', () => {
+        const { ctx } = criarMiniDomTabela();
+        vm.runInContext(fs.readFileSync(path.join(front, 'tabela.js'), 'utf8'), ctx, { filename: 'tabela.js' });
+        const { gerarPaginas, setDensidade, getDensidade, setPageSize, getPageSize, PAGE_SIZES } = ctx.Tabela;
+
+        assert.deepStrictEqual(Array.from(PAGE_SIZES), [7, 10, 15, 25]);
+        assert.deepStrictEqual(Array.from(gerarPaginas(1, 5)), [1, 2, 3, 4, 5]);
+        assert.deepStrictEqual(Array.from(gerarPaginas(1, 10)), [1, 2, 3, 4, '…', 10]);
+        assert.deepStrictEqual(Array.from(gerarPaginas(5, 10)), [1, '…', 4, 5, 6, '…', 10]);
+        assert.deepStrictEqual(Array.from(gerarPaginas(10, 10)), [1, '…', 7, 8, 9, 10]);
+
+        assert.strictEqual(getDensidade(), 'confortavel');
+        setDensidade('compacta');
+        assert.strictEqual(getDensidade(), 'compacta');
+        setDensidade('espacosa');
+        assert.strictEqual(getDensidade(), 'espacosa');
+        setDensidade('invalida');
+        assert.strictEqual(getDensidade(), 'espacosa', 'ignora densidade inválida');
+
+        assert.strictEqual(getPageSize(), 7);
+        setPageSize(15);
+        assert.strictEqual(getPageSize(), 15);
+        setPageSize(999);
+        assert.strictEqual(getPageSize(), 15, 'ignora tamanho fora da lista permitida');
+
+        // Estado vazio distinto (1º uso vs. filtro sem resultado) em Produtos
+        const { app, elementos } = criarAmbienteApp();
+        app.state.products = [];
+        app.renderProducts();
+        assert.ok(elementos['products-items-container'].innerHTML.includes('Nenhum produto cadastrado ainda'), 'estado vazio de 1º uso em Produtos');
+        app.state.products = [{ id: 'p1', name: 'Arroz', code: 'A1', category: 'Grãos', stock: 5, cost: 10, price: 20 }];
+        app.renderProducts('inexistente');
+        assert.ok(elementos['products-items-container'].innerHTML.includes('Nenhum produto encontrado com esses filtros'), 'estado vazio de filtro sem resultados');
+        assert.ok(elementos['products-items-container'].innerHTML.includes('Limpar filtros'), 'botão de limpar filtros no estado vazio');
     });
 
     console.log(`\nTodos os ${ok} testes da Fase 2 passaram.`);

@@ -4673,11 +4673,54 @@ const app = {
             </div>`;
     },
 
+    /** Estado vazio reutilizável (Setproduct: distingue 1º uso de busca/filtro sem resultados). */
+    emptyStateHtml({ icon = 'bx-inbox', titulo = 'Nenhum registro encontrado', descricao = '', acaoLabel = '', acaoOnclick = '' }) {
+        const btn = acaoLabel && acaoOnclick
+            ? `<button type="button" class="sv-dt-empty-btn" onclick="${acaoOnclick}">${this.esc(acaoLabel)}</button>`
+            : '';
+        return `<div class="sv-dt-empty">
+            <span class="sv-dt-empty-ico" aria-hidden="true"><i class="bx ${icon}"></i></span>
+            <strong class="sv-dt-empty-title">${this.esc(titulo)}</strong>
+            ${descricao ? `<p class="sv-dt-empty-desc">${this.esc(descricao)}</p>` : ''}
+            ${btn}
+        </div>`;
+    },
+
+    limparFiltrosProdutos() {
+        const inp = document.getElementById('filter-products');
+        const sel = document.getElementById('filter-category');
+        if (inp) inp.value = '';
+        if (sel) sel.value = '';
+        this.renderProducts('', '');
+    },
+
+    limparFiltrosClientes() {
+        const inp = document.getElementById('filter-customers');
+        if (inp) inp.value = '';
+        this.state.customersFiadoFilter = 'todos';
+        this.renderCustomers('');
+    },
+
+    limparFiltrosEntradas() {
+        const inp = document.getElementById('filter-entradas');
+        const dt = document.getElementById('filter-date-entradas');
+        if (inp) inp.value = '';
+        if (dt) dt.value = '';
+        this.renderEntradas('', '');
+    },
+
+    limparFiltrosEstoque() {
+        const inp = document.getElementById('filter-estoque');
+        if (inp) inp.value = '';
+        this.renderEstoque();
+    },
+
     renderProducts(query = '', category = '') {
         const container = document.getElementById('products-items-container');
         if (!container) return;
 
-        const termo = String(query || '').trim().toLowerCase();
+        const termoRaw = String(query || '').trim();
+        const termo = termoRaw.toLowerCase();
         let filtered = this.state.products.filter(p => {
             if (!termo) return true;
             return (p.name || '').toLowerCase().includes(termo)
@@ -4689,8 +4732,56 @@ const app = {
             filtered = filtered.filter(p => p.category === category);
         }
 
+        if (window.Tabela && typeof window.Tabela.atualizarChips === 'function') {
+            const chips = [];
+            if (termoRaw) {
+                chips.push({
+                    label: 'Busca',
+                    valor: termoRaw,
+                    onRemove: () => {
+                        const inp = document.getElementById('filter-products');
+                        if (inp) inp.value = '';
+                        this.renderProducts('', category);
+                    }
+                });
+            }
+            if (category) {
+                const catObj = this.state.categories.find(c => c.id === category);
+                chips.push({
+                    label: 'Categoria',
+                    valor: catObj ? catObj.name : category,
+                    onRemove: () => {
+                        const sel = document.getElementById('filter-category');
+                        if (sel) sel.value = '';
+                        this.renderProducts(query, '');
+                    }
+                });
+            }
+            window.Tabela.atualizarChips('products-list-labs', chips, () => this.limparFiltrosProdutos());
+        }
+
+        const temFiltro = Boolean(termoRaw || category);
+        const visaoProd = this.visaoDe('produtos');
+        container.dataset.visao = visaoProd;
+        const listaProd = document.getElementById('products-list-labs');
+        if (listaProd) listaProd.classList.toggle('modo-cards', visaoProd === 'cards');
+
         if (filtered.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-dim);">Nenhum produto encontrado.</div>';
+            container.innerHTML = temFiltro
+                ? this.emptyStateHtml({
+                    icon: 'bx-search-alt',
+                    titulo: 'Nenhum produto encontrado com esses filtros',
+                    descricao: 'Ajuste o termo de busca ou remova os filtros ativos para ver o catálogo completo.',
+                    acaoLabel: 'Limpar filtros',
+                    acaoOnclick: 'app.limparFiltrosProdutos()'
+                })
+                : this.emptyStateHtml({
+                    icon: 'bx-package',
+                    titulo: 'Nenhum produto cadastrado ainda',
+                    descricao: 'Cadastre seu primeiro produto para começar a controlar estoque e registrar vendas.',
+                    acaoLabel: 'Novo Produto',
+                    acaoOnclick: "app.openModal('product')"
+                });
             return;
         }
 
@@ -4701,51 +4792,72 @@ const app = {
         const lowLevel = nSettings.stockLowVal || 10;
         const mediumLevel = nSettings.stockMediumVal || 25;
 
-        const visaoProd = this.visaoDe('produtos');
-        container.dataset.visao = visaoProd;
-        const listaProd = document.getElementById('products-list-labs');
-        if (listaProd) listaProd.classList.toggle('modo-cards', visaoProd === 'cards');
         if (visaoProd === 'cards') {
             container.innerHTML = filtered.map(p => this.produtoCardHtml(p, lowLevel, mediumLevel)).join('');
             this.initLucide();
             return;
         }
-        container.innerHTML = filtered.map(p => {
+
+        const linhasHtml = filtered.map(p => {
             const initialLetter = p.name ? p.name.charAt(0).toUpperCase() : '?';
             const avatar = p.image
-                ? `<img src="${p.image}" class="item-avatar">`
-                : `<div class="item-avatar-letter">${initialLetter}</div>`;
+                ? `<img src="${p.image}" alt="" class="item-avatar">`
+                : `<div class="item-avatar-letter" aria-hidden="true">${initialLetter}</div>`;
 
             const cat = this.state.categories.find(c => c.id === p.category);
-            const categoryBadge = cat ? `<span class="category-badge">${this.esc(cat.name)}</span>` : '';
+            const categoryBadge = cat ? `<span class="sv-badge sv-badge-neutral">${this.esc(cat.name)}</span>` : '';
+            const obsTexto = p.obs ? this.esc(p.obs) : '';
+            const nivelEst = p.stock < lowLevel ? 'stock-low' : (p.stock < mediumLevel ? 'stock-medium' : 'stock-ok');
 
             return `
-                <div class="nested-item-labs-row">
-                    <span class="col-id" data-label="ID">#${p.id.toString().slice(-4)}</span>
-                    <div class="col-product" data-label="PRODUTO">
-                        ${avatar}
-                        <div class="product-info-mini">
-                            <span class="product-name-mini">${this.esc(p.name)}</span>
-                            ${categoryBadge}
-                            <span class="product-obs-mini">${this.esc(p.obs) || 'Sem observação'}</span>
+                <tr class="sv-dt-row nested-item-labs-row">
+                    <td class="col-id" data-label="ID">#${p.id.toString().slice(-4)}</td>
+                    <td class="col-product" data-label="Produto">
+                        <div class="sv-cell-media">
+                            ${avatar}
+                            <div class="sv-cell-stack">
+                                <div class="sv-cell-title-row">
+                                    <span class="sv-cell-primary" title="${this.esc(p.name)}">${this.esc(p.name)}</span>
+                                    ${categoryBadge}
+                                </div>
+                                ${obsTexto ? `<span class="sv-cell-secondary" title="${obsTexto}">${obsTexto}</span>` : ''}
+                            </div>
                         </div>
-                    </div>
-                    <span class="col-code" data-label="CÓDIGO">${this.esc(p.code) || 'N/A'}</span>
-                    <span class="col-cost num" data-label="CUSTO" data-sort="${Number(p.cost) || 0}">${this.formatCurrency(p.cost)}</span>
-                    <span class="col-price num" data-label="VENDA" data-sort="${Number(p.price) || 0}">${this.formatCurrency(p.price)}</span>
-                    <div class="col-stock" data-label="ESTOQUE" data-sort="${Number(p.stock) || 0}">
-                        <button type="button" class="btn-stock-minus" onclick="app.adjustStock('${p.id}', -2)" title="Ajustar estoque (saída)" aria-label="Ajustar estoque (saída)"><i data-lucide="minus"></i></button>
-                        <span class="stock-val ${p.stock < lowLevel ? 'stock-low' : (p.stock < mediumLevel ? 'stock-medium' : '')}">${p.stock}</span>
-                        <button type="button" class="btn-stock-add" onclick="app.adjustStock('${p.id}', 2)" title="Ajustar estoque (entrada)" aria-label="Ajustar estoque (entrada)"><i data-lucide="plus"></i></button>
-                    </div>
-                    <div class="col-actions" data-label="AÇÕES">
-                        <button type="button" class="btn-action-view" onclick="app.showProductHistory('${p.id}')" title="Histórico de Estoque" aria-label="Histórico de Estoque"><i data-lucide="history"></i></button>
-                        <button type="button" class="btn-action-edit" onclick="app.editProduct('${p.id}')" title="Editar produto" aria-label="Editar produto"><i data-lucide="edit-3"></i></button>
-                        <button type="button" class="btn-action-delete" onclick="app.deleteProduct('${p.id}')" title="Excluir produto" aria-label="Excluir produto"><i data-lucide="trash-2"></i></button>
-                    </div>
-                </div>
-                `;
+                    </td>
+                    <td class="col-code" data-label="Código" title="${this.esc(p.code) || 'N/A'}">${this.esc(p.code) || '—'}</td>
+                    <td class="col-cost num" data-label="Custo" data-sort="${Number(p.cost) || 0}">${this.formatCurrency(p.cost)}</td>
+                    <td class="col-price num sv-cell-strong" data-label="Venda" data-sort="${Number(p.price) || 0}">${this.formatCurrency(p.price)}</td>
+                    <td class="col-stock col-center" data-label="Estoque" data-sort="${Number(p.stock) || 0}">
+                        <div class="sv-stock-ctrl">
+                            <button type="button" class="btn-stock-minus" onclick="app.adjustStock('${p.id}', -2)" title="Ajustar estoque (saída)" aria-label="Ajustar estoque (saída)"><i data-lucide="minus"></i></button>
+                            <span class="stock-val ${nivelEst}">${p.stock}</span>
+                            <button type="button" class="btn-stock-add" onclick="app.adjustStock('${p.id}', 2)" title="Ajustar estoque (entrada)" aria-label="Ajustar estoque (entrada)"><i data-lucide="plus"></i></button>
+                        </div>
+                    </td>
+                    <td class="col-actions" data-label="Ações">
+                        <div class="sv-actions-inline">
+                            <button type="button" class="btn-action-view" onclick="app.showProductHistory('${p.id}')" title="Histórico de Estoque" aria-label="Histórico de Estoque"><i data-lucide="history"></i></button>
+                            <button type="button" class="btn-action-edit" onclick="app.editProduct('${p.id}')" title="Editar produto" aria-label="Editar produto"><i data-lucide="edit-3"></i></button>
+                            <button type="button" class="btn-action-delete" onclick="app.deleteProduct('${p.id}')" title="Excluir produto" aria-label="Excluir produto"><i data-lucide="trash-2"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
         }).join('');
+
+        container.innerHTML = `<div class="sv-dt-scroll"><table class="sv-dt sv-dt-products" data-dt="products">
+            <thead>
+                <tr>
+                    <th scope="col" class="col-id" data-col-key="id" data-col-label="ID">ID</th>
+                    <th scope="col" class="col-product" data-col-key="produto" data-col-label="Produto" data-col-locked="true">Produto</th>
+                    <th scope="col" class="col-code" data-col-key="codigo" data-col-label="Código">Código</th>
+                    <th scope="col" class="col-cost num" data-col-key="custo" data-col-label="Custo">Custo</th>
+                    <th scope="col" class="col-price num" data-col-key="venda" data-col-label="Venda" data-col-locked="true">Venda</th>
+                    <th scope="col" class="col-stock col-center" data-col-key="estoque" data-col-label="Estoque">Estoque</th>
+                    <th scope="col" class="col-actions" data-col-key="acoes" data-col-label="Ações" data-col-locked="true">Ações</th>
+                </tr>
+            </thead>
+            <tbody>${linhasHtml}</tbody>
+        </table></div>`;
         this.initLucide();
     },
 
@@ -4974,26 +5086,75 @@ const app = {
             return false;
         });
 
+        if (window.Tabela && typeof window.Tabela.atualizarChips === 'function') {
+            const chips = [];
+            if (termo) {
+                chips.push({
+                    label: 'Busca',
+                    valor: String(busca).trim(),
+                    onRemove: () => {
+                        const inp = document.getElementById('filter-customers');
+                        if (inp) inp.value = '';
+                        this.renderCustomers('');
+                    }
+                });
+            }
+            if (filtroFiado !== 'todos') {
+                chips.push({
+                    label: 'Fiado',
+                    valor: filtroFiado === 'atraso' ? 'Em atraso' : 'Com fiado',
+                    onRemove: () => {
+                        this.state.customersFiadoFilter = 'todos';
+                        this.renderCustomers();
+                    }
+                });
+            }
+            window.Tabela.atualizarChips('customers-list-labs', chips, () => this.limparFiltrosClientes());
+        }
+
         if (filtered.length === 0) {
+            const temFiltro = Boolean(termo || filtroFiado !== 'todos');
             const msgVazio = filtroFiado === 'atraso'
                 ? 'Nenhum cliente com venda em atraso.'
                 : filtroFiado === 'aberto'
                     ? 'Nenhum cliente com fiado em aberto.'
-                    : 'Nenhum cliente encontrado.';
-            container.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-dim);">${msgVazio}</div>`;
+                    : temFiltro
+                        ? 'Nenhum cliente encontrado.'
+                        : 'Nenhum cliente cadastrado ainda';
+            container.innerHTML = `<tr class="sv-dt-empty-row"><td colspan="7">${
+                temFiltro
+                    ? this.emptyStateHtml({
+                        icon: 'bx-search-alt',
+                        titulo: msgVazio,
+                        descricao: 'Remova ou ajuste os filtros para visualizar todos os clientes.',
+                        acaoLabel: 'Limpar filtros',
+                        acaoOnclick: 'app.limparFiltrosClientes()'
+                    })
+                    : this.emptyStateHtml({
+                        icon: 'bx-user-plus',
+                        titulo: msgVazio,
+                        descricao: 'Cadastre clientes para acompanhar histórico de compras e controle de fiado.',
+                        acaoLabel: 'Novo Cliente',
+                        acaoOnclick: "app.openModal('customer')"
+                    })
+            }</td></tr>`;
             return;
         }
 
         const textoFiado = (r, at) => {
-            if (!r || r.totalPrazo <= 0) return '<span class="fiado-sem">-</span>';
+            if (!r || r.totalPrazo <= 0) return '<span class="fiado-sem">—</span>';
             if (r.falta > 0) {
-                const aviso = at && at.quantidade > 0
+                const emAtraso = at && at.quantidade > 0;
+                const badge = emAtraso
+                    ? `<span class="sv-status-badge sv-status-danger"><span class="sv-status-dot"></span>Em atraso (${at.diasMax}d)</span>`
+                    : `<span class="sv-status-badge sv-status-warning"><span class="sv-status-dot"></span>Em aberto</span>`;
+                const aviso = emAtraso
                     ? `<span class="fiado-atraso">${at.quantidade} venda(s) em atraso · ${at.diasMax} dia(s)</span>`
                     : '';
-                return `<span class="fiado-falta"><strong>${this.formatCurrency(r.falta)}</strong> em aberto</span>` +
-                    `<small>Pago ${this.formatCurrency(r.pago)} de ${this.formatCurrency(r.totalPrazo)}</small>` + aviso;
+                return `<div class="sv-fiado-cell">${badge}<span class="fiado-falta"><strong>${this.formatCurrency(r.falta)}</strong> em aberto</span>` +
+                    `<small>Pago ${this.formatCurrency(r.pago)} de ${this.formatCurrency(r.totalPrazo)}</small>${aviso}</div>`;
             }
-            return `<span class="fiado-quitado">Quitado</span><small>${this.formatCurrency(r.totalPrazo)} a prazo</small>`;
+            return `<div class="sv-fiado-cell"><span class="sv-status-badge sv-status-success"><span class="sv-status-dot"></span>Quitado</span><small class="fiado-quitado">${this.formatCurrency(r.totalPrazo)} a prazo</small></div>`;
         };
         container.innerHTML = filtered.map(c => {
             const r = resumos.get(String(c.id));
@@ -5005,21 +5166,29 @@ const app = {
             const extrato = r && r.totalPrazo > 0
                 ? `<button type="button" class="btn-fiado-extrato" onclick="app.abrirExtratoFiado('${c.id}')">Extrato</button>`
                 : '';
+            const inicial = c.name ? c.name.trim().charAt(0).toUpperCase() : '?';
             return `
-                <div class="nested-item-labs-row">
-                    <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
-                    <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
-                    <span class="col-fiado" data-label="FIADO" data-sort="${sortFiado}">${textoFiado(r, atrasos.get(String(c.id)))}</span>
-                    <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
-                    <span class="col-date" data-label="DATA" data-sort="${dataCad ? dataCad.getTime() : 0}">${dataCad ? dataCad.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
-                    <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
-                    <div class="col-actions" data-label="AÇÕES">
-                        ${receber}
-                        ${extrato}
-                        <button type="button" class="btn-action-edit" title="Editar cliente" aria-label="Editar cliente" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
-                        <button type="button" class="btn-action-delete" title="Excluir cliente" aria-label="Excluir cliente" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
-                    </div>
-                </div>`;
+                <tr class="sv-dt-row nested-item-labs-row">
+                    <td class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</td>
+                    <td class="col-name" data-label="Cliente">
+                        <div class="sv-cell-media">
+                            <span class="sv-avatar-sm" aria-hidden="true">${this.esc(inicial)}</span>
+                            <span class="sv-cell-primary" title="${this.esc(c.name)}">${this.esc(c.name)}</span>
+                        </div>
+                    </td>
+                    <td class="col-fiado" data-label="Fiado" data-sort="${sortFiado}">${textoFiado(r, atrasos.get(String(c.id)))}</td>
+                    <td class="col-whatsapp" data-label="WhatsApp">${this.formatWhatsApp(c.whatsapp)}</td>
+                    <td class="col-date" data-label="Cadastro" data-sort="${dataCad ? dataCad.getTime() : 0}">${dataCad ? dataCad.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</td>
+                    <td class="col-obs" data-label="Observações" title="${this.esc(c.obs) || ''}">${this.esc(c.obs) || '—'}</td>
+                    <td class="col-actions" data-label="Ações">
+                        <div class="sv-actions-inline">
+                            ${receber}
+                            ${extrato}
+                            <button type="button" class="btn-action-edit" title="Editar cliente" aria-label="Editar cliente" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
+                            <button type="button" class="btn-action-delete" title="Excluir cliente" aria-label="Excluir cliente" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
         }).join('');
         this.initLucide();
     },
@@ -5304,8 +5473,72 @@ const app = {
             });
         }
 
+        if (window.Tabela && typeof window.Tabela.atualizarChips === 'function') {
+            const rotulosPag = {
+                dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX',
+                misto: 'Misto', fiado: 'Fiado (todos)', fiado_aberto: 'Fiado em aberto'
+            };
+            const chips = [];
+            const queryRaw = document.getElementById('filter-history')?.value?.trim() || '';
+            if (queryRaw) {
+                chips.push({
+                    label: 'Busca',
+                    valor: queryRaw,
+                    onRemove: () => {
+                        const el = document.getElementById('filter-history');
+                        if (el) el.value = '';
+                        this.renderHistory();
+                    }
+                });
+            }
+            if (dateQuery) {
+                chips.push({
+                    label: 'Data',
+                    valor: dateQuery.split('-').reverse().join('/'),
+                    onRemove: () => {
+                        const el = document.getElementById('filter-date-history');
+                        if (el) el.value = '';
+                        this.renderHistory();
+                    }
+                });
+            }
+            if (paymentQuery) {
+                chips.push({
+                    label: 'Pagamento',
+                    valor: rotulosPag[paymentQuery] || paymentQuery,
+                    onRemove: () => {
+                        const el = document.getElementById('filter-payment-history');
+                        if (el) el.value = '';
+                        this.renderHistory();
+                    }
+                });
+            }
+            window.Tabela.atualizarChips('history-list-labs', chips, () => {
+                ['filter-history', 'filter-date-history', 'filter-payment-history'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                this.renderHistory();
+            });
+        }
+
         if (filtered.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-dim);">Nenhuma saída encontrada.</div>';
+            const temFiltro = Boolean(query || dateQuery || paymentQuery);
+            container.innerHTML = `<tr class="sv-dt-empty-row"><td colspan="11">${
+                temFiltro
+                    ? this.emptyStateHtml({
+                        icon: 'bx-search-alt',
+                        titulo: 'Nenhuma saída encontrada com esses filtros',
+                        descricao: 'Remova os filtros ativos para visualizar o histórico completo de vendas.',
+                        acaoLabel: 'Limpar filtros',
+                        acaoOnclick: "document.getElementById('btn-clear-history-filters')?.click()"
+                    })
+                    : this.emptyStateHtml({
+                        icon: 'bx-receipt',
+                        titulo: 'Nenhuma saída registrada ainda',
+                        descricao: 'As vendas finalizadas no PDV aparecerão automaticamente nesta tabela.'
+                    })
+            }</td></tr>`;
             return;
         }
 
@@ -5313,7 +5546,7 @@ const app = {
             const id = s.id || s.ID || '';
             const date = s.date || s.Data || '';
             const dObj = this.parseDate(date);
-            const dataTxt = dObj ? dObj.toLocaleDateString('pt-BR') : 'N/A';
+            const dataTxt = dObj ? dObj.toLocaleDateString('pt-BR') : '—';
             const horaTxt = dObj ? dObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
             const cliente = s.cliente || s.Cliente || '';
             const subtotal = Number(s.valor_total || s["Valor Total"] || s.total || 0);
@@ -5323,28 +5556,48 @@ const app = {
             const lucro = Number(s.lucro || s.Lucro || (totalFinal - custo));
             const pagamento = this.rotuloPagamento(s);
             const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty ?? item.qtySold) || 0), 0) : 0;
+            const descInline = desconto > 0
+                ? `<small class="sv-cell-discount">Desc. ${this.formatCurrency(desconto)}</small>`
+                : '';
+            const pagNorm = pagamento.toLowerCase();
+            const pagTom = pagNorm.includes('pix') ? 'success'
+                : pagNorm.includes('cart') ? 'info'
+                : pagNorm.includes('dinheiro') ? 'warning'
+                : pagNorm.includes('fiado') ? 'danger'
+                : 'purple';
 
             return `
-                <div class="nested-item-labs-row">
-                    <span class="col-id" data-label="ID">#${id.toString().slice(-4)}</span>
-                    <span class="col-date" data-label="DATA" data-sort="${dObj ? dObj.getTime() : 0}">${dataTxt}${horaTxt ? `<small class="col-date-hora">${horaTxt}</small>` : ''}</span>
-                    <span class="col-name" data-label="CLIENTE">${this.esc(cliente)}</span>
-                    <span class="col-subtotal num" data-label="TOTAL" data-sort="${subtotal}">${this.formatCurrency(subtotal)}</span>
-                    <span class="col-discount num" data-label="DESC." data-sort="${desconto}">${this.formatCurrency(desconto)}</span>
-                    <span class="col-total-final num" data-label="FINAL" data-sort="${totalFinal}">${this.formatCurrency(totalFinal)}${this.statusFiadoVendaHtml(s)}</span>
-                    <span class="col-cost num" data-label="CUSTO" data-sort="${custo}">${this.formatCurrency(custo)}</span>
-                    <span class="col-profit num" data-label="LUCRO" data-sort="${lucro}">${this.formatCurrency(lucro)}</span>
-                    <div class="col-items-action" data-label="ITENS" data-sort="${itemsCount}">
+                <tr class="sv-dt-row nested-item-labs-row">
+                    <td class="col-id" data-label="ID">#${id.toString().slice(-4)}</td>
+                    <td class="col-date" data-label="Data" data-sort="${dObj ? dObj.getTime() : 0}">
+                        <div class="sv-date-cell"><span>${dataTxt}</span>${horaTxt ? `<small class="col-date-hora">${horaTxt}</small>` : ''}</div>
+                    </td>
+                    <td class="col-name sv-cell-primary" data-label="Cliente" title="${this.esc(cliente)}">${this.esc(cliente)}</td>
+                    <td class="col-subtotal num" data-label="Subtotal" data-sort="${subtotal}">${this.formatCurrency(subtotal)}</td>
+                    <td class="col-discount num" data-label="Desconto" data-sort="${desconto}">${this.formatCurrency(desconto)}</td>
+                    <td class="col-total-final num" data-label="Valor final" data-sort="${totalFinal}">
+                        <div class="sv-money-stack">
+                            <strong>${this.formatCurrency(totalFinal)}</strong>
+                            ${descInline}
+                            ${this.statusFiadoVendaHtml(s)}
+                        </div>
+                    </td>
+                    <td class="col-cost num" data-label="Custo" data-sort="${custo}">${this.formatCurrency(custo)}</td>
+                    <td class="col-profit num ${lucro < 0 ? 'valor-negativo' : ''}" data-label="Lucro" data-sort="${lucro}">${this.formatCurrency(lucro)}</td>
+                    <td class="col-items-action col-center" data-label="Itens" data-sort="${itemsCount}">
                         <button type="button" class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver itens da venda (${itemsCount} un.)" aria-label="Ver itens da venda"><i class="bx bx-list-ul"></i>Ver</button>
-                    </div>
-                    <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
-                    <div class="col-actions" data-label="AÇÕES">
-                        <button type="button" class="btn-action-edit" title="Editar venda" aria-label="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
-                        <button type="button" class="btn-action-view" title="Gerar Recibo" aria-label="Gerar recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
-                        <button type="button" class="btn-action-delete" title="Excluir Venda" aria-label="Excluir venda" onclick="app.deleteSale('${id}')"><i data-lucide="trash-2"></i></button>
-                    </div>
-                </div>
-                `;
+                    </td>
+                    <td class="col-payment" data-label="Pagamento" title="${this.esc(pagamento)}">
+                        <span class="sv-status-badge sv-status-${pagTom}"><span class="sv-status-dot"></span>${this.esc(pagamento)}</span>
+                    </td>
+                    <td class="col-actions" data-label="Ações">
+                        <div class="sv-actions-inline">
+                            <button type="button" class="btn-action-edit" title="Editar venda" aria-label="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
+                            <button type="button" class="btn-action-view" title="Gerar Recibo" aria-label="Gerar recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
+                            <button type="button" class="btn-action-delete" title="Excluir Venda" aria-label="Excluir venda" onclick="app.deleteSale('${id}')"><i data-lucide="trash-2"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
         }).join('');
         this.initLucide();
     },
@@ -6500,15 +6753,58 @@ const app = {
             });
         }
 
-        if (filtered.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-dim);">Nenhuma entrada encontrada.</div>';
-            return;
+        if (window.Tabela && typeof window.Tabela.atualizarChips === 'function') {
+            const chips = [];
+            if (busca && String(busca).trim()) {
+                chips.push({
+                    label: 'Busca',
+                    valor: String(busca).trim(),
+                    onRemove: () => {
+                        const el = document.getElementById('filter-entradas');
+                        if (el) el.value = '';
+                        this.renderEntradas('', filtroData);
+                    }
+                });
+            }
+            if (filtroData) {
+                chips.push({
+                    label: 'Data',
+                    valor: filtroData.split('-').reverse().join('/'),
+                    onRemove: () => {
+                        const el = document.getElementById('filter-date-entradas');
+                        if (el) el.value = '';
+                        this.renderEntradas(busca, '');
+                    }
+                });
+            }
+            window.Tabela.atualizarChips('entradas-list-labs', chips, () => this.limparFiltrosEntradas());
         }
 
         const visaoEnt = this.visaoDe('entradas');
         container.dataset.visao = visaoEnt;
         const listaEnt = document.getElementById('entradas-list-labs');
         if (listaEnt) listaEnt.classList.toggle('modo-cards', visaoEnt === 'cards');
+
+        if (filtered.length === 0) {
+            const temFiltro = Boolean((busca && String(busca).trim()) || filtroData);
+            container.innerHTML = temFiltro
+                ? this.emptyStateHtml({
+                    icon: 'bx-search-alt',
+                    titulo: 'Nenhuma entrada encontrada com esses filtros',
+                    descricao: 'Ajuste os critérios ou limpe os filtros para visualizar todas as entradas.',
+                    acaoLabel: 'Limpar filtros',
+                    acaoOnclick: 'app.limparFiltrosEntradas()'
+                })
+                : this.emptyStateHtml({
+                    icon: 'bx-package',
+                    titulo: 'Nenhuma entrada registrada ainda',
+                    descricao: 'Registre compras de fornecedores para atualizar o estoque e o custo médio.',
+                    acaoLabel: 'Nova Entrada',
+                    acaoOnclick: 'app.openNovaEntrada()'
+                });
+            return;
+        }
+
         if (visaoEnt === 'cards') {
             container.innerHTML = filtered.map(e => `
             <div class="tabela-card">
@@ -6532,34 +6828,53 @@ const app = {
             this.initLucide();
             return;
         }
-        container.innerHTML = filtered.map(e => {
+        const linhasEnt = filtered.map(e => {
             const dEnt = this.parseDate(e.date);
+            const forn = this.esc(e.fornecedor || '—');
+            const nota = this.esc(e.nota || '—');
             return `
-            <div class="nested-item-labs-row">
-                <span class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</span>
-                <span class="col-date" data-label="DATA" data-sort="${dEnt ? dEnt.getTime() : 0}">${dEnt ? dEnt.toLocaleDateString('pt-BR') : 'N/A'}</span>
-                <span class="col-name" data-label="FORNECEDOR">${this.esc(e.fornecedor || '---')}</span>
-                <span class="col-code" data-label="Nº NOTA">${this.esc(e.nota || '---')}</span>
-                <span class="col-qty-sum num" data-label="ITENS" data-sort="${e.items.length}">${e.items.length} itens</span>
-                <span class="col-price num" data-label="CUSTO" data-sort="${Number(e.totalCusto) || 0}">${this.formatCurrency(e.totalCusto)}</span>
-                <div class="col-actions" data-label="AÇÕES" style="justify-content: flex-end;">
-                    <button type="button" class="btn-action-view" onclick="app.showEntradaDetails('${e.id}')" title="Ver Detalhes" aria-label="Ver detalhes da entrada">
-                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
-                    </button>
-                    <button type="button" class="btn-action-delete" onclick="app.deleteEntrada('${e.id}')" title="Excluir Entrada" aria-label="Excluir entrada">
-                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
-                    </button>
-                </div>
-            </div>
-        `;
+            <tr class="sv-dt-row nested-item-labs-row">
+                <td class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</td>
+                <td class="col-date" data-label="Data" data-sort="${dEnt ? dEnt.getTime() : 0}">${dEnt ? dEnt.toLocaleDateString('pt-BR') : '—'}</td>
+                <td class="col-name sv-cell-primary" data-label="Fornecedor" title="${forn}">${forn}</td>
+                <td class="col-code" data-label="Nº Nota" title="${nota}">${nota}</td>
+                <td class="col-qty-sum num" data-label="Itens" data-sort="${e.items.length}">${e.items.length} itens</td>
+                <td class="col-price num sv-cell-strong" data-label="Custo total" data-sort="${Number(e.totalCusto) || 0}">${this.formatCurrency(e.totalCusto)}</td>
+                <td class="col-actions" data-label="Ações">
+                    <div class="sv-actions-inline">
+                        <button type="button" class="btn-action-view" onclick="app.showEntradaDetails('${e.id}')" title="Ver Detalhes" aria-label="Ver detalhes da entrada">
+                            <i data-lucide="eye"></i>
+                        </button>
+                        <button type="button" class="btn-action-delete" onclick="app.deleteEntrada('${e.id}')" title="Excluir Entrada" aria-label="Excluir entrada">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
         }).join('');
+
+        container.innerHTML = `<div class="sv-dt-scroll"><table class="sv-dt sv-dt-entradas" data-dt="entradas">
+            <thead>
+                <tr>
+                    <th scope="col" class="col-id" data-col-key="id" data-col-label="ID">ID</th>
+                    <th scope="col" class="col-date" data-col-key="data" data-col-label="Data">Data</th>
+                    <th scope="col" class="col-name" data-col-key="fornecedor" data-col-label="Fornecedor" data-col-locked="true">Fornecedor</th>
+                    <th scope="col" class="col-code" data-col-key="nota" data-col-label="Nº Nota">Nº Nota</th>
+                    <th scope="col" class="col-qty-sum num" data-col-key="itens" data-col-label="Itens">Itens</th>
+                    <th scope="col" class="col-price num" data-col-key="custo" data-col-label="Custo total" data-col-locked="true">Custo total</th>
+                    <th scope="col" class="col-actions" data-col-key="acoes" data-col-label="Ações" data-col-locked="true">Ações</th>
+                </tr>
+            </thead>
+            <tbody>${linhasEnt}</tbody>
+        </table></div>`;
 
         this.initLucide();
     },
 
-    // Estoque em tempo real: cards com foto, quantidade e nível (mesmos limites das notificações).
+    // Estoque em tempo real: tabela semântica no padrão Setproduct.
     estoqueTabelaHtml(lista, vendido30, ultimaMov, nivel, rotulo, moeda) {
         const isAdmin = this.state.currentUser?.role === 'admin';
+        const tomNivel = { baixo: 'danger', medio: 'warning', ok: 'success' };
         const linhas = lista.map(p => {
             const nv = nivel(p);
             const id = String(p.id);
@@ -6573,20 +6888,31 @@ const app = {
             const btnAjuste = isAdmin
                 ? `<button type="button" class="btn-action-edit" onclick="app.adjustStock('${this.esc(id)}', 2)" title="Ajustar estoque" aria-label="Ajustar estoque"><i data-lucide="edit-3"></i></button>`
                 : '';
-            return '<tr class="estoque-linha estoque-' + nv + '">'
-                + '<td><div class="estoque-nome-tab"><strong>' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
-                + '<td class="num" data-sort="' + qtd + '">' + qtd + '</td>'
-                + '<td class="col-center"><span class="estoque-status">' + rotulo[nv] + '</span></td>'
-                + '<td data-sort="' + sortCobertura + '">' + cobertura + '</td>'
+            return '<tr class="sv-dt-row estoque-linha estoque-' + nv + '">'
+                + '<td><div class="estoque-nome-tab"><strong title="' + this.esc(p.name) + '">' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
+                + '<td class="num sv-cell-strong" data-sort="' + qtd + '">' + qtd + '</td>'
+                + '<td class="col-center"><span class="sv-status-badge sv-status-' + (tomNivel[nv] || 'neutral') + ' estoque-status"><span class="sv-status-dot"></span>' + rotulo[nv] + '</span></td>'
+                + '<td data-sort="' + sortCobertura + '" title="' + cobertura + '">' + cobertura + '</td>'
                 + '<td class="num" data-sort="' + vendas + '">' + vendas + ' un.</td>'
-                + '<td class="num" data-sort="' + capital + '">' + moeda(capital) + '</td>'
-                + '<td data-sort="' + (ultimaMov[id] || 0) + '">' + ultima + '</td>'
+                + '<td class="num sv-cell-strong" data-sort="' + capital + '">' + moeda(capital) + '</td>'
+                + '<td class="col-date" data-sort="' + (ultimaMov[id] || 0) + '">' + ultima + '</td>'
                 + '<td class="col-actions-tab"><div class="actions-inline"><button type="button" class="btn-action-view" onclick="app.showProductHistory(\'' + this.esc(id) + '\')" title="Histórico de estoque" aria-label="Histórico de estoque"><i data-lucide="history"></i></button>' + btnAjuste + '</div></td>'
                 + '</tr>';
         }).join('');
-        return '<div class="table-container-labs"><table class="custom-table-labs estoque-tabela">'
-            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th class="col-center">Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Valor em estoque</th><th>Última movimentação</th><th class="col-actions-head">Ações</th></tr></thead>'
-            + '<tbody>' + linhas + '</tbody></table></div>';
+        return '<div class="sv-dt-card table-container-labs" id="estoque-table-card">'
+            + '<div class="sv-dt-subbar"><div class="sv-dt-chips is-empty" aria-label="Filtros ativos"></div></div>'
+            + '<div class="sv-dt-scroll"><table class="sv-dt custom-table-labs estoque-tabela" data-dt="estoque">'
+            + '<thead><tr>'
+            + '<th scope="col" data-col-key="produto" data-col-label="Produto" data-col-locked="true">Produto</th>'
+            + '<th scope="col" class="num" data-col-key="estoque" data-col-label="Estoque" data-col-locked="true">Estoque</th>'
+            + '<th scope="col" class="col-center" data-col-key="situacao" data-col-label="Situação">Situação</th>'
+            + '<th scope="col" data-col-key="cobertura" data-col-label="Cobertura">Cobertura</th>'
+            + '<th scope="col" class="num" data-col-key="vendas30" data-col-label="Vendas 30 dias">Vendas 30 dias</th>'
+            + '<th scope="col" class="num" data-col-key="valor" data-col-label="Valor em estoque">Valor em estoque</th>'
+            + '<th scope="col" data-col-key="ultima" data-col-label="Última movimentação">Última movimentação</th>'
+            + '<th scope="col" class="col-actions-head" data-col-key="acoes" data-col-label="Ações" data-col-locked="true">Ações</th>'
+            + '</tr></thead>'
+            + '<tbody>' + linhas + '</tbody></table></div></div>';
     },
 
     /** Estado do histórico de movimentações (filtros e paginação). */
@@ -6679,6 +7005,22 @@ const app = {
             estado.page += 1;
             this.renderMovimentacoes();
         });
+        document.getElementById('mov-page-nums')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-mov-pag]');
+            if (!btn) return;
+            estado.page = Number(btn.dataset.movPag) || 1;
+            this.renderMovimentacoes();
+        });
+        document.getElementById('mov-pagesize')?.addEventListener('change', (e) => {
+            const val = Number(e.target.value) || 7;
+            estado.pageSize = val;
+            estado.page = 1;
+            if (window.Tabela && typeof window.Tabela.setPageSize === 'function') {
+                window.Tabela.setPageSize(val);
+            } else {
+                this.renderMovimentacoes();
+            }
+        });
         document.getElementById('mov-xlsx')?.addEventListener('click', () => this.confirmarExportacaoMovimentacoes('xlsx'));
         document.getElementById('mov-pdf')?.addEventListener('click', () => this.confirmarExportacaoMovimentacoes('pdf'));
     },
@@ -6715,7 +7057,14 @@ const app = {
     renderMovimentacoes() {
         const estado = this._movEstado();
         const { filtradas, total } = this.movimentosFiltrados();
-        const porPagina = Math.max(1, Number(estado.pageSize) || 7);
+        const tamSalvo = (window.Tabela && typeof window.Tabela.getPageSize === 'function')
+            ? window.Tabela.getPageSize()
+            : (Number(estado.pageSize) || 7);
+        const porPagina = Math.max(1, Number(tamSalvo) || 7);
+        estado.pageSize = porPagina;
+        const selTam = document.getElementById('mov-pagesize');
+        if (selTam) selTam.value = String(porPagina);
+
         const totalPags = Math.max(1, Math.ceil(filtradas.length / porPagina));
         if (!Number.isInteger(estado.page) || estado.page < 1) estado.page = 1;
         if (estado.page > totalPags) estado.page = totalPags;
@@ -6739,6 +7088,59 @@ const app = {
             estado.produto = sel.value;
         }
 
+        if (window.Tabela && typeof window.Tabela.atualizarChips === 'function') {
+            const rotPeriodo = { hoje: 'Hoje', '7': 'Últimos 7 dias', '30': 'Últimos 30 dias', personalizado: 'Personalizado' };
+            const chips = [];
+            if (estado.busca) {
+                chips.push({
+                    label: 'Busca',
+                    valor: estado.busca,
+                    onRemove: () => {
+                        estado.busca = '';
+                        const inp = document.getElementById('mov-busca');
+                        if (inp) inp.value = '';
+                        estado.page = 1;
+                        this.renderMovimentacoes();
+                    }
+                });
+            }
+            if (estado.produto) {
+                const pObj = (this.state.products || []).find(p => String(p.id) === String(estado.produto));
+                chips.push({
+                    label: 'Produto',
+                    valor: pObj ? pObj.name : estado.produto,
+                    onRemove: () => {
+                        estado.produto = '';
+                        estado.page = 1;
+                        this.renderMovimentacoes();
+                    }
+                });
+            }
+            if (estado.periodo !== 'tudo') {
+                chips.push({
+                    label: 'Período',
+                    valor: rotPeriodo[estado.periodo] || estado.periodo,
+                    onRemove: () => {
+                        estado.periodo = 'tudo';
+                        estado.page = 1;
+                        this.renderMovimentacoes();
+                    }
+                });
+            }
+            estado.tipos.forEach(tp => {
+                chips.push({
+                    label: 'Tipo',
+                    valor: HistoricoMov.ROTULOS[tp] || tp,
+                    onRemove: () => {
+                        estado.tipos = estado.tipos.filter(x => x !== tp);
+                        estado.page = 1;
+                        this.renderMovimentacoes();
+                    }
+                });
+            });
+            window.Tabela.atualizarChips('estoque-mov', chips, () => document.getElementById('mov-limpar')?.click());
+        }
+
         const totaisEl = document.getElementById('mov-totais');
         if (totaisEl) {
             const sinal = (n) => (n > 0 ? '+' : '') + n;
@@ -6755,26 +7157,43 @@ const app = {
         const tbody = document.getElementById('mov-tbody');
         if (tbody) {
             if (total === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="mov-vazio">Nenhuma movimentação registrada.</td></tr>';
+                tbody.innerHTML = `<tr data-empty="1"><td colspan="8" class="mov-vazio">${this.emptyStateHtml({
+                    icon: 'bx-transfer',
+                    titulo: 'Nenhuma movimentação registrada.',
+                    descricao: 'Entradas, vendas, estornos e ajustes de estoque serão listados automaticamente aqui.'
+                })}</td></tr>`;
             } else if (filtradas.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="mov-vazio">Nenhuma movimentação com esses filtros.</td></tr>';
+                tbody.innerHTML = `<tr data-empty="1"><td colspan="8" class="mov-vazio">${this.emptyStateHtml({
+                    icon: 'bx-search-alt',
+                    titulo: 'Nenhuma movimentação com esses filtros.',
+                    descricao: 'Remova um ou mais filtros para voltar a visualizar o histórico.',
+                    acaoLabel: 'Limpar filtros',
+                    acaoOnclick: "document.getElementById('mov-limpar')?.click()"
+                })}</td></tr>`;
             } else {
                 tbody.innerHTML = visiveis.map(l => {
                     const qtd = l.qtd > 0 ? `+${l.qtd}` : `${l.qtd}`;
                     const custo = l.custoUnit == null ? '—' : this.formatCurrency(l.custoUnit);
                     const tag = l.ignorada ? ' <span class="mov-tag-ignorada">ignorada</span>' : '';
-                    return `<tr class="${l.ignorada ? 'mov-apagada' : ''}">`
-                        + `<td>${HistoricoMov.dataHoraBr(l.data)}</td>`
-                        + `<td>${this.esc(l.produto)}</td>`
+                    const prodEsc = this.esc(l.produto);
+                    const origEsc = this.esc(l.origem);
+                    const obsEsc = this.esc(l.obs) || '—';
+                    return `<tr class="sv-dt-row ${l.ignorada ? 'mov-apagada' : ''}">`
+                        + `<td class="col-date">${HistoricoMov.dataHoraBr(l.data)}</td>`
+                        + `<td class="sv-cell-primary" title="${prodEsc}">${prodEsc}</td>`
                         + `<td><span class="mov-tipo-tag mov-tipo-${l.tipo}">${this.esc(l.rotulo)}</span>${tag}</td>`
-                        + `<td class="num">${qtd}</td>`
+                        + `<td class="num sv-cell-strong">${qtd}</td>`
                         + `<td class="num">${custo}</td>`
                         + `<td class="num">${l.saldoApos == null ? '—' : l.saldoApos}</td>`
-                        + `<td>${this.esc(l.origem)}</td>`
-                        + `<td>${this.esc(l.obs) || '—'}</td>`
+                        + `<td title="${origEsc}">${origEsc}</td>`
+                        + `<td title="${obsEsc}">${obsEsc}</td>`
                         + '</tr>';
                 }).join('');
             }
+        }
+
+        if (window.Tabela && typeof window.Tabela.sincronizarTabelaManual === 'function') {
+            window.Tabela.sincronizarTabelaManual('movimentacoes', 'estoque-mov', '.mov-tabela');
         }
 
         const contagem = document.getElementById('mov-contagem');
@@ -6787,6 +7206,15 @@ const app = {
         if (pagBox) pagBox.classList.toggle('hidden', filtradas.length === 0);
         const pagInfo = document.getElementById('mov-page-info');
         if (pagInfo) pagInfo.textContent = `${estado.page} / ${totalPags}`;
+        const pagNums = document.getElementById('mov-page-nums');
+        if (pagNums && window.Tabela && typeof window.Tabela.gerarPaginas === 'function') {
+            const paginas = window.Tabela.gerarPaginas(estado.page, totalPags);
+            pagNums.innerHTML = paginas.map(p => {
+                if (p === '…') return '<span class="tabela-pager-ellipsis" aria-hidden="true">…</span>';
+                const ativo = p === estado.page;
+                return `<button type="button" class="tabela-pager-page${ativo ? ' active' : ''}" data-mov-pag="${p}"${ativo ? ' aria-current="page"' : ''} aria-label="Página ${p}">${p}</button>`;
+            }).join('');
+        }
         const btnPrev = document.getElementById('mov-prev');
         if (btnPrev) btnPrev.disabled = estado.page <= 1;
         const btnNext = document.getElementById('mov-next');
@@ -6943,8 +7371,30 @@ const app = {
         document.querySelectorAll('#estoque-visao-toggle button').forEach(b => b.classList.toggle('active', b.dataset.visao === visao));
         if (visao === 'tabela') {
             grid.innerHTML = lista.length === 0
-                ? '<div class="pos-empty">Nenhum produto encontrado.</div>'
+                ? `<div class="sv-dt-card">${
+                    busca
+                        ? this.emptyStateHtml({
+                            icon: 'bx-search-alt',
+                            titulo: 'Nenhum produto encontrado',
+                            descricao: 'Limpe o campo de busca para visualizar todo o estoque.',
+                            acaoLabel: 'Limpar busca',
+                            acaoOnclick: 'app.limparFiltrosEstoque()'
+                        })
+                        : this.emptyStateHtml({
+                            icon: 'bx-package',
+                            titulo: 'Nenhum produto cadastrado no estoque',
+                            descricao: 'Cadastre produtos na aba Produtos para monitorar níveis em tempo real.'
+                        })
+                }</div>`
                 : this.estoqueTabelaHtml(lista, vendido30, ultimaMov, nivel, rotulo, moeda);
+            if (lista.length > 0 && window.Tabela && typeof window.Tabela.atualizarChips === 'function') {
+                const chipsEst = busca ? [{
+                    label: 'Busca',
+                    valor: document.getElementById('filter-estoque')?.value?.trim() || busca,
+                    onRemove: () => this.limparFiltrosEstoque()
+                }] : [];
+                window.Tabela.atualizarChips('estoque-table-card', chipsEst, () => this.limparFiltrosEstoque());
+            }
             this.initLucide();
             return;
         }
