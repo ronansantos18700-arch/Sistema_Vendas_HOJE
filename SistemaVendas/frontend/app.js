@@ -58,6 +58,7 @@ const app = {
             topProfitable: null
         },
         dashboardFilter: '7d',
+        dashboardVisao: 'vendas',
         activeChartDatasets: ['faturamento', 'lucro', 'custo'],
         latestEntradasPage: 1,
         criticalStockPage: 1,
@@ -719,11 +720,7 @@ const app = {
             .slice(0, 5);
 
         const labels = top5.map(p => {
-            let name = p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
-            if (this.state.hotProductIds && this.state.hotProductIds.includes(p.id.toString())) {
-                name = `🔥 ${name}`;
-            }
-            return name;
+            return p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
         });
         const data = top5.map(p => p.profit);
 
@@ -2816,34 +2813,6 @@ const app = {
     renderDashboard() {
         this.updateDashboardStats();
         
-        // Identificar produtos "Hot" (Top 5 vendidos E Top 5 lucrativos)
-        const filteredSales = this.getFilteredSales();
-        const soldStats = {};
-        const profitStats = {};
-
-        filteredSales.forEach(sale => {
-            if (sale.items && Array.isArray(sale.items)) {
-                sale.items.forEach(item => {
-                    const id = item.productId || item.id;
-                    if (!id) return;
-                    
-                    const qty = Number(item.qtySold) || Number(item.qty) || 0;
-                    const price = Number(item.price) || 0;
-                    const cost = Number(item.cost) || 0;
-
-                    if (!soldStats[id]) soldStats[id] = 0;
-                    soldStats[id] += qty;
-
-                    if (!profitStats[id]) profitStats[id] = 0;
-                    profitStats[id] += (price - cost) * qty;
-                });
-            }
-        });
-
-        const top5SoldIds = Object.entries(soldStats).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-        const top5ProfitIds = Object.entries(profitStats).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-        this.state.hotProductIds = top5SoldIds.filter(id => top5ProfitIds.includes(id));
-
         this.renderTopProductsChart();
         this.renderTopProfitableProductsChart();
         this.renderCriticalStockTable();
@@ -2895,6 +2864,7 @@ const app = {
         txt('dash-ven-margem-sub', ven.vendas ? `lucro de ${this.formatCurrency(ven.lucro)} em ${ven.vendas} venda(s)` : 'sem vendas no período');
         txt('dash-ven-dia', ven.diaPico || '—');
         txt('dash-ven-hora', ven.horaPico == null ? '—' : `${pad(ven.horaPico)}h às ${pad((ven.horaPico + 1) % 24)}h`);
+        this.renderDashboardInsights(R, est, ven);
         txt('dash-ven-recorrencia', pct(ven.taxaRecorrencia));
         txt('dash-ven-recorrencia-sub', ven.clientesDistintos
             ? `${ven.clientesRecorrentes} de ${ven.clientesDistintos} clientes com 2 ou mais compras`
@@ -2911,6 +2881,50 @@ const app = {
                 </tr>`).join('')
                 : '<tr><td colspan="4" class="dash-vazio">Sem vendas no período.</td></tr>';
         }
+    },
+
+    /** Textos de insight das duas visões (Vendas e Estoque), gerados pela lógica pura de dashboard.js. */
+    renderDashboardInsights(R, est, ven) {
+        const filtro = this.state.dashboardFilter;
+        const agora = new Date();
+        const parse = (d) => this.parseDate(d);
+        const serie = R.serieLinha(this.state.sales || [], filtro, agora, parse);
+        const indiceAtual = filtro === '7d' ? 6 : filtro === 'month' ? agora.getDate() - 1 : agora.getMonth();
+        const anterior = this.calculateTotalsFromSales(this.getPreviousPeriodSales(filtro));
+
+        const preencher = (id, textos) => {
+            const ul = document.getElementById(id);
+            if (!ul) return;
+            ul.innerHTML = '';
+            textos.forEach((t) => {
+                const li = document.createElement('li');
+                li.textContent = t;
+                ul.appendChild(li);
+            });
+        };
+        preencher('dash-insight-vendas', R.insightsVendas(serie, indiceAtual,
+            { faturamento: ven.faturamento, vendas: ven.vendas }, { faturamento: anterior.faturamento }, ven));
+        preencher('dash-insight-estoque', R.insightsEstoque(est));
+    },
+
+    /** Troca a visão do dashboard: Vendas ou Estoque. Só o bloco escolhido fica visível. */
+    setDashboardVisao(visao) {
+        this.state.dashboardVisao = visao === 'estoque' ? 'estoque' : 'vendas';
+        const view = document.getElementById('dashboard-view');
+        if (view) view.dataset.visao = this.state.dashboardVisao;
+        document.querySelectorAll('.dash-visao-btn').forEach((btn) => {
+            const ativo = btn.dataset.visao === this.state.dashboardVisao;
+            btn.classList.toggle('active', ativo);
+            btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+    },
+
+    /** Troca o período (7 dias, mês ou ano) e redesenha o dashboard. */
+    setDashboardFilter(filtro) {
+        this.state.dashboardFilter = ['7d', 'month', 'year'].includes(filtro) ? filtro : '7d';
+        const sel = document.getElementById('dash-periodo');
+        if (sel) sel.value = this.state.dashboardFilter;
+        this.renderDashboard();
     },
 
     /** Destaques: alertas de estoque (sem saldo e baixo) e produtos mais vendidos no período. */
@@ -2973,11 +2987,7 @@ const app = {
             .slice(0, 5);
 
         const labels = top5.map(p => {
-            let name = p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
-            if (this.state.hotProductIds && this.state.hotProductIds.includes(p.id.toString())) {
-                name = `🔥 ${name}`;
-            }
-            return name;
+            return p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
         });
         const data = top5.map(p => p.qtySold);
 
@@ -3055,7 +3065,7 @@ const app = {
         filteredSales.forEach(sale => {
             const method = sale.pagamento || sale.PaymentMethod || sale.formaPagamento || 'Outros';
             const amount = sale.valor_total ?? sale["Valor Total"] ?? sale.total ?? 0;
-            
+
             if (!paymentStats[method]) {
                 paymentStats[method] = { count: 0, revenue: 0 };
             }
@@ -3064,76 +3074,66 @@ const app = {
             totalRevenue += amount;
         });
 
-        const labels = Object.keys(paymentStats).map(m => m.charAt(0).toUpperCase() + m.slice(1));
-        const data = Object.values(paymentStats).map(stat => 
-            totalRevenue > 0 ? ((stat.revenue / totalRevenue) * 100).toFixed(1) : 0
-        );
-        const revenues = Object.values(paymentStats).map(stat => stat.revenue);
-        const counts = Object.values(paymentStats).map(stat => stat.count);
+        // Ordem do maior para o menor faturamento: o principal meio fica no topo.
+        const metodos = Object.entries(paymentStats).sort((a, b) => b[1].revenue - a[1].revenue);
+        const labels = metodos.map(([m, st]) => {
+            const pct = totalRevenue > 0 ? (st.revenue / totalRevenue) * 100 : 0;
+            return `${m.charAt(0).toUpperCase() + m.slice(1)} (${pct.toFixed(0)}%)`;
+        });
+        const revenues = metodos.map(([, st]) => st.revenue);
+        const counts = metodos.map(([, st]) => st.count);
+        const percentuais = metodos.map(([, st]) => totalRevenue > 0 ? ((st.revenue / totalRevenue) * 100).toFixed(1) : 0);
 
         if (this.state.charts.paymentMethods) {
             this.state.charts.paymentMethods.destroy();
         }
 
-        if (data.length === 0) return;
+        if (metodos.length === 0) return;
 
         const theme = this.getThemeColors();
         this.state.charts.paymentMethods = new Chart(ctx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    data: data,
-                    backgroundColor: [
-                        'rgba(64, 112, 244, 0.7)', // Purple
-                        'rgba(127, 165, 142, 0.7)',  // Green
-                        'rgba(249, 115, 22, 0.7)',  // Orange
-                        'rgba(6, 182, 212, 0.7)',   // Cyan
-                        'rgba(214, 69, 69, 0.7)'    // Red
-                    ],
-                    borderColor: theme.border,
-                    borderWidth: 2,
-                    hoverOffset: 10
+                    data: revenues,
+                    backgroundColor: 'rgba(64, 112, 244, 0.65)',
+                    hoverBackgroundColor: 'rgba(64, 112, 244, 0.9)',
+                    borderRadius: 6,
+                    barThickness: 18
                 }]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '60%',
-                layout: {
-                    padding: { top: 25, bottom: 25, left: 10, right: 10 }
-                },
                 plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: theme.text,
-                            padding: 12,
-                            font: { size: 11 },
-                            usePointStyle: true,
-                            boxWidth: 8
-                        }
-                    },
+                    legend: { display: false },
                     tooltip: {
                         backgroundColor: theme.tooltipBg,
                         titleColor: theme.tooltipText,
                         bodyColor: theme.tooltipText,
-                        padding: 12,
+                        padding: 10,
                         cornerRadius: 8,
-                        displayColors: true,
                         callbacks: {
                             label: (context) => {
-                                const index = context.dataIndex;
-                                const revenue = revenues[index];
-                                const count = counts[index];
-                                const percentage = data[index];
+                                const i = context.dataIndex;
                                 return [
-                                    ` ${context.label}: ${percentage}%`,
-                                    ` Faturamento: ${this.formatCurrency(revenue)}`,
-                                    ` Nº de vendas: ${count}`
+                                    ` Faturamento: ${this.formatCurrency(revenues[i])} (${percentuais[i]}%)`,
+                                    ` Nº de vendas: ${counts[i]}`
                                 ];
                             }
                         }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: theme.grid },
+                        ticks: { color: theme.text, font: { size: 11 }, callback: (v) => this.formatCurrency(v) }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: theme.text, font: { size: 12 } }
                     }
                 }
             }

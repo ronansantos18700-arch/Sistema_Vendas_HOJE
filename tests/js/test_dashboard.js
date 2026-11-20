@@ -203,6 +203,49 @@ teste('alertas: nível baixo ausente usa 10', () => {
   assert.deepStrictEqual(a.estoqueBaixo.map(x => x.produto), ['Água']);
 });
 
+teste('insight vendas: pico do ano com queda no mês seguinte, em texto', () => {
+  const serie = { labels: ['Out', 'Nov', 'Dez'], revenue: [1000, 2000, 1500], profit: [], cost: [] };
+  const t = D.insightsVendas(serie, 2, { faturamento: 4500, vendas: 10 }, { faturamento: 3000 }, { margemBruta: 30, lucro: 1350 });
+  assert.strictEqual(t[0], 'Novembro concentrou o maior faturamento do período (R$ 2.000,00), seguido por uma queda de 25,0% em dezembro.');
+  assert.strictEqual(t[1], 'Faturamento de R$ 4.500,00, 50,0% acima do período anterior.');
+  assert.strictEqual(t[2], 'Margem bruta de 30,0%, com lucro de R$ 1.350,00.');
+});
+
+teste('insight vendas: não compara com mês futuro (sem dados ainda)', () => {
+  const serie = { labels: ['Out', 'Nov', 'Dez'], revenue: [1000, 2000, 0], profit: [], cost: [] };
+  const t = D.insightsVendas(serie, 1, { faturamento: 3000, vendas: 5 }, { faturamento: 0 }, null);
+  assert.ok(!t[0].includes('queda'), t[0]);
+  assert.ok(t[0].startsWith('Novembro concentrou'));
+  assert.strictEqual(t[1], 'Faturamento de R$ 3.000,00 no período.');
+});
+
+teste('insight vendas: sem vendas no período', () => {
+  assert.deepStrictEqual(D.insightsVendas({ labels: [], revenue: [] }, 0, { faturamento: 0, vendas: 0 }, null, null), ['Sem vendas no período selecionado.']);
+});
+
+teste('insight vendas: pico no último período não cita queda inexistente', () => {
+  const serie = { labels: ['Out', 'Nov'], revenue: [100, 150], profit: [], cost: [] };
+  const t = D.insightsVendas(serie, 1, { faturamento: 250, vendas: 2 }, null, null);
+  assert.strictEqual(t[0], 'Novembro concentrou o maior faturamento do período (R$ 150,00).');
+});
+
+teste('insight vendas: valor em reais com milhar', () => {
+  const t = D.insightsVendas({ labels: ['7'], revenue: [12345.6] }, 0, { faturamento: 12345.6, vendas: 3 }, null, null);
+  assert.ok(t[0].includes('R$ 12.345,60'), t[0]);
+});
+
+teste('insight estoque: ruptura, cobertura crítica e dinheiro parado', () => {
+  const t = D.insightsEstoque({ totalProdutos: 20, zerados: 2, taxaRuptura: 10, criticos: 3, valorParado: 150, paradosQuantidade: 2, janelaDias: 30 });
+  assert.strictEqual(t[0], '2 produto(s) sem saldo, ruptura de 10,0% do catálogo.');
+  assert.strictEqual(t[1], '3 produto(s) com cobertura abaixo de 7 dias.');
+  assert.strictEqual(t[2], 'R$ 150,00 parados em 2 produto(s) sem venda nos últimos 30 dias.');
+});
+
+teste('insight estoque: tudo sob controle e catálogo vazio', () => {
+  assert.deepStrictEqual(D.insightsEstoque({ totalProdutos: 5, zerados: 0, criticos: 0, valorParado: 0 }), ['Nenhum produto em ruptura ou com cobertura crítica.']);
+  assert.deepStrictEqual(D.insightsEstoque({ totalProdutos: 0 }), ['Nenhum produto cadastrado.']);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

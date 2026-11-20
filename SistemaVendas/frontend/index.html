@@ -165,7 +165,21 @@
             <!-- Views Container -->
             <div class="view-container">
                 <!-- Dashboard View -->
-                <section id="dashboard-view" class="view dashboard-view">
+                <section id="dashboard-view" class="view dashboard-view" data-visao="vendas">
+                    <div class="dash-barra">
+                        <div class="dash-visao" role="group" aria-label="Escolher análise">
+                            <button type="button" class="dash-visao-btn active" data-visao="vendas" aria-pressed="true" onclick="app.setDashboardVisao('vendas')">Vendas</button>
+                            <button type="button" class="dash-visao-btn" data-visao="estoque" aria-pressed="false" onclick="app.setDashboardVisao('estoque')">Estoque</button>
+                        </div>
+                        <label class="dash-periodo">
+                            <span>Período</span>
+                            <select id="dash-periodo" onchange="app.setDashboardFilter(this.value)">
+                                <option value="7d">Últimos 7 dias</option>
+                                <option value="month">Mês atual</option>
+                                <option value="year">Ano atual</option>
+                            </select>
+                        </label>
+                    </div>
                     <div class="stats-grid-labs">
                         <div class="stat-card-labs glass-inner">
                             <div class="stat-card-header">
@@ -222,11 +236,12 @@
                     </div>
 
                     <!-- Estoque: só o que pede ação -->
-                    <div class="dash-secao">
+                    <div class="dash-secao" data-visao-bloco="estoque">
                         <div class="dash-secao-titulo">
                             <h4>Estoque: o que precisa de atenção</h4>
                             <span class="dash-nota">Ritmo de venda dos últimos 30 dias</span>
                         </div>
+                        <ul class="dash-insights" id="dash-insight-estoque"></ul>
                         <div class="dash-kpis">
                             <div class="dash-kpi glass-inner">
                                 <span class="dash-kpi-rotulo">Ruptura</span>
@@ -266,11 +281,12 @@
                     </div>
 
                     <!-- Vendas: rentabilidade, ritmo e clientes -->
-                    <div class="dash-secao">
+                    <div class="dash-secao" data-visao-bloco="vendas">
                         <div class="dash-secao-titulo">
                             <h4>Vendas: rentabilidade e ritmo</h4>
                             <span class="dash-nota">Período selecionado acima</span>
                         </div>
+                        <ul class="dash-insights" id="dash-insight-vendas"></ul>
                         <div class="dash-kpis">
                             <div class="dash-kpi glass-inner">
                                 <span class="dash-kpi-rotulo">Margem bruta</span>
@@ -311,18 +327,18 @@
 
                     <!-- Destaques: alertas e mais vendidos -->
                     <div class="dash-destaques">
-                        <div class="glass-inner dash-destaque">
+                        <div class="glass-inner dash-destaque" data-visao-bloco="estoque">
                             <h4>Alertas de estoque</h4>
                             <div id="dash-alertas"></div>
                         </div>
-                        <div class="glass-inner dash-destaque">
+                        <div class="glass-inner dash-destaque" data-visao-bloco="vendas">
                             <h4>Mais vendidos no período</h4>
                             <div id="dash-top-produtos"></div>
                         </div>
                     </div>
 
                     <div class="charts-grid">
-                        <div class="chart-card-labs glass-inner full-width">
+                        <div class="chart-card-labs glass-inner full-width" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Evolução de Vendas</h4>
                                 <div class="chart-dataset-toggles">
@@ -342,7 +358,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Vendas por Horário</h4>
                             </div>
@@ -351,7 +367,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Margem de Lucro (%)</h4>
                             </div>
@@ -360,7 +376,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Top 5 Produtos (Mais Vendidos)</h4>
                             </div>
@@ -369,7 +385,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Top 5 Produtos Mais Lucrativos</h4>
                             </div>
@@ -378,16 +394,16 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Vendas por Pagamento</h4>
                             </div>
-                            <div class="chart-container-labs" style="max-width: 90%; margin: 0 auto;">
+                            <div class="chart-container-labs chart-compacto">
                                 <canvas id="paymentMethodsChart"></canvas>
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner">
+                        <div class="chart-card-labs glass-inner" data-visao-bloco="estoque">
                             <div class="chart-header-actions">
                                 <h4>Alertas de Estoque Crítico</h4>
                                 <div class="table-pagination-controls">
@@ -417,7 +433,7 @@
                             </div>
                         </div>
 
-                        <div class="chart-card-labs glass-inner full-width">
+                        <div class="chart-card-labs glass-inner full-width" data-visao-bloco="vendas">
                             <div class="chart-header-actions">
                                 <h4>Últimas 25 Vendas</h4>
                                 <div class="table-pagination-controls">

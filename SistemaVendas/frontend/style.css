@@ -5926,3 +5926,28 @@ i.bx {
 .dash-alerta-zero { color: #e5484d; }
 .dash-alerta-baixo { color: #d97706; }
 @media (max-width: 900px) { .dash-destaques { grid-template-columns: 1fr; } }
+
+/* Dashboard: barra de visão (Vendas/Estoque) e período */
+.dash-barra { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.dash-visao { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(127, 127, 127, 0.12); }
+.dash-visao-btn { border: 0; background: transparent; padding: 0.45rem 1.1rem; border-radius: 999px; color: var(--text-dim); font-weight: 600; cursor: pointer; }
+.dash-visao-btn:hover { color: var(--text-white); }
+.dash-visao-btn.active { background: var(--color-1); color: #fff; }
+.dash-periodo { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-dim); }
+.dash-periodo select { padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.25); background: transparent; color: inherit; }
+
+/* Textos de insight: uma frase por linha, com marcador discreto */
+.dash-insights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.dash-insights li { font-size: 0.92rem; color: var(--text-white); line-height: 1.45; }
+.dash-insights li::before { content: '•'; margin-right: 0.5rem; color: var(--color-1); }
+
+/* Uma visão por vez: o bloco da outra visão some */
+.dashboard-view[data-visao="vendas"] [data-visao-bloco="estoque"],
+.dashboard-view[data-visao="estoque"] [data-visao-bloco="vendas"] { display: none; }
+
+/* Gráfico de barras compacto (Vendas por Pagamento) */
+.chart-container-labs.chart-compacto { height: 240px; }
+
+/* Indicadores com menos saturação: o número é o destaque, a cor só marca alerta */
+.dash-kpi { background: rgba(127, 127, 127, 0.06); }
+.dash-kpi strong { color: var(--text-white); font-weight: 700; }

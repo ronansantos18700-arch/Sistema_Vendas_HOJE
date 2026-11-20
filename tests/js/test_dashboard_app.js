@@ -13,12 +13,24 @@ async function teste(nome, fn) {
 
 function criarDom() {
   const store = {};
-  const elemento = (id) => ({
-    id, value: '', textContent: '', innerHTML: '', disabled: false, dataset: {}, style: {},
-    classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
-    addEventListener: noop, focus: noop, click: noop, dispatchEvent: noop, remove: noop,
-    closest: () => null, querySelector: () => null, querySelectorAll: () => []
-  });
+  const elemento = (id) => {
+    let html = '';
+    const el = {
+      id, value: '', textContent: '', disabled: false, dataset: {}, style: {}, filhos: [],
+      classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
+      addEventListener: noop, focus: noop, click: noop, dispatchEvent: noop, remove: noop,
+      closest: () => null, querySelector: () => null, querySelectorAll: () => [],
+      appendChild(filho) { this.filhos.push(filho); return filho; },
+      setAttribute: noop
+    };
+    // innerHTML = '' zera os filhos, como no navegador.
+    Object.defineProperty(el, 'innerHTML', {
+      get: () => html,
+      set: (v) => { html = v; el.filhos = []; },
+      enumerable: true
+    });
+    return el;
+  };
   return {
     getElementById: (id) => (store[id] ||= elemento(id)),
     querySelector: () => null, querySelectorAll: () => [], addEventListener: noop,
@@ -126,6 +138,39 @@ const vendas = () => [
     const html = dom.getElementById('dash-top-produtos').innerHTML;
     assert.ok(html.indexOf('Coca') < html.indexOf('Arroz'), 'Coca vendeu 2, Arroz 1');
     assert.ok(html.includes('2 un.'));
+  });
+
+  await teste('insights: textos de vendas e estoque no lugar certo', async () => {
+    const { app, dom } = criarApp(produtos(), vendas());
+    app.renderDashboard();
+    const vendasTxt = dom.getElementById('dash-insight-vendas').filhos.map((li) => li.textContent);
+    const estoqueTxt = dom.getElementById('dash-insight-estoque').filhos.map((li) => li.textContent);
+    assert.ok(vendasTxt.some((t) => t.includes('maior faturamento do período')), vendasTxt.join(' | '));
+    assert.ok(vendasTxt.some((t) => t.startsWith('Margem bruta de 43,3%')), vendasTxt.join(' | '));
+    assert.ok(estoqueTxt.some((t) => t.includes('sem saldo')), estoqueTxt.join(' | '));
+    // Renderizar de novo não duplica os textos.
+    app.renderDashboard();
+    assert.strictEqual(dom.getElementById('dash-insight-vendas').filhos.length, vendasTxt.length);
+  });
+
+  await teste('visão: alternar Vendas/Estoque marca a visão e o botão ativo', async () => {
+    const { app, dom } = criarApp(produtos(), vendas());
+    app.setDashboardVisao('estoque');
+    assert.strictEqual(dom.getElementById('dashboard-view').dataset.visao, 'estoque');
+    app.setDashboardVisao('vendas');
+    assert.strictEqual(dom.getElementById('dashboard-view').dataset.visao, 'vendas');
+    app.setDashboardVisao('qualquer coisa');
+    assert.strictEqual(dom.getElementById('dashboard-view').dataset.visao, 'vendas', 'valor inválido cai em vendas');
+  });
+
+  await teste('período: troca o filtro, guarda no estado e atualiza o select', async () => {
+    const { app, dom } = criarApp(produtos(), vendas());
+    dom.getElementById('dash-periodo').value = '7d';
+    app.setDashboardFilter('month');
+    assert.strictEqual(app.state.dashboardFilter, 'month');
+    assert.strictEqual(dom.getElementById('dash-periodo').value, 'month');
+    app.setDashboardFilter('inválido');
+    assert.strictEqual(app.state.dashboardFilter, '7d');
   });
 
   await teste('sem vendas no período: textos vazios, sem erro', async () => {

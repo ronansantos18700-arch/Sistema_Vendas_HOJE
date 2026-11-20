@@ -276,6 +276,17 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
+### 2026-11-20 (redesenho do dashboard: Vendas e Estoque)
+
+- Barra no topo do dashboard: botões **Vendas | Estoque** (`app.setDashboardVisao`) mostram só o bloco da visão escolhida. Marcação: atributo `data-visao-bloco` em `index.html`; regra de exibição em `style.css`. Os 4 cards de topo ficam nas duas visões.
+- Seletor de **período** (7 dias, mês atual, ano atual) em `#dash-periodo`, chamando `app.setDashboardFilter`. Antes não havia controle na tela; `state.dashboardFilter` ficava sempre em `7d`.
+- Textos de insight dinâmicos, em `#dash-insight-vendas` e `#dash-insight-estoque`, gerados por `Dashboard.insightsVendas` e `Dashboard.insightsEstoque` (puros, testados). Ex.: "Novembro concentrou o maior faturamento do período (R$ X), seguido por uma queda de Y% em dezembro." Meses futuros não entram na comparação.
+- "Vendas por Pagamento": rosca grande trocada por barras horizontais compactas (`chart-compacto`, 240 px), ordenadas do maior para o menor.
+- Removidos os emojis 🔥 dos rankings do gráfico (e o cálculo `hotProductIds` que só existia para eles).
+- Indicadores: fundo mais neutro e número em cor de texto, sem cor de destaque. Cor fica só para alerta (zero e baixo).
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+- Não alterado: emojis de notificação (🔐, ⚠️, 🔒, ✅) e o 💡 da tela de Configurações.
+
 ### 2026-11-20 (dashboard reexibido e otimizado)
 
 - Origem: a reversão da PR #39 (commit `65c827f`, já no origin) tirou os destaques do dashboard. Esta entrada refaz o dashboard sobre o `master` (43c889a), com foco em decisão.

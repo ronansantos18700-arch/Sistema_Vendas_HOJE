@@ -354,10 +354,80 @@
         };
     }
 
+    const MESES_LONGOS = {
+        Jan: 'janeiro', Fev: 'fevereiro', Mar: 'março', Abr: 'abril', Mai: 'maio', Jun: 'junho',
+        Jul: 'julho', Ago: 'agosto', Set: 'setembro', Out: 'outubro', Nov: 'novembro', Dez: 'dezembro'
+    };
+
+    function percentual(valor) {
+        return (Math.round(Math.abs(valor) * 10) / 10).toFixed(1).replace('.', ',') + '%';
+    }
+
+    function moeda(valor) {
+        return 'R$ ' + arred2(valor).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    /**
+     * Textos de insight para a visão de vendas. Cada texto diz o que aconteceu, não só o número.
+     * serie: saída de serieLinha. indiceAtual: posição do período corrente na série (sem dados futuros).
+     * atual/anterior: { faturamento, vendas }. ven: saída de kpisVendas.
+     */
+    function insightsVendas(serie, indiceAtual, atual, anterior, ven) {
+        if (!atual || !atual.vendas) return ['Sem vendas no período selecionado.'];
+        const textos = [];
+        const receita = (serie && serie.revenue) || [];
+        const rotulos = (serie && serie.labels) || [];
+
+        let pico = -1;
+        receita.forEach((v, i) => { if (v > 0 && (pico < 0 || v > receita[pico])) pico = i; });
+
+        if (pico >= 0) {
+            const nomePico = MESES_LONGOS[rotulos[pico]] || rotulos[pico];
+            let frase = `${nomePico.charAt(0).toUpperCase() + nomePico.slice(1)} concentrou o maior faturamento do período (${moeda(receita[pico])})`;
+            const prox = pico + 1;
+            if (prox < receita.length && prox <= indiceAtual && receita[pico] > 0) {
+                const queda = (receita[pico] - receita[prox]) / receita[pico] * 100;
+                const nomeProx = MESES_LONGOS[rotulos[prox]] || rotulos[prox];
+                if (queda > 0) frase += `, seguido por uma queda de ${percentual(queda)} em ${nomeProx}`;
+            }
+            textos.push(frase + '.');
+        }
+
+        if (anterior && anterior.faturamento > 0) {
+            const variacao = (atual.faturamento - anterior.faturamento) / anterior.faturamento * 100;
+            const verbo = variacao >= 0 ? 'acima' : 'abaixo';
+            textos.push(`Faturamento de ${moeda(atual.faturamento)}, ${percentual(variacao)} ${verbo} do período anterior.`);
+        } else {
+            textos.push(`Faturamento de ${moeda(atual.faturamento)} no período.`);
+        }
+
+        if (ven && ven.margemBruta != null) {
+            textos.push(`Margem bruta de ${percentual(ven.margemBruta)}, com lucro de ${moeda(ven.lucro)}.`);
+        }
+        return textos;
+    }
+
+    /** Textos de insight para a visão de estoque: o que precisa de ação, em ordem de urgência. */
+    function insightsEstoque(est) {
+        if (!est || !est.totalProdutos) return ['Nenhum produto cadastrado.'];
+        const textos = [];
+        if (est.zerados > 0) {
+            textos.push(`${est.zerados} produto(s) sem saldo, ruptura de ${percentual(est.taxaRuptura)} do catálogo.`);
+        }
+        if (est.criticos > 0) {
+            textos.push(`${est.criticos} produto(s) com cobertura abaixo de ${COBERTURA_CRITICA_DIAS} dias.`);
+        }
+        if (est.valorParado > 0) {
+            textos.push(`${moeda(est.valorParado)} parados em ${est.paradosQuantidade} produto(s) sem venda nos últimos ${est.janelaDias} dias.`);
+        }
+        if (!textos.length) textos.push('Nenhum produto em ruptura ou com cobertura crítica.');
+        return textos;
+    }
+
     const API = {
         COBERTURA_ALVO_DIAS, COBERTURA_CRITICA_DIAS,
         chaveDia, valoresVenda, serieLinha, kpisEstoque, kpisVendas, escaparHtml, dataVenda,
-        rankingProdutos, alertasEstoque
+        rankingProdutos, alertasEstoque, insightsVendas, insightsEstoque
     };
 
     raiz.Dashboard = API;
