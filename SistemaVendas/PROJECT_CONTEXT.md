@@ -417,6 +417,7 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Cadastro do cliente ganhou **Limite de crédito (R$)** e **Prazo para pagar (dias)**. Vazio = sem limite / sem prazo. Gravados em `_extra` (sem mudança de tabela).
 - Venda fiado de cliente com prazo grava `vencimento` (YYYY-MM-DD, dia da venda + prazo, dia local).
 - Limite: o PDV recusa a venda fiado que passa do disponível (limite menos saldo em aberto do cliente) e informa o disponível.
+- Edição de venda fiado que aumenta a dívida do cliente (ou troca a venda de cliente) também respeita o limite. Editar sem aumentar o saldo nunca é bloqueado pelo limite.
 - Atrasada = fiado com saldo em aberto e vencimento anterior a hoje. A lista de Clientes mostra "N venda(s) em atraso · X dia(s)"; o modal de Receber mostra "Atrasada há X dia(s)" ou "Vence dd/mm/aaaa".
 - Sem cobrança automática: nada é enviado nem bloqueado depois da venda. Editar o limite ou o prazo não muda vendas já feitas.
 - Funções em `fiado.js`: `dataLocal`, `vencimentoPara`, `diasAtraso`, `atrasada`, `situacaoAtraso`, `atrasosPorCliente`, `validarLimite`, `validarCadastroCredito`.

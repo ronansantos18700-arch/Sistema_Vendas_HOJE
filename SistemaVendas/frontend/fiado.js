@@ -403,6 +403,21 @@
         return { ok: true, disponivel: disponivel };
     }
 
+    /**
+     * Confere o limite ao editar uma venda fiado. Só bloqueia quando a edição aumenta a dívida
+     * do cliente (ou passa a venda para outro cliente): editar sem aumentar o saldo nunca é travado.
+     * Devolve { ok, motivo, disponivel }. Não grava nada.
+     */
+    function validarLimiteEdicao(vendas, venda, clienteId, limite, novoTotal) {
+        if (!venda) return { ok: true };
+        const novoAberto = r2(Math.max(0, (Number(novoTotal) || 0) - recebido(venda)));
+        const abertoAntes = doCliente(venda, clienteId) ? saldoAberto(venda) : 0;
+        if (novoAberto <= abertoAntes) return { ok: true };
+        // As outras vendas somam o saldo do cliente; a venda editada entra com o saldo novo inteiro.
+        const outras = (vendas || []).filter((v) => !v || String(v.id) !== String(venda.id));
+        return validarLimite(outras, clienteId, limite, novoAberto);
+    }
+
     /** Valida o cadastro: limite e prazo, quando preenchidos, precisam ser números válidos. */
     function validarCadastroCredito(limite, prazoDias) {
         if (limite !== '' && limite !== null && limite !== undefined) {
@@ -418,7 +433,7 @@
 
     const API = {
         dataLocal, vencimentoPara, diasAtraso, atrasada, situacaoAtraso, atrasosPorCliente,
-        validarLimite, validarCadastroCredito,
+        validarLimite, validarLimiteEdicao, validarCadastroCredito,
         CONSUMIDOR_FINAL, FORMAS_RECEBIMENTO, NOMES_FORMA,
         ehFiado, recebimentos, recebido, saldoAberto, emAberto, saldoCliente, saldosPorCliente,
         validarVendaFiado, distribuir, registrarRecebimento, validarEdicao,

@@ -375,6 +375,40 @@ teste('cadastro de crédito: limite não negativo e prazo inteiro de 0 a 3650', 
   assert.strictEqual(F.validarCadastroCredito('', '3651').ok, false);
 });
 
+teste('limite na edição: só bloqueia quando a edição aumenta a dívida do cliente', () => {
+  const vendas = [
+    venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z'),
+    venda('V2', 'Ana', 40, '2026-11-02T10:00:00Z', { recebimentos: [{ id: 'R1-1', valor: 20, forma: 'pix' }] })
+  ];
+  // Ana: V2 tem 20 em aberto (outras vendas = 20). Limite 200 → V1 pode ter até 180 em aberto.
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C1', 200, 180).ok, true, 'total 200 = limite, cabe');
+  const r = F.validarLimiteEdicao(vendas, vendas[0], 'C1', 200, 181);
+  assert.strictEqual(r.ok, false, 'total 201 passa do limite');
+  assert.strictEqual(r.disponivel, 180);
+  // diminuir a venda nunca é bloqueado, mesmo acima do limite
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C1', 50, 90).ok, true);
+  // sem limite não bloqueia
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C1', null, 9999).ok, true);
+});
+
+teste('limite na edição: recebimento conta como já pago', () => {
+  const vendas = [venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z', { recebimentos: [{ id: 'R1-1', valor: 50, forma: 'dinheiro' }] })];
+  // aberto hoje = 50. Limite 120. Total 160 → aberto 110 ≤ 120: ok.
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C1', 120, 160).ok, true);
+  // Total 200 → aberto 150 > 120: bloqueia
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C1', 120, 200).ok, false);
+});
+
+teste('limite na edição: trocar a venda para outro cliente conta todo o saldo novo', () => {
+  const vendas = [
+    venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z'),
+    venda('V2', 'Beto', 30, '2026-11-02T10:00:00Z')
+  ];
+  // Beto tem 30 em aberto; limite 100 → 70 disponível; V1 (100) não cabe
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C2', 100, 100).ok, false);
+  assert.strictEqual(F.validarLimiteEdicao(vendas, vendas[0], 'C2', 200, 100).ok, true);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

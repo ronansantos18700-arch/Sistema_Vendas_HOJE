@@ -473,6 +473,32 @@ teste('modal: venda atrasada aparece como atrasada, venda no prazo mostra o venc
   assert.ok(lista.includes('Vence 10/03/2999'), 'venda no prazo mostra a data no formato dd/mm/aaaa');
 });
 
+teste('edição de venda fiado: aumentar o total passa do limite do cliente é recusado; sem aumento não é travado', async () => {
+  const sales = [{ id: 'V1', date: '2026-11-10T10:00:00', cliente: 'Ana', cliente_id: 'C1', valor_total: 50, desconto: 0, valor_final: 50,
+    cost: 0, lucro: 50, pagamento: 'fiado', recebimentos: [], items: [{ id: 'P1', name: 'Arroz', qty: 1, price: 50, cost: 0 }] }];
+  const { app, ctx, elementos } = criarAmbiente({ customers: [{ id: 'C1', name: 'Ana', limite_credito: 80 }], sales });
+  const qty = { value: '2' };
+  ctx.document.querySelectorAll = (sel) => (sel.includes('sale-edit-qty') ? [qty] : []);
+  const erros = [];
+  app.mostrarErroEdicaoVenda = (m) => erros.push(m);
+  app.state.movimentacoes = [];
+  app.openSaleEdit('V1');
+  elementos['sale-edit-cliente'].value = 'C1';
+  elementos['sale-edit-pagamento'].value = 'fiado';
+  elementos['sale-edit-desconto'].value = '0';
+
+  // Total 100 (de 50): aumenta a dívida em 50 e passa do limite de 80
+  await app.salvarEdicaoVenda();
+  assert.ok(erros.some((m) => txt(m).includes('Limite de crédito excedido')), 'recusa com a mensagem de limite');
+  assert.strictEqual(app.state.sales[0].valor_final, 50, 'venda não foi alterada');
+
+  // Sem aumentar a dívida (desconto de 0 para 0, mesma quantidade): não é travado pelo limite
+  erros.length = 0;
+  qty.value = '1';
+  await app.salvarEdicaoVenda();
+  assert.strictEqual(erros.some((m) => txt(m).includes('Limite de crédito')), false, 'venda sem aumento não é bloqueada pelo limite');
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

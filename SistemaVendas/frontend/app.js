@@ -5310,6 +5310,10 @@ const app = {
                 if (Fiado.recebido(sale) > 0 && clienteId !== Fiado.clienteIdDe(sale)) {
                     throw new Error('Esta venda já tem recebimentos: não é possível trocar o cliente.');
                 }
+                if (escolha === 'fiado') {
+                    const limite = Fiado.validarLimiteEdicao(this.state.sales, sale, clienteId, cadastro ? cadastro.limite_credito : null, totais.valor_final);
+                    if (!limite.ok) throw new Error(`${limite.motivo} Disponível para fiado: ${this.formatCurrency(limite.disponivel)}.`);
+                }
             }
             pag = escolha === 'fiado'
                 ? { pagamento: 'fiado' }
