@@ -59,6 +59,8 @@ const app = {
         },
         dashboardFilter: '7d',
         dashboardVisao: 'vendas',
+        relatorioPeriodo: 'mes',
+        relatorioFormato: 'xlsx',
         activeChartDatasets: ['faturamento', 'lucro', 'custo'],
         latestEntradasPage: 1,
         criticalStockPage: 1,
@@ -1836,6 +1838,8 @@ const app = {
             item.classList.remove('active');
         });
 
+        if (sectionName === 'relatorios') this.iniciarRelatorios();
+
         // Ativa a seção e o item do menu
         const targetSection = document.getElementById(`sv-section-${sectionName}`);
         if (targetSection) {
@@ -2045,6 +2049,194 @@ const app = {
         return Array.from(new Uint8Array(hashBuffer))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
+    },
+
+    // --- Relatórios (exportação em Excel ou PDF) ---
+
+    /** Datas (YYYY-MM-DD, dia local) de um atalho de período. Null para "personalizado". */
+    intervaloRelatorio(periodo) {
+        const hoje = new Date();
+        const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const ano = hoje.getFullYear();
+        const mes = hoje.getMonth();
+        switch (periodo) {
+            case 'hoje': return { inicio: iso(hoje), fim: iso(hoje) };
+            case '7dias': return { inicio: iso(new Date(ano, mes, hoje.getDate() - 6)), fim: iso(hoje) };
+            case 'mes': return { inicio: iso(new Date(ano, mes, 1)), fim: iso(hoje) };
+            case 'mes_anterior': return { inicio: iso(new Date(ano, mes - 1, 1)), fim: iso(new Date(ano, mes, 0)) };
+            case 'ano': return { inicio: iso(new Date(ano, 0, 1)), fim: iso(hoje) };
+            default: return null;
+        }
+    },
+
+    /** Ao abrir a sub-página: período e formato lembrados nesta sessão (padrão: mês atual, Excel). */
+    iniciarRelatorios() {
+        this.selecionarPeriodoRelatorio(this.state.relatorioPeriodo || 'mes');
+        this.selecionarFormatoRelatorio(this.state.relatorioFormato || 'xlsx');
+    },
+
+    selecionarPeriodoRelatorio(periodo) {
+        const validos = ['hoje', '7dias', 'mes', 'mes_anterior', 'ano', 'personalizado'];
+        this.state.relatorioPeriodo = validos.includes(periodo) ? periodo : 'mes';
+        document.querySelectorAll('.rel-chip').forEach((b) => {
+            b.classList.toggle('active', b.dataset.periodo === this.state.relatorioPeriodo);
+        });
+        const intervalo = this.intervaloRelatorio(this.state.relatorioPeriodo);
+        const datas = document.getElementById('rel-datas');
+        if (datas) datas.hidden = !!intervalo;
+        if (intervalo) {
+            const ini = document.getElementById('rel-inicio');
+            const fim = document.getElementById('rel-fim');
+            if (ini) ini.value = intervalo.inicio;
+            if (fim) fim.value = intervalo.fim;
+        }
+        this.atualizarResumoRelatorio();
+    },
+
+    /** Data digitada à mão: o período passa a ser "personalizado". */
+    dataRelatorioAlterada() {
+        this.state.relatorioPeriodo = 'personalizado';
+        document.querySelectorAll('.rel-chip').forEach((b) => {
+            b.classList.toggle('active', b.dataset.periodo === 'personalizado');
+        });
+        this.atualizarResumoRelatorio();
+    },
+
+    selecionarFormatoRelatorio(formato) {
+        this.state.relatorioFormato = formato === 'pdf' ? 'pdf' : 'xlsx';
+        document.querySelectorAll('.rel-formato').forEach((b) => {
+            b.classList.toggle('active', b.dataset.formato === this.state.relatorioFormato);
+        });
+        this.atualizarResumoRelatorio();
+    },
+
+    marcarTodosRelatorios(marcar) {
+        ['vendas', 'lucro', 'estoque', 'pagamentos'].forEach((id) => {
+            const el = document.getElementById('rel-' + id);
+            if (el) el.checked = !!marcar;
+        });
+        this.atualizarResumoRelatorio();
+    },
+
+    /** Ids dos relatórios marcados, na ordem da tela. */
+    relatoriosSelecionados() {
+        return ['vendas', 'lucro', 'estoque', 'pagamentos'].filter((id) => {
+            const el = document.getElementById('rel-' + id);
+            return !!(el && el.checked);
+        });
+    },
+
+    /** Texto do período, contagem e formato; desabilita o botão se nada estiver marcado. */
+    atualizarResumoRelatorio() {
+        const ids = this.relatoriosSelecionados();
+        const ini = (document.getElementById('rel-inicio') || {}).value || '';
+        const fim = (document.getElementById('rel-fim') || {}).value || '';
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+
+        const periodoEl = document.getElementById('rel-periodo-texto');
+        if (periodoEl) {
+            periodoEl.textContent = (ini || fim)
+                ? `Período: de ${dataBr(ini) || 'o início'} até ${dataBr(fim) || 'hoje'}.`
+                : 'Período: todo o histórico de vendas.';
+        }
+
+        const formatoTxt = this.state.relatorioFormato === 'pdf' ? 'PDF' : 'Excel (.xlsx)';
+        const resumo = document.getElementById('rel-resumo');
+        if (resumo) {
+            resumo.textContent = ids.length
+                ? `${ids.length} relatório(s) em ${formatoTxt}.`
+                : 'Escolha pelo menos um relatório.';
+        }
+        const btn = document.getElementById('rel-exportar');
+        if (btn) btn.disabled = ids.length === 0;
+
+        ['vendas', 'lucro', 'estoque', 'pagamentos'].forEach((id) => {
+            const el = document.getElementById('rel-' + id);
+            const cartao = document.getElementById('rel-opcao-' + id);
+            if (cartao) cartao.classList.toggle('selecionada', !!(el && el.checked));
+        });
+    },
+
+    niveisEstoque() {
+        const cfg = (this.state.settings && this.state.settings.notifications) || {};
+        return {
+            nivelBaixo: Number(cfg.stockLowVal) || 10,
+            nivelMedio: Number(cfg.stockMediumVal) || 25
+        };
+    },
+
+    /** Seções pedidas. Cada uma vem com id, título, colunas, linhas e totais. */
+    montarSecoesRelatorio(ids, inicio, fim) {
+        const R = window.Relatorios;
+        const vendas = R.filtrarVendas(this.state.sales, inicio, fim);
+        const { nivelBaixo, nivelMedio } = this.niveisEstoque();
+        const agrupar = (document.getElementById('rel-agrupar') || {}).value === 'mes' ? 'mes' : 'dia';
+        const construtores = {
+            vendas: () => R.secaoVendasPorPeriodo(vendas, agrupar),
+            lucro: () => R.secaoLucroPorProduto(vendas),
+            estoque: () => R.secaoEstoqueAtual(this.state.products, nivelBaixo, nivelMedio),
+            pagamentos: () => R.secaoRecebimentos(vendas)
+        };
+        return ids.map((id) => construtores[id]());
+    },
+
+    baixarArquivo(conteudo, tipo, nome) {
+        const blob = new Blob([conteudo], { type: tipo });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = nome;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
+    exportarRelatorios() {
+        if (this.requirePasswordChange()) return;
+        if (!this.requireAdmin('exportar relatórios')) return;
+
+        const ids = this.relatoriosSelecionados();
+        if (ids.length === 0) {
+            this.showNotification('error', 'Marque pelo menos um relatório.');
+            return;
+        }
+        const ini = (document.getElementById('rel-inicio') || {}).value || '';
+        const fim = (document.getElementById('rel-fim') || {}).value || '';
+        if (ini && fim && ini > fim) {
+            this.showNotification('error', 'A data inicial é depois da data final.');
+            return;
+        }
+
+        const formato = this.state.relatorioFormato === 'pdf' ? 'pdf' : 'xlsx';
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+        const periodoTexto = (ini ? dataBr(ini) : 'início') + ' a ' + (fim ? dataBr(fim) : 'hoje');
+        const sufixo = (ini || 'inicio') + '_a_' + (fim || 'hoje');
+        const cabecalho = {
+            titulo: 'Relatórios',
+            empresa: (this.state.settings || {}).companyName || '',
+            periodo: 'Período: ' + periodoTexto,
+            geradoEm: 'Gerado em ' + new Date().toLocaleString('pt-BR') + ' por ' + (this.state.currentUser?.username || 'sistema')
+        };
+
+        try {
+            const secoes = this.montarSecoesRelatorio(ids, ini, fim);
+            if (formato === 'pdf') {
+                const bytes = window.Relatorios.pdf(cabecalho, secoes);
+                this.baixarArquivo(bytes, 'application/pdf', 'relatorios_' + sufixo + '.pdf');
+            } else {
+                const bytes = window.Relatorios.xlsx(secoes, cabecalho);
+                this.baixarArquivo(bytes,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'relatorios_' + sufixo + '.xlsx');
+            }
+        } catch (err) {
+            this.showNotification('error', 'Erro ao gerar o relatório: ' + err.message);
+            return;
+        }
+
+        this.logAudit('RELATORIO_EXPORT', { formato, relatorios: ids, inicio: ini, fim });
+        this.showNotification('success', `Relatório exportado (${formato === 'pdf' ? 'PDF' : 'Excel'}, ${periodoTexto}).`);
     },
 
     // --- Backup Logic ---

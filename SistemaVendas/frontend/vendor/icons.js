@@ -57,7 +57,13 @@
         'bell-ring': 'bx-bell',
         'banknote': 'bx-money',
         'line-chart': 'bx-line-chart',
-        'credit-card': 'bx-credit-card'
+        'credit-card': 'bx-credit-card',
+    'file-text': 'bx-file',
+    'file-spreadsheet': 'bx-spreadsheet',
+    'bar-chart': 'bx-bar-chart-alt-2',
+    'pie-chart': 'bx-pie-chart-alt-2',
+    'calendar': 'bx-calendar',
+    'check-square': 'bx-check-square'
     };
     var FALLBACK = 'bx-square-rounded';
 

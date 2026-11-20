@@ -711,6 +711,10 @@
                                 <i data-lucide="bell"></i>
                                 <span>Notificações</span>
                             </button>
+                            <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('relatorios')">
+                                <i data-lucide="file-spreadsheet"></i>
+                                <span>Relatórios</span>
+                            </button>
                             <button type="button" class="sv-settings-menu-item" onclick="app.switchSettingsSection('aparencia')" hidden>
                                 <i data-lucide="monitor"></i>
                                 <span>Aparência</span>
@@ -923,6 +927,114 @@
                                         </button>
                                         <button class="btn-save-labs" id="open-backup-modal" onclick="app.openModal('backup')">
                                             <i data-lucide="database"></i> Backup de Dados
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Seção Relatórios: escolher período, informações e formato -->
+                            <section id="sv-section-relatorios" class="sv-settings-section">
+                                <div class="sv-settings-card rel-pagina">
+                                    <div class="sv-card-header">
+                                        <div class="sv-header-info">
+                                            <h4>Exportar Relatórios</h4>
+                                            <p>Escolha o período, as informações e o formato. O arquivo é baixado para o seu computador.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="rel-bloco">
+                                        <div class="rel-bloco-titulo"><span class="rel-passo">1</span> Período</div>
+                                        <div class="rel-chips" role="group" aria-label="Período do relatório">
+                                            <button type="button" class="rel-chip" data-periodo="hoje" onclick="app.selecionarPeriodoRelatorio('hoje')">Hoje</button>
+                                            <button type="button" class="rel-chip" data-periodo="7dias" onclick="app.selecionarPeriodoRelatorio('7dias')">Últimos 7 dias</button>
+                                            <button type="button" class="rel-chip" data-periodo="mes" onclick="app.selecionarPeriodoRelatorio('mes')">Mês atual</button>
+                                            <button type="button" class="rel-chip" data-periodo="mes_anterior" onclick="app.selecionarPeriodoRelatorio('mes_anterior')">Mês anterior</button>
+                                            <button type="button" class="rel-chip" data-periodo="ano" onclick="app.selecionarPeriodoRelatorio('ano')">Ano atual</button>
+                                            <button type="button" class="rel-chip" data-periodo="personalizado" onclick="app.selecionarPeriodoRelatorio('personalizado')">Personalizado</button>
+                                        </div>
+                                        <div class="rel-datas" id="rel-datas" hidden>
+                                            <label class="rel-campo">
+                                                <span>De</span>
+                                                <input type="date" id="rel-inicio" onchange="app.dataRelatorioAlterada()">
+                                            </label>
+                                            <label class="rel-campo">
+                                                <span>Até</span>
+                                                <input type="date" id="rel-fim" onchange="app.dataRelatorioAlterada()">
+                                            </label>
+                                        </div>
+                                        <p class="rel-nota" id="rel-periodo-texto"></p>
+                                    </div>
+
+                                    <div class="rel-bloco">
+                                        <div class="rel-bloco-titulo"><span class="rel-passo">2</span> Informações</div>
+                                        <div class="rel-opcoes">
+                                            <label class="rel-opcao" id="rel-opcao-vendas">
+                                                <input type="checkbox" id="rel-vendas" checked onchange="app.atualizarResumoRelatorio()">
+                                                <span class="rel-opcao-icone"><i data-lucide="bar-chart"></i></span>
+                                                <span class="rel-opcao-texto">
+                                                    <strong>Vendas por período</strong>
+                                                    <small>Quantidade, faturamento, custo, lucro e ticket médio</small>
+                                                    <select id="rel-agrupar" class="rel-select" onclick="event.stopPropagation()" onchange="app.atualizarResumoRelatorio()">
+                                                        <option value="dia">Agrupado por dia</option>
+                                                        <option value="mes">Agrupado por mês</option>
+                                                    </select>
+                                                </span>
+                                            </label>
+                                            <label class="rel-opcao" id="rel-opcao-lucro">
+                                                <input type="checkbox" id="rel-lucro" checked onchange="app.atualizarResumoRelatorio()">
+                                                <span class="rel-opcao-icone"><i data-lucide="trending-up"></i></span>
+                                                <span class="rel-opcao-texto">
+                                                    <strong>Lucro por produto</strong>
+                                                    <small>Quantidade, receita, custo, lucro e margem</small>
+                                                </span>
+                                            </label>
+                                            <label class="rel-opcao" id="rel-opcao-estoque">
+                                                <input type="checkbox" id="rel-estoque" checked onchange="app.atualizarResumoRelatorio()">
+                                                <span class="rel-opcao-icone"><i data-lucide="package"></i></span>
+                                                <span class="rel-opcao-texto">
+                                                    <strong>Estoque atual</strong>
+                                                    <small>Saldo, custo, valor parado e situação. Não depende do período.</small>
+                                                </span>
+                                            </label>
+                                            <label class="rel-opcao" id="rel-opcao-pagamentos">
+                                                <input type="checkbox" id="rel-pagamentos" checked onchange="app.atualizarResumoRelatorio()">
+                                                <span class="rel-opcao-icone"><i data-lucide="credit-card"></i></span>
+                                                <span class="rel-opcao-texto">
+                                                    <strong>Recebimentos por forma de pagamento</strong>
+                                                    <small>Vendas e valor recebido em dinheiro, cartão e PIX</small>
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div class="rel-acoes-rapidas">
+                                            <button type="button" onclick="app.marcarTodosRelatorios(true)">Marcar todos</button>
+                                            <button type="button" onclick="app.marcarTodosRelatorios(false)">Desmarcar todos</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="rel-bloco">
+                                        <div class="rel-bloco-titulo"><span class="rel-passo">3</span> Formato</div>
+                                        <div class="rel-formatos" role="group" aria-label="Formato do arquivo">
+                                            <button type="button" class="rel-formato" data-formato="xlsx" onclick="app.selecionarFormatoRelatorio('xlsx')">
+                                                <span class="rel-formato-icone xlsx"><i data-lucide="file-spreadsheet"></i></span>
+                                                <span class="rel-formato-texto">
+                                                    <strong>Planilha Excel</strong>
+                                                    <small>.xlsx, uma aba por relatório</small>
+                                                </span>
+                                            </button>
+                                            <button type="button" class="rel-formato" data-formato="pdf" onclick="app.selecionarFormatoRelatorio('pdf')">
+                                                <span class="rel-formato-icone pdf"><i data-lucide="file-text"></i></span>
+                                                <span class="rel-formato-texto">
+                                                    <strong>Documento PDF</strong>
+                                                    <small>.pdf, pronto para imprimir</small>
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="rel-rodape">
+                                        <p class="rel-resumo" id="rel-resumo"></p>
+                                        <button type="button" class="btn-save-labs rel-exportar" id="rel-exportar" onclick="app.exportarRelatorios()">
+                                            <i data-lucide="download"></i> Exportar relatório
                                         </button>
                                     </div>
                                 </div>
@@ -1530,6 +1642,7 @@
     <script src="edicao_venda.js"></script>
     <script src="backup.js"></script>
     <script src="dashboard.js"></script>
+    <script src="relatorios.js"></script>
     <script src="app.js"></script>
     <script src="tabela.js"></script>
     

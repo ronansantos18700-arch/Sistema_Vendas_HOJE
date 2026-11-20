@@ -276,6 +276,21 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
+### 2026-11-20 (relatórios exportáveis: Excel e PDF, em Configurações)
+
+- Refeito sobre a base atual (a versão CSV de `691bfc2` foi revertida). Substitui o CSV por **.xlsx**; o PDF continua.
+- Nova sub-página **Configurações > Relatórios** (`sv-section-relatorios`), no mesmo visual dos cards do backup. Três passos:
+  1. Período: Hoje, Últimos 7 dias, Mês atual, Mês anterior, Ano atual ou Personalizado (datas de/até). Digitar uma data muda para Personalizado.
+  2. Informações (checkboxes): vendas por dia ou por mês, lucro por produto, estoque atual e recebimentos por forma de pagamento. "Marcar todos" e "Desmarcar todos".
+  3. Formato: Planilha Excel (.xlsx) ou Documento PDF (.pdf).
+- `relatorios.js`: agregações (puras), `xlsx(secoes, cabecalho)` e `pdf(cabecalho, secoes)`. O XLSX é gerado no código: ZIP sem compressão com XML (uma aba por relatório, mais "Resumo" quando há cabeçalho). Sem biblioteca em `vendor/`.
+- Regras: vendas usam `valor_final` (com desconto). Lucro por produto reparte o desconto entre os itens. Misto soma as parcelas e não conta o troco. Estoque atual ignora o período.
+- Acesso: só administrador, como o backup. Operador não acessa Configurações, então na prática é só admin.
+- Auditoria: `RELATORIO_EXPORT` a cada exportação (formato, relatórios, período).
+- Validação: testes em `tests/js/test_relatorios.js` (agregações, ZIP com CRC, abas, escape, PDF) e `tests/js/test_relatorios_app.js` (tela e exportação, com DOM simulado). Os arquivos gerados também foram abertos com `openpyxl` (xlsx) e `pypdf` (PDF), sem erro.
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+- Pendente: o backup de dados (`exportBackup`) não é afetado.
+
 ### 2026-11-20 (redesenho do dashboard: Vendas e Estoque)
 
 - Barra no topo do dashboard: botões **Vendas | Estoque** (`app.setDashboardVisao`) mostram só o bloco da visão escolhida. Marcação: atributo `data-visao-bloco` em `index.html`; regra de exibição em `style.css`. Os 4 cards de topo ficam nas duas visões.
