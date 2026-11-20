@@ -27,6 +27,7 @@ function criarContexto(bridgeDados) {
   } } } };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(base, 'estoque.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(base, 'fiado.js'), 'utf8'), ctx); // carregado antes do app, como no index.html
   vm.runInContext(fs.readFileSync(path.join(base, 'app.js'), 'utf8') + '\n;globalThis.__app = app;', ctx, { timeout: 5000 });
   const app = ctx.__app;
   app.setLoading = noop; app.updateBrand = noop; app.iniciarHistoricoEstoque = noop;

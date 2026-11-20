@@ -8,7 +8,7 @@ const base = path.join(__dirname, '../../SistemaVendas/frontend');
 const F = require(path.join(base, 'fiado.js'));
 const noop = () => {};
 
-function criarAmbiente({ customers, sales, cart, pagamento = 'fiado', cliente = 'Ana' }) {
+function criarAmbiente({ customers, sales, cart, pagamento = 'fiado', cliente = 'C1' }) {
   const elementos = {};
   const fabricar = (id) => {
     const classes = new Set();
@@ -78,8 +78,10 @@ function criarAmbiente({ customers, sales, cart, pagamento = 'fiado', cliente = 
 }
 
 const clientes = () => [{ id: 'C1', name: 'Ana' }, { id: 'C2', name: 'Beto' }];
+// Vendas fiado de teste carregam o id do cliente (cliente_id), como o app grava hoje.
+const IDS = { Ana: 'C1', Beto: 'C2' };
 const venda = (id, nome, valor, data, extra = {}) => Object.assign({
-  id, cliente: nome, valor_final: valor, valor_total: valor, desconto: 0, cost: 0, lucro: valor,
+  id, cliente: nome, cliente_id: IDS[nome], valor_final: valor, valor_total: valor, desconto: 0, cost: 0, lucro: valor,
   date: data, pagamento: 'fiado', items: [{ id: 'P1', name: 'Arroz', qty: 1, price: valor, cost: 0 }]
 }, extra);
 const carrinho = () => [{ id: 'P1', name: 'Arroz', price: 100, cost: 5, qty: 1 }];
@@ -88,19 +90,20 @@ const testes = [];
 const teste = (nome, fn) => testes.push([nome, fn]);
 
 teste('PDV: venda fiado sem cliente cadastrado é recusada', async () => {
-  const { app } = criarAmbiente({ customers: clientes(), sales: [], cart: carrinho(), cliente: 'Consumidor Final' });
+  const { app } = criarAmbiente({ customers: clientes(), sales: [], cart: carrinho(), cliente: '' });
   await app.finishSale();
   assert.ok(app.notificacoes.some((n) => n.tipo === 'error' && n.msg.includes('cliente cadastrado')));
   assert.strictEqual(app.state.pendingSale, undefined);
 });
 
 teste('PDV: venda fiado com cliente vira pagamento a prazo, com lista de recebimentos vazia', async () => {
-  const { app } = criarAmbiente({ customers: clientes(), sales: [], cart: carrinho(), cliente: 'Ana' });
+  const { app } = criarAmbiente({ customers: clientes(), sales: [], cart: carrinho(), cliente: 'C1' });
   await app.finishSale();
   assert.ok(app.state.pendingSale, 'venda pendente criada');
   assert.strictEqual(app.state.pendingSale.pagamento, 'fiado');
   assert.ok(Array.isArray(app.state.pendingSale.recebimentos) && app.state.pendingSale.recebimentos.length === 0);
   assert.strictEqual(app.state.pendingSale.cliente, 'Ana');
+  assert.strictEqual(app.state.pendingSale.cliente_id, 'C1', 'venda fiado grava o id do cliente');
   assert.strictEqual(app.state.pendingSale.valor_final, 100, 'receita cheia na data da venda');
 });
 
@@ -132,7 +135,7 @@ teste('recebimento: parcial pelo modal grava na venda mais antiga e salva', asyn
   assert.strictEqual(app.salvos, 1, 'salvou');
   assert.strictEqual(app.state.sales[0].recebimentos.length, 1);
   assert.strictEqual(app.state.sales[0].recebimentos[0].forma, 'pix');
-  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 90);
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 90);
   assert.ok(app.auditoria.some((a) => a.acao === 'FIADO_RECEBIMENTO' && a.detalhes.valor === 60));
   assert.ok(app.notificacoes.some((n) => n.tipo === 'success'));
 });
@@ -196,14 +199,14 @@ teste('estorno (admin): desfaz o recebimento, grava auditoria e reabre o modal',
   app.abrirRecebimentoFiado('C1');
   elementos['fiado-valor'].value = '60';
   await app.confirmarRecebimentoFiado();
-  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 40);
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 40);
   app.abrirRecebimentoFiado('C1');
   assert.ok(elementos['fiado-recebidos'].innerHTML.includes('Estornar'), 'botão Estornar para admin');
-  const op = F.operacoes(app.state.sales, 'Ana')[0].operacao;
+  const op = F.operacoes(app.state.sales, 'C1')[0].operacao;
   app.estornarRecebimentoFiado(op);
   assert.strictEqual(app.confirmacoes, 1, 'pediu confirmação');
   await app.ultimaConfirmacao();
-  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 100, 'saldo volta ao total');
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 100, 'saldo volta ao total');
   assert.ok(app.auditoria.some((a) => a.acao === 'FIADO_ESTORNO' && a.detalhes.valor === 60));
   assert.strictEqual(elementos['fiado-modal'].classList.contains('hidden'), false, 'modal reaberto após a confirmação');
   assert.ok(elementos['fiado-recebidos'].innerHTML.includes('Nenhum recebimento ainda'));
@@ -218,7 +221,106 @@ teste('estorno (operador): não mostra o botão e não pede confirmação', asyn
   app.estornarRecebimentoFiado('R500');
   assert.strictEqual(app.confirmacoes, 0);
   assert.ok(app.notificacoes.some((n) => n.tipo === 'error'));
-  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 70, 'nada mudou');
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 70, 'nada mudou');
+});
+
+teste('PDV: venda fiado de cliente escolhido pelo id grava nome e id', async () => {
+  const { app } = criarAmbiente({ customers: clientes(), sales: [], cart: carrinho(), cliente: 'C2' });
+  await app.finishSale();
+  assert.strictEqual(app.state.pendingSale.cliente, 'Beto');
+  assert.strictEqual(app.state.pendingSale.cliente_id, 'C2');
+});
+
+teste('dois clientes com o mesmo nome: o recebimento vai só para o cliente escolhido', () => {
+  const clientesMesmoNome = [{ id: 'C1', name: 'Ana' }, { id: 'C9', name: 'Ana' }];
+  const sales = [
+    venda('V1', 'Ana', 100, '2026-11-10T10:00:00'),
+    Object.assign(venda('V2', 'Ana', 40, '2026-11-11T10:00:00'), { cliente_id: 'C9' })
+  ];
+  const { app, elementos } = criarAmbiente({ customers: clientesMesmoNome, sales });
+  app.abrirRecebimentoFiado('C9');
+  assert.strictEqual(elementos['fiado-valor'].value, '40.00', 'saldo do cliente C9');
+  assert.ok(elementos['fiado-lista'].innerHTML.includes('venda #V2'), 'lista só as vendas do C9');
+  app.abrirRecebimentoFiado('C1');
+  assert.strictEqual(elementos['fiado-valor'].value, '100.00', 'C1 tem saldo próprio');
+});
+
+teste('carregar dados preserva recebimentos e cliente_id (antes eram descartados)', async () => {
+  const { app } = criarAmbiente({ customers: clientes(), sales: [] });
+  const dados = {
+    products: '[]',
+    users: JSON.stringify([{ id: 'U1', fullname: 'Admin', username: 'admin', password: 'x', role: 'admin' }]),
+    customers: JSON.stringify(clientes()),
+    sales: JSON.stringify([venda('V1', 'Ana', 100, '2026-11-10T10:00:00', { recebimentos: [{ id: 'R1-1', date: '2026-11-10T12:00:00Z', valor: 30, forma: 'pix' }] })])
+  };
+  app.salvos = 0;
+  app.origemDeDados = () => ({ GetData: async (tipo) => dados[tipo] || '[]', SaveChanges: async () => true });
+  await app.carregarDados();
+  const v = app.state.sales[0];
+  assert.strictEqual(v.recebimentos.length, 1, 'recebimento continua na venda após recarregar');
+  assert.strictEqual(v.cliente_id, 'C1');
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 70);
+  assert.strictEqual(app.salvos, 0, 'sem vínculo pendente, nada é regravado no carregamento');
+});
+
+teste('carregar dados: venda fiado antiga liga pelo nome único e grava; nome repetido fica pendente', async () => {
+  const { app } = criarAmbiente({ customers: clientes(), sales: [] });
+  const clientesRepetidos = [{ id: 'C1', name: 'Ana' }, { id: 'C2', name: 'Beto' }, { id: 'C3', name: 'Beto' }];
+  const dados = {
+    users: JSON.stringify([{ id: 'U1', fullname: 'Admin', username: 'admin', password: 'x', role: 'admin' }]),
+    customers: JSON.stringify(clientesRepetidos),
+    sales: JSON.stringify([
+      { id: 'V1', date: '2026-11-10T10:00:00', cliente: 'Ana', valor_final: 100, pagamento: 'fiado' },
+      { id: 'V2', date: '2026-11-11T10:00:00', cliente: 'Beto', valor_final: 50, pagamento: 'fiado' }
+    ])
+  };
+  app.salvos = 0;
+  app.origemDeDados = () => ({ GetData: async (tipo) => dados[tipo] || '[]', SaveChanges: async () => true });
+  await app.carregarDados();
+  assert.strictEqual(app.state.sales[0].cliente_id, 'C1', 'Ana tem um só cadastro');
+  assert.strictEqual(app.state.sales[1].cliente_id, undefined, 'Beto repetido: não liga sozinho');
+  assert.strictEqual(app.salvos, 1, 'gravou o vínculo feito (uma vez)');
+  assert.deepStrictEqual(F.pendentesSemCliente(app.state.sales).map((p) => p.vendaId), ['V2']);
+});
+
+teste('clientes: painel de pendências liga a venda ao cliente escolhido', async () => {
+  const sales = [venda('V1', 'Beto', 50, '2026-11-11T10:00:00', { cliente_id: undefined })];
+  const { app, ctx, elementos } = criarAmbiente({ customers: clientes(), sales });
+  app.renderCustomers();
+  assert.ok(!elementos['fiado-pendentes'].classList.contains('hidden'), 'painel visível');
+  assert.ok(elementos['fiado-pendentes'].innerHTML.includes('Vincular'));
+  ctx.document.getElementById('fiado-pend-0').value = 'C2';
+  await app.vincularFiadoPendente(0);
+  assert.strictEqual(app.state.sales[0].cliente_id, 'C2');
+  assert.strictEqual(app.salvos, 1);
+  assert.ok(app.auditoria.some((a) => a.acao === 'FIADO_VINCULO'));
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C2'), 50, 'saldo aparece no cliente');
+});
+
+teste('clientes: renomear o cliente mantém o saldo e atualiza o nome nas vendas fiado', async () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00')];
+  const { app, ctx } = criarAmbiente({ customers: clientes(), sales });
+  app.state.editingId = 'C1';
+  ctx.document.getElementById('cust-name').value = 'Ana Paula';
+  ctx.document.getElementById('cust-whatsapp').value = '21999999999';
+  await app.handleCustomerSubmit({ preventDefault: noop });
+  assert.strictEqual(app.state.sales[0].cliente, 'Ana Paula');
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'C1'), 100);
+});
+
+teste('clientes: não exclui cliente com saldo em aberto', async () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00')];
+  const { app } = criarAmbiente({ customers: clientes(), sales });
+  await app.deleteCustomer('C1');
+  assert.strictEqual(app.confirmacoes, 0, 'não abriu a confirmação');
+  assert.ok(app.notificacoes.some((n) => n.tipo === 'error' && n.msg.includes('Receba')));
+});
+
+teste('edição: o seletor de cliente mostra o cliente pelo id', () => {
+  const sales = [venda('V1', 'Beto', 100, '2026-11-10T10:00:00')];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  app.openSaleEdit('V1');
+  assert.strictEqual(elementos['sale-edit-cliente'].value, 'C2');
 });
 
 (async () => {

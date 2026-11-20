@@ -6074,3 +6074,10 @@ i.bx {
 .fiado-subtitulo { margin-top: 0.9rem; font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
 .fiado-linha .btn-fiado-estornar { margin-left: 0.5rem; border: 1px solid var(--glass-border); background: #ffffff; color: #a2473c; border-radius: 8px; padding: 0.1rem 0.45rem; font: inherit; font-size: 0.72rem; cursor: pointer; }
 .fiado-linha .btn-fiado-estornar:hover { border-color: #a2473c; }
+.fiado-pendentes { margin-bottom: 1rem; padding: 0.8rem 0.9rem; border: 1px solid #e8c98a; border-radius: 12px; background: #fdf7ec; display: flex; flex-direction: column; gap: 0.5rem; }
+.fiado-pendentes-titulo { font-size: 0.85rem; font-weight: 600; color: var(--text-white); }
+.fiado-pendentes-texto { font-size: 0.75rem; color: var(--text-dim); }
+.fiado-pendente-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
+.fiado-pendente-linha > span { flex: 1 1 260px; }
+.fiado-pendente-linha strong { color: var(--text-white); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fiado-pendente-linha select { min-width: 200px; }

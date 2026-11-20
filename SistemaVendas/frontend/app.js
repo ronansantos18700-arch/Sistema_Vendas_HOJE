@@ -2726,7 +2726,9 @@ const app = {
                         // Venda paga em mais de uma forma: mantém a divisão (vem de _extra no banco)
                         pagamentos: Array.isArray(s.pagamentos) ? s.pagamentos : undefined,
                         troco: s.troco !== undefined ? (Number(s.troco) || 0) : undefined,
-                        items: items
+                        items: items,
+                        // Fiado: recebimentos e id do cliente (vêm de _extra no banco)
+                        ...Fiado.camposFiado(s)
                     };
                 });
 
@@ -2840,6 +2842,12 @@ const app = {
             this.showNotification('error', "Erro fatal ao carregar dados. Verifique a planilha.");
         } finally {
             this.setLoading(false);
+        }
+
+        // Vendas fiado antigas (sem id do cliente): liga pelo nome quando ele é único; grava se mudou algo.
+        if (this.state.dataLoaded) {
+            const vinculo = Fiado.vincularLegado(this.state.sales, this.state.customers);
+            if (vinculo.vinculadas > 0) await this.salvarDados();
         }
 
         this.iniciarHistoricoEstoque();
@@ -4274,15 +4282,16 @@ const app = {
             pagamentoVenda = { pagamento: 'misto', pagamentos: pg.pagamentos, troco: pg.troco };
         }
         const customerEl = document.getElementById('pos-customer');
-        let cliente = (customerEl && customerEl.value) || 'Consumidor Final';
+        const clienteCadastro = customerEl && customerEl.value ? this.clientePorId(customerEl.value) : null;
+        const cliente = clienteCadastro ? clienteCadastro.name : 'Consumidor Final';
 
         if (pagamentoVenda.pagamento === 'fiado') {
-            const checagem = Fiado.validarVendaFiado(cliente);
+            const checagem = Fiado.validarVendaFiado(clienteCadastro ? String(clienteCadastro.id) : '');
             if (!checagem.ok) {
                 this.showNotification('error', checagem.motivo);
                 return;
             }
-            pagamentoVenda = { pagamento: 'fiado', recebimentos: [] };
+            pagamentoVenda = { pagamento: 'fiado', recebimentos: [], cliente_id: String(clienteCadastro.id) };
         }
 
         // Armazena a venda pendente no estado
@@ -4715,7 +4724,11 @@ const app = {
 
             if (this.state.editingId) {
                 const index = this.state.customers.findIndex(c => c.id === this.state.editingId);
+                const nomeAnterior = index !== -1 ? this.state.customers[index].name : null;
                 if (index !== -1) this.state.customers[index] = customer;
+                if (nomeAnterior !== null && nomeAnterior !== customer.name) {
+                    Fiado.renomearCliente(this.state.sales, customer.id, customer.name);
+                }
             } else {
                 this.state.customers.push(customer);
             }
@@ -4730,6 +4743,7 @@ const app = {
     },
 
     renderCustomers(query = '') {
+        this.renderFiadoPendentes();
         const container = document.getElementById('customers-items-container');
         if (!container) return;
         const filtered = this.state.customers.filter(c => c.name.toLowerCase().includes(query.toLowerCase()));
@@ -4743,8 +4757,8 @@ const app = {
         container.innerHTML = filtered.map(c => `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
-                    <span class="col-name" data-label="NOME">${this.esc(c.name)}${saldosFiado.has(c.name)
-                        ? ` <span class="cliente-fiado">Em aberto <strong>${this.formatCurrency(saldosFiado.get(c.name))}</strong><button type="button" class="btn-fiado-receber" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button></span>`
+                    <span class="col-name" data-label="NOME">${this.esc(c.name)}${saldosFiado.has(String(c.id))
+                        ? ` <span class="cliente-fiado">Em aberto <strong>${this.formatCurrency(saldosFiado.get(String(c.id)))}</strong><button type="button" class="btn-fiado-receber" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button></span>`
                         : ''}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
                     <span class="col-date" data-label="DATA">${this.parseDate(c.date) ? this.parseDate(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
@@ -4758,17 +4772,23 @@ const app = {
         this.initLucide();
     },
 
+    /** Cliente cadastrado pelo id (texto), ou null. */
+    clientePorId(id) {
+        if (id === undefined || id === null || id === '') return null;
+        return this.state.customers.find(x => String(x.id) === String(id)) || null;
+    },
+
     /** Abre o recebimento de fiado de um cliente: saldo, vendas em aberto e valor sugerido (saldo total). */
     abrirRecebimentoFiado(customerId) {
         if (this.requirePasswordChange()) return;
-        const c = this.state.customers.find(x => String(x.id) === String(customerId));
+        const c = this.clientePorId(customerId);
         if (!c) return;
-        const saldo = Fiado.saldoCliente(this.state.sales, c.name);
+        const saldo = Fiado.saldoCliente(this.state.sales, c.id);
         if (saldo <= 0) {
             this.showNotification('error', 'Este cliente não tem saldo em aberto.');
             return;
         }
-        this.state.fiadoCliente = c.name;
+        this.state.fiadoCliente = String(c.id);
         document.getElementById('fiado-valor').value = saldo.toFixed(2);
         document.getElementById('fiado-forma').value = 'dinheiro';
         document.getElementById('fiado-erro').classList.add('hidden');
@@ -4778,18 +4798,18 @@ const app = {
 
     /** Preenche o modal de Fiado com o estado atual do cliente (saldo, vendas em aberto e recebimentos). */
     atualizarModalFiado() {
-        const nome = this.state.fiadoCliente;
-        if (!nome) return;
-        const saldo = Fiado.saldoCliente(this.state.sales, nome);
-        document.getElementById('fiado-titulo').textContent = `Receber fiado · ${nome}`;
+        const c = this.clientePorId(this.state.fiadoCliente);
+        if (!c) return;
+        const saldo = Fiado.saldoCliente(this.state.sales, c.id);
+        document.getElementById('fiado-titulo').textContent = `Receber fiado · ${c.name}`;
         document.getElementById('fiado-saldo').textContent = this.formatCurrency(saldo);
-        document.getElementById('fiado-lista').innerHTML = Fiado.emAberto(this.state.sales, nome).map(v => {
+        document.getElementById('fiado-lista').innerHTML = Fiado.emAberto(this.state.sales, c.id).map(v => {
             const data = new Date(v.date).toLocaleDateString('pt-BR');
             return `<div class="fiado-linha"><span>${data} · venda #${this.esc(String(v.id || v.ID).slice(-6))}</span><strong>${this.formatCurrency(Fiado.saldoAberto(v))}</strong></div>`;
         }).join('') || '<div class="fiado-linha"><span>Nenhuma venda em aberto.</span></div>';
 
         const admin = this.state.currentUser?.role === 'admin';
-        const operacoes = Fiado.operacoes(this.state.sales, nome);
+        const operacoes = Fiado.operacoes(this.state.sales, c.id);
         document.getElementById('fiado-recebidos').innerHTML = operacoes.map(o => {
             const data = new Date(o.date).toLocaleDateString('pt-BR');
             const forma = Fiado.NOMES_FORMA[o.forma] || o.forma;
@@ -4804,7 +4824,7 @@ const app = {
     estornarRecebimentoFiado(operacao) {
         if (this.requirePasswordChange()) return;
         if (!this.requireAdmin('estornar recebimento de fiado')) return;
-        const nome = this.state.fiadoCliente;
+        const c = this.clientePorId(this.state.fiadoCliente);
         this.confirmAction(
             'Estornar recebimento',
             'O valor volta para o saldo em aberto das vendas em que foi recebido. Deseja continuar?',
@@ -4814,7 +4834,7 @@ const app = {
                     this.showNotification('error', resultado.motivo);
                     return;
                 }
-                this.logAudit('FIADO_ESTORNO', { cliente: nome, operacao: operacao, valor: resultado.valor, vendas: resultado.vendas });
+                this.logAudit('FIADO_ESTORNO', { cliente: c ? c.name : '', clienteId: c ? c.id : null, operacao: operacao, valor: resultado.valor, vendas: resultado.vendas });
                 await this.salvarDados();
                 this.showNotification('success', `Recebimento de ${this.formatCurrency(resultado.valor)} estornado.`);
                 this.atualizarModalFiado();
@@ -4830,17 +4850,17 @@ const app = {
 
     async confirmarRecebimentoFiado() {
         if (this.requirePasswordChange()) return;
-        const nome = this.state.fiadoCliente;
+        const c = this.clientePorId(this.state.fiadoCliente);
         const erro = document.getElementById('fiado-erro');
         const valor = Number(document.getElementById('fiado-valor').value);
         const forma = document.getElementById('fiado-forma').value;
-        const resultado = Fiado.registrarRecebimento(this.state.sales, nome, valor, forma, new Date().toISOString(), 'R' + Date.now());
+        const resultado = Fiado.registrarRecebimento(this.state.sales, c ? c.id : '', valor, forma, new Date().toISOString(), 'R' + Date.now());
         if (!resultado.ok) {
             erro.textContent = resultado.motivo;
             erro.classList.remove('hidden');
             return;
         }
-        this.logAudit('FIADO_RECEBIMENTO', { cliente: nome, valor: valor, forma: forma, vendas: resultado.aplicacoes });
+        this.logAudit('FIADO_RECEBIMENTO', { cliente: c.name, clienteId: c.id, valor: valor, forma: forma, vendas: resultado.aplicacoes });
         this.state.fiadoCliente = null;
         this.closeModal();
         await this.salvarDados();
@@ -4850,7 +4870,55 @@ const app = {
         this.updateDashboardStats();
     },
 
+    /** Painel na tela de Clientes: vendas fiado com saldo que ainda não têm cliente (nome repetido ou sem cadastro). */
+    renderFiadoPendentes() {
+        const box = document.getElementById('fiado-pendentes');
+        if (!box) return;
+        const pendentes = Fiado.pendentesSemCliente(this.state.sales);
+        this.state.fiadoPendentes = pendentes;
+        if (pendentes.length === 0) {
+            box.classList.add('hidden');
+            box.innerHTML = '';
+            return;
+        }
+        const opcoes = this.state.customers.map(c => `<option value="${this.esc(c.id)}">${this.esc(c.name)}</option>`).join('');
+        box.innerHTML = `
+            <div class="fiado-pendentes-titulo">Fiado sem cliente identificado (${pendentes.length})</div>
+            <div class="fiado-pendentes-texto">Estas vendas a prazo não estão ligadas a um cliente, então o saldo não aparece em nenhum cliente. Escolha o cliente correto em cada uma.</div>
+            ${pendentes.map((p, i) => `
+                <div class="fiado-pendente-linha">
+                    <span>${new Date(p.date).toLocaleDateString('pt-BR')} · ${this.esc(p.cliente || 'sem nome')} · <strong>${this.formatCurrency(p.saldo)}</strong></span>
+                    <select id="fiado-pend-${i}" class="glass-input-labs">${opcoes}</select>
+                    <button type="button" class="btn-fiado-receber" onclick="app.vincularFiadoPendente(${i})">Vincular</button>
+                </div>`).join('')}`;
+        box.classList.remove('hidden');
+    },
+
+    /** Liga uma venda fiado pendente ao cliente escolhido no painel. */
+    async vincularFiadoPendente(i) {
+        if (this.requirePasswordChange()) return;
+        const p = (this.state.fiadoPendentes || [])[i];
+        const sel = document.getElementById('fiado-pend-' + i);
+        const cliente = sel && sel.value ? this.clientePorId(sel.value) : null;
+        const resultado = Fiado.vincular(this.state.sales, p ? p.vendaId : null, cliente);
+        if (!resultado.ok) {
+            this.showNotification('error', resultado.motivo);
+            return;
+        }
+        this.logAudit('FIADO_VINCULO', { vendaId: p.vendaId, cliente: cliente.name, clienteId: cliente.id, saldo: p.saldo });
+        await this.salvarDados();
+        this.showNotification('success', `Venda vinculada a ${cliente.name}.`);
+        this.renderCustomers();
+        this.renderHistory();
+        this.updateDashboardStats();
+    },
+
     async deleteCustomer(id) {
+        const saldo = Fiado.saldoCliente(this.state.sales, id);
+        if (saldo > 0) {
+            this.showNotification('error', `Este cliente tem ${this.formatCurrency(saldo)} em aberto. Receba o fiado antes de excluir.`);
+            return;
+        }
         this.confirmAction(
             'Excluir Cliente',
             'Deseja realmente excluir este cliente?',
@@ -5016,12 +5084,24 @@ const app = {
         }
         this.state.saleEditId = String(sale.id || sale.ID);
 
-        const nomesCliente = ['Consumidor Final', ...this.state.customers.map(c => c.name)];
-        if (sale.cliente && !nomesCliente.includes(sale.cliente)) nomesCliente.push(sale.cliente);
+        // Select por id do cliente. '' = Consumidor Final; '__atual__' = nome antigo que não tem cadastro único.
         const clienteSel = document.getElementById('sale-edit-cliente');
-        clienteSel.innerHTML = [...new Set(nomesCliente)]
-            .map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
-        clienteSel.value = sale.cliente || 'Consumidor Final';
+        const opcoesCliente = ['<option value="">Consumidor Final</option>'];
+        this.state.customers.forEach(c => opcoesCliente.push(`<option value="${this.esc(c.id)}">${this.esc(c.name)}</option>`));
+        let valorCliente = '';
+        if (this.clientePorId(Fiado.clienteIdDe(sale))) {
+            valorCliente = Fiado.clienteIdDe(sale);
+        } else if (sale.cliente && sale.cliente !== 'Consumidor Final') {
+            const iguais = this.state.customers.filter(c => c.name === sale.cliente);
+            if (iguais.length === 1) {
+                valorCliente = String(iguais[0].id);
+            } else {
+                opcoesCliente.push(`<option value="__atual__">${this.esc(sale.cliente)} (sem cadastro)</option>`);
+                valorCliente = '__atual__';
+            }
+        }
+        clienteSel.innerHTML = opcoesCliente.join('');
+        clienteSel.value = valorCliente;
 
         const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX', fiado: 'Fiado (a prazo)' };
         const misto = Array.isArray(sale.pagamentos) && sale.pagamentos.length > 0;
@@ -5097,16 +5177,19 @@ const app = {
 
         const qtds = this.lerQuantidadesEdicao();
         const desconto = Number(document.getElementById('sale-edit-desconto').value) || 0;
-        const cliente = document.getElementById('sale-edit-cliente').value || 'Consumidor Final';
+        const escolhaCliente = document.getElementById('sale-edit-cliente').value;
+        const cadastro = escolhaCliente && escolhaCliente !== '__atual__' ? this.clientePorId(escolhaCliente) : null;
+        const cliente = cadastro ? cadastro.name : (escolhaCliente === '__atual__' ? sale.cliente : 'Consumidor Final');
+        const clienteId = cadastro ? String(cadastro.id) : '';
         const escolha = document.getElementById('sale-edit-pagamento').value;
 
         let totais, pag, plano;
         try {
             totais = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
             if (escolha === 'fiado' || Fiado.recebido(sale) > 0) {
-                const checagem = Fiado.validarEdicao(sale, totais.valor_final, escolha, cliente);
+                const checagem = Fiado.validarEdicao(sale, totais.valor_final, escolha, clienteId);
                 if (!checagem.ok) throw new Error(checagem.motivo);
-                if (Fiado.recebido(sale) > 0 && cliente !== sale.cliente) {
+                if (Fiado.recebido(sale) > 0 && clienteId !== Fiado.clienteIdDe(sale)) {
                     throw new Error('Esta venda já tem recebimentos: não é possível trocar o cliente.');
                 }
             }
@@ -5142,6 +5225,8 @@ const app = {
         delete sale.pagamentos;
         delete sale.troco;
         Object.assign(sale, pag);
+        if (escolha === 'fiado') sale.cliente_id = clienteId;
+        else delete sale.cliente_id;
 
         this.logAudit('EDIT_SALE', {
             saleId: saleId,
@@ -5568,7 +5653,7 @@ const app = {
     },
     updatePOSCustomerList() {
         const select = document.getElementById('pos-customer');
-        if (select) select.innerHTML = '<option value="">Consumidor Final</option>' + this.state.customers.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        if (select) select.innerHTML = '<option value="">Consumidor Final</option>' + this.state.customers.map(c => `<option value="${this.esc(c.id)}">${this.esc(c.name)}</option>`).join('');
     },
     updatePOSProductList() {
         this.renderPosCatalog();

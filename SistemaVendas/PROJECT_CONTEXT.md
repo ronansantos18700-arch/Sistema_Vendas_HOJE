@@ -290,6 +290,18 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Lógica pura em `frontend/fiado.js` (`Fiado`). Testes: `tests/js/test_fiado.js`, `tests/js/test_fiado_app.js` e casos novos em `tests/js/test_relatorios.js`.
 - Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
 
+### 2026-11-20 (fiado: cliente identificado por id)
+
+- Venda fiado grava `cliente_id` (id do cliente cadastrado) além do nome em `cliente`. Saldo, recebimentos, estorno e o botão Receber usam o id. Dois clientes com o mesmo nome deixam de se misturar.
+- Renomear o cliente não quebra o vínculo: as vendas fiado dele recebem o nome novo.
+- Só vendas fiado recebem `cliente_id`. Vendas à vista continuam com o nome, como antes.
+- Excluir cliente com saldo em aberto é recusado (receber o fiado antes).
+- Vendas fiado antigas (sem id): ao carregar, ligam ao cliente quando há um único cadastro com o mesmo nome (sem diferença de maiúsculas e espaços). Esse vínculo é gravado. Os casos ambíguos (nome repetido ou cliente sem cadastro) aparecem no painel "Fiado sem cliente identificado", na tela Clientes, com um seletor para escolher o cliente. Auditoria `FIADO_VINCULO`.
+- Correção: a normalização ao carregar descartava `recebimentos` (bug da entrega anterior). Agora `Fiado.camposFiado` mantém `recebimentos` e `cliente_id`.
+- Edição de venda: o seletor de cliente usa o id. Venda antiga sem cadastro único aparece como "(sem cadastro)" e não pode virar fiado sem escolher um cliente.
+- Sem mudança de tabela nem de servidor: `cliente_id` vai para `_extra`.
+- Não verificado visualmente no Windows: painel de pendências e seletores.
+
 ### 2026-11-20 (histórico de movimentações em Estoque)
 
 - Nova aba **Movimentações** dentro da tela Estoque (`#estoque-abas`). Só administrador vê a aba; para os demais ela some e a tela fica em Produtos (`sincronizarAbaEstoque`). É só leitura.
