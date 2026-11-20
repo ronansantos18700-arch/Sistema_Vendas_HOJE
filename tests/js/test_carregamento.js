@@ -22,7 +22,10 @@ function criarContexto(bridgeDados, gravados) {
   };
   ctx.window = ctx; ctx.globalThis = ctx;
   ctx.window.chrome = { webview: { hostObjects: { bridge: {
-    GetData: async (tipo) => (tipo in bridgeDados ? bridgeDados[tipo] : '[]'),
+    GetData: async (tipo) => {
+      if (bridgeDados.__falha) throw new Error('banco indisponível');
+      return tipo in bridgeDados ? bridgeDados[tipo] : '[]';
+    },
     SaveChanges: async (json) => { if (gravados) gravados.push(json); return true; }, SaveAll: async () => true
   } } } };
   vm.createContext(ctx);
@@ -80,6 +83,17 @@ function check(nome, cond) { console.log((cond ? 'OK   ' : 'FALHA') + ' ' + nome
   const enviado = gravados.length ? JSON.parse(gravados[gravados.length - 1]) : {};
   check('gravação após carregar: vendas só com a alteração (upsert, sem full)', !!enviado.sales && Array.isArray(enviado.sales.upsert) && enviado.sales.upsert.length === 1 && !enviado.sales.full);
   check('gravação após carregar: produtos sem mudança não são enviados', !('products' in enviado));
+
+  // Leitura que falha: a memória não é o banco, então nada pode ser gravado (nem com dados em memória).
+  const gravadosFalha = [];
+  const falha = criarContexto({ ...dados, __falha: true }, gravadosFalha);
+  notificacoes.length = 0;
+  await falha.carregarDados();
+  check('leitura falhou: dados não marcados como carregados', falha.state.dataLoaded === false);
+  falha.state.products.push({ id: 'P9', name: 'Novo', code: '9', cost: 1, price: 2, stock: 1 });
+  const gravouFalha = await falha.salvarDados();
+  check('leitura falhou: salvar recusa e não envia nada ao banco', gravouFalha === false && gravadosFalha.length === 0);
+  check('leitura falhou: usuário é avisado quando há dados em memória', notificacoes.some(n => n.tipo === 'error' && n.msg.includes('Nenhuma alteração foi gravada')));
 
   console.log(falhas === 0 ? 'Todos os testes passaram.' : `${falhas} falha(s).`);
   process.exit(falhas === 0 ? 0 : 1);

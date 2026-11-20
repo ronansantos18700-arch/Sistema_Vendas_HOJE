@@ -429,3 +429,9 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Teste: `tests/js/test_carregamento.js` confere que a gravação após carregar envia só a venda alterada.
 - Pendente: a compilação C# não foi feita no sandbox (sem .NET); conferir no Windows com `dotnet build`.
 
+### 2026-11-20 (bloqueio de gravação sem leitura bem-sucedida)
+- Antes, `salvarDados` forçava `dataLoaded = true` quando havia produtos ou vendas em memória, e o cadastro/exclusão de produto também forçavam. Se a leitura inicial falhava, o app podia gravar tudo a partir da memória, regravando por cima de dados não lidos.
+- Agora, sem leitura bem-sucedida, nada é gravado. Se houver produtos, vendas ou clientes em memória, o usuário vê o aviso "Os dados não foram carregados do banco. Nenhuma alteração foi gravada. Recarregue o sistema."
+- Ao voltar o servidor, `servidorVoltou` só tenta gravar se a leitura já tiver dado certo; caso contrário, recarrega (sem isso, o app ficaria preso).
+- Teste: `tests/js/test_carregamento.js` (leitura que falha).
+

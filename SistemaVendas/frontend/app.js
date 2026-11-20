@@ -256,8 +256,11 @@ const app = {
         }
         try {
             // Grava o que ficou pendente antes de recarregar; se falhar, não recarrega (não perde nada).
-            const gravou = await this.salvarDados();
-            if (gravou === false) return;
+            // Se a leitura inicial nunca deu certo, não há o que gravar: só recarrega.
+            if (this.state.dataLoaded) {
+                const gravou = await this.salvarDados();
+                if (gravou === false) return;
+            }
             await this.carregarDados();
         } catch (err) {
             this.showNotification('error', err.message);
@@ -2580,13 +2583,14 @@ const app = {
     },
 
     async salvarDados() {
-        // Forçar dataLoaded se tivermos itens no estado (indica que o sistema está operacional)
-        if (!this.state.dataLoaded && (this.state.products.length > 0 || this.state.sales.length > 0)) {
-            this.state.dataLoaded = true;
-        }
-
+        // Sem leitura bem-sucedida, a memória não é o banco: gravar tudo a partir dela regravaria por cima
+        // de dados que não foram lidos. Por isso nada é gravado. Só avisa quando há dados do usuário em memória.
         if (!this.state.dataLoaded) {
             console.warn("Tentativa de salvar dados antes de carregar. Operação cancelada.");
+            const temDados = [this.state.products, this.state.sales, this.state.customers].some(l => l && l.length > 0);
+            if (temDados) {
+                this.showNotification('error', 'Os dados não foram carregados do banco. Nenhuma alteração foi gravada. Recarregue o sistema.');
+            }
             return false;
         }
 
@@ -4662,8 +4666,6 @@ const app = {
                 stock: { type: 'number', min: 0, label: 'Estoque' }
             });
 
-            this.state.dataLoaded = true; // Forçar flag antes de salvar para evitar bloqueio
-
             if (this.state.editingId) {
                 const index = this.state.products.findIndex(p => p.id === this.state.editingId);
                 if (index !== -1) {
@@ -4717,7 +4719,6 @@ const app = {
             'Deseja realmente excluir este produto?',
             async () => {
                 this.logAudit('DELETE_PRODUCT', { productId: id });
-                this.state.dataLoaded = true; // Garantir flag
                 this.state.products = this.state.products.filter(p => p.id !== id);
                 await this.salvarDados();
                 this.showNotification('success', 'Produto excluído com sucesso!');
