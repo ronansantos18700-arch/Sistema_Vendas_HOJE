@@ -4310,15 +4310,16 @@ const app = {
     },
 
     rotuloPagamento(sale) {
+        const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX', fiado: 'Fiado', misto: 'Misto' };
         if (Array.isArray(sale.pagamentos) && sale.pagamentos.length) {
-            const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
             return 'Misto: ' + sale.pagamentos.map(p => `${nomes[p.forma] || p.forma} ${this.formatCurrency(p.valor)}`).join(' + ');
         }
         if (sale.pagamento === 'fiado') {
             const saldo = Fiado.saldoAberto(sale);
             return saldo > 0 ? `Fiado · em aberto ${this.formatCurrency(saldo)}` : 'Fiado · quitado';
         }
-        return sale.pagamento || sale["Forma de Pagamento"] || 'N/A';
+        const raw = sale.pagamento || sale["Forma de Pagamento"] || '';
+        return nomes[String(raw).toLowerCase()] || raw || 'N/A';
     },
 
     async finishSale() {
@@ -5208,14 +5209,6 @@ const app = {
             const lucro = Number(s.lucro || s.Lucro || (totalFinal - custo));
             const pagamento = this.rotuloPagamento(s);
             const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty ?? item.qtySold) || 0), 0) : 0;
-            const nomesItens = (s.items || []).map(it => it.name).filter(Boolean);
-            const itensTxt = nomesItens.length
-                ? `${nomesItens.length} ${nomesItens.length === 1 ? 'produto' : 'produtos'} · ${itemsCount} un.`
-                : 'Sem itens';
-            const nomesTxt = nomesItens.length
-                ? nomesItens.slice(0, 2).map(n => this.esc(n)).join(', ') + (nomesItens.length > 2 ? ` +${nomesItens.length - 2}` : '')
-                : '';
-
 
             return `
                 <div class="nested-item-labs-row">
@@ -5228,11 +5221,7 @@ const app = {
                     <span class="col-cost num" data-label="CUSTO" data-sort="${custo}">${this.formatCurrency(custo)}</span>
                     <span class="col-profit num" data-label="LUCRO" data-sort="${lucro}">${this.formatCurrency(lucro)}</span>
                     <div class="col-items-action" data-label="ITENS" data-sort="${itemsCount}">
-                        <div class="itens-resumo">
-                            <strong>${itensTxt}</strong>
-                            <small>${nomesTxt}</small>
-                        </div>
-                        <button type="button" class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver todos os itens" aria-label="Ver itens da venda"><i class="bx bx-list-ul"></i>Ver</button>
+                        <button type="button" class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver itens da venda (${itemsCount} un.)" aria-label="Ver itens da venda"><i class="bx bx-list-ul"></i>Ver</button>
                     </div>
                     <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
                     <div class="col-actions" data-label="AÇÕES">
@@ -6473,16 +6462,16 @@ const app = {
             return '<tr class="estoque-linha estoque-' + nv + '">'
                 + '<td><div class="estoque-nome-tab"><strong>' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
                 + '<td class="num" data-sort="' + qtd + '">' + qtd + '</td>'
-                + '<td><span class="estoque-status">' + rotulo[nv] + '</span></td>'
+                + '<td class="col-center"><span class="estoque-status">' + rotulo[nv] + '</span></td>'
                 + '<td data-sort="' + sortCobertura + '">' + cobertura + '</td>'
                 + '<td class="num" data-sort="' + vendas + '">' + vendas + ' un.</td>'
                 + '<td class="num" data-sort="' + capital + '">' + moeda(capital) + '</td>'
                 + '<td data-sort="' + (ultimaMov[id] || 0) + '">' + ultima + '</td>'
-                + '<td class="col-actions-tab"><button type="button" class="btn-action-view" onclick="app.showProductHistory(\'' + this.esc(id) + '\')" title="Histórico de estoque" aria-label="Histórico de estoque"><i data-lucide="history"></i></button>' + btnAjuste + '</td>'
+                + '<td class="col-actions-tab"><div class="actions-inline"><button type="button" class="btn-action-view" onclick="app.showProductHistory(\'' + this.esc(id) + '\')" title="Histórico de estoque" aria-label="Histórico de estoque"><i data-lucide="history"></i></button>' + btnAjuste + '</div></td>'
                 + '</tr>';
         }).join('');
         return '<div class="table-container-labs"><table class="custom-table-labs estoque-tabela">'
-            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th>Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Valor em estoque</th><th>Última movimentação</th><th class="num">Ações</th></tr></thead>'
+            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th class="col-center">Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Valor em estoque</th><th>Última movimentação</th><th class="col-actions-head">Ações</th></tr></thead>'
             + '<tbody>' + linhas + '</tbody></table></div>';
     },
 
@@ -6770,7 +6759,19 @@ const app = {
             valorEstoque += (Number(p.stock) || 0) * (Number(p.cost) || 0);
         });
         const resumo = document.getElementById('estoque-resumo');
-        if (resumo) resumo.textContent = `${contagem.baixo} baixo · ${contagem.medio} médio · ${contagem.ok} normal · valor em estoque ${moeda(valorEstoque)}`;
+        if (resumo) {
+            resumo.innerHTML = `
+                <div class="estoque-resumo-grupos">
+                    <span class="estoque-pill estoque-pill-baixo"><span class="estoque-dot"></span><strong>${contagem.baixo}</strong> baixo</span>
+                    <span class="estoque-pill estoque-pill-medio"><span class="estoque-dot"></span><strong>${contagem.medio}</strong> médio</span>
+                    <span class="estoque-pill estoque-pill-ok"><span class="estoque-dot"></span><strong>${contagem.ok}</strong> normal</span>
+                </div>
+                <div class="estoque-pill estoque-pill-valor">
+                    <span>Valor em estoque</span>
+                    <strong>${moeda(valorEstoque)}</strong>
+                </div>
+            `;
+        }
 
         const lista = this.state.products
             .filter(p => !busca || (p.name || '').toLowerCase().includes(busca) || String(p.code || '').toLowerCase().includes(busca))

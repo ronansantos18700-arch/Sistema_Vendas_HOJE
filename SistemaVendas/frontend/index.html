@@ -601,19 +601,19 @@
                     </div>
                     <div id="estoque-produtos" class="estoque-produtos">
                     <div class="view-header-labs">
-                        <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-estoque" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por nome ou código..." autocomplete="off">
+                        <div class="filtros-grupo">
+                            <input type="text" id="filter-estoque" class="glass-input-labs" style="width: 280px;" placeholder="Filtrar por nome ou código..." autocomplete="off">
                             <select id="sort-estoque" class="glass-input-labs" style="width: 220px;">
                                 <option value="estoque">Menor estoque primeiro</option>
                                 <option value="nome">Nome (A-Z)</option>
                             </select>
                         </div>
                         <div id="estoque-visao-toggle" class="seg-toggle" role="group" aria-label="Modo de visualização">
-                            <button type="button" data-visao="cards" title="Cards"><i class="bx bx-grid-alt"></i></button>
-                            <button type="button" data-visao="tabela" title="Tabela"><i class="bx bx-list-ul"></i></button>
+                            <button type="button" data-visao="cards" title="Cards" aria-label="Visualizar em cards"><i class="bx bx-grid-alt"></i></button>
+                            <button type="button" data-visao="tabela" title="Tabela" aria-label="Visualizar em tabela"><i class="bx bx-list-ul"></i></button>
                         </div>
-                        <span id="estoque-resumo" class="estoque-resumo"></span>
                     </div>
+                    <div id="estoque-resumo" class="estoque-resumo-bar" aria-live="polite"></div>
                     <div id="estoque-grid" class="estoque-grid"></div>
                     </div>
 
@@ -621,6 +621,7 @@
                     <div id="estoque-mov" class="mov-painel hidden">
                         <div class="mov-filtros">
                             <div class="mov-linha">
+                                <span class="mov-grupo-label">Período</span>
                                 <div class="mov-chips" id="mov-periodo" role="group" aria-label="Período">
                                     <button type="button" class="mov-chip" data-periodo="hoje">Hoje</button>
                                     <button type="button" class="mov-chip" data-periodo="7">7 dias</button>
@@ -632,13 +633,18 @@
                                     <label>De <input type="date" id="mov-inicio"></label>
                                     <label>até <input type="date" id="mov-fim"></label>
                                 </div>
+                            </div>
+                            <div class="mov-linha">
                                 <select id="mov-produto" class="glass-input-labs mov-campo" aria-label="Produto">
                                     <option value="">Todos os produtos</option>
                                 </select>
-                                <input type="text" id="mov-busca" class="glass-input-labs mov-campo mov-busca" placeholder="Buscar observação, origem ou produto" autocomplete="off">
+                                <input type="text" id="mov-busca" class="glass-input-labs mov-campo mov-busca" placeholder="Buscar observação, origem ou produto..." autocomplete="off">
                                 <button type="button" id="mov-limpar" class="btn-limpar-filtros hidden">Limpar filtros</button>
                             </div>
-                            <div class="mov-chips" id="mov-tipos" role="group" aria-label="Tipos de movimentação"></div>
+                            <div class="mov-linha mov-tipos-linha">
+                                <span class="mov-grupo-label">Tipo</span>
+                                <div class="mov-chips" id="mov-tipos" role="group" aria-label="Tipos de movimentação"></div>
+                            </div>
                         </div>
                         <div id="mov-totais" class="mov-totais"></div>
                         <div class="table-container-labs mov-tabela-wrap">

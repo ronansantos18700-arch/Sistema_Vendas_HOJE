@@ -459,13 +459,15 @@ function criarAmbienteApp() {
             }
         ];
 
-        // Sem filtros: botão limpar oculto, exibe ambas e hora formatada
+        // Sem filtros: botão limpar oculto, exibe ambas, hora formatada, PIX capitalizado e ITENS só com botão Ver
         app.renderHistory();
         assert.ok(elementos['btn-clear-history-filters'].classList.contains('hidden'));
         const htmlAll = elementos['history-items-container'].innerHTML;
         assert.ok(htmlAll.includes('col-date-hora'), 'deve exibir hora discreta na coluna de data');
         assert.ok(htmlAll.includes('btn-action-view'), 'botão de recibo deve usar classe btn-action-view');
         assert.ok(htmlAll.includes('data-sort="30"') && htmlAll.includes('data-sort="50"'));
+        assert.ok(htmlAll.includes('btn-itens-ver') && !htmlAll.includes('itens-resumo'), 'coluna ITENS deve exibir somente o botão Ver');
+        assert.ok(htmlAll.includes('>PIX<'), 'forma de pagamento pix deve aparecer capitalizada como PIX');
 
         // Filtro por pix
         elementos['filter-payment-history'].value = 'pix';
@@ -541,6 +543,8 @@ function criarAmbienteApp() {
         assert.ok(htmlTabAdmin.includes('data-sort="10"') && htmlTabAdmin.includes('data-sort="80"'));
         assert.ok(htmlTabAdmin.includes("showProductHistory('p1')"));
         assert.ok(htmlTabAdmin.includes("adjustStock('p1', 2)"));
+        assert.ok(htmlTabAdmin.includes('class="actions-inline"'), 'botões de ação da tabela de Estoque devem usar .actions-inline dentro da <td>');
+        assert.ok(elementos['estoque-resumo'].innerHTML.includes('estoque-pill-valor'), 'resumo do Estoque deve exibir pílulas evidentes');
 
         // Operador vê Histórico mas NÃO vê Ajustar
         app.state.currentUser = { id: 'op', name: 'Operador', role: 'operator' };
@@ -587,6 +591,9 @@ function criarAmbienteApp() {
         assert.ok(!html.includes('id="mov-mais" class="btn-ghost-labs" hidden'), '#mov-mais não deve ter atributo booleano hidden');
         assert.ok(css.includes('overflow-x: auto;'), 'style.css deve habilitar rolagem horizontal segura nas listas');
         assert.ok(css.includes('/* Clientes: 7 colunas em qualquer largura'), 'style.css deve corrigir grade 7 colunas de Clientes');
+        assert.ok(css.includes('.estoque-abas button {\n    width: auto;'), 'botões Produtos/Movimentações devem ter largura automática sem sobreposição');
+        assert.ok(css.includes('display: table-cell;'), 'td.col-actions-tab deve preservar display: table-cell');
+        assert.ok(css.includes('flex-wrap: nowrap;'), 'col-actions deve manter botões na horizontal');
     });
 
     console.log(`\nTodos os ${ok} testes da Fase 2 passaram.`);

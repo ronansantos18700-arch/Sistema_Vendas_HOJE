@@ -6130,25 +6130,326 @@ i.bx {
 #customers-list-labs .col-fiado .fiado-atraso { display: block; font-size: 0.72rem; }
 
 /* ==========================================================================
-   Fase 2 — Tabelas, alinhamento numérico, filtros rápidos e modais claros
+   Fase 2 — Tabelas, alinhamento consistente, Estoque/Movimentações e modais
    ========================================================================== */
+
+/* 1. Estoque: alternância Produtos / Movimentações (sem sobreposição do .seg-toggle) */
+.estoque-abas {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 0.75rem;
+    align-self: flex-start;
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+.estoque-abas button {
+    width: auto;
+    min-width: 120px;
+    height: 36px;
+    padding: 0 18px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--text-dim);
+}
+.estoque-abas button:hover {
+    color: var(--text-white);
+    background: #f5f8fc;
+}
+.estoque-abas button.active {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: #2f56c9;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+/* 2. Estoque: faixa de resumo mais evidente (status + valor em estoque) */
+.estoque-resumo-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding: 10px 16px;
+    background: #f8fafd;
+    border: 1px solid var(--glass-border);
+    border-top: 0;
+    border-radius: 0 0 14px 14px;
+    margin-bottom: 12px;
+}
+.estoque-view.modo-tabela .estoque-resumo-bar {
+    border-bottom: 0;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+.estoque-resumo-grupos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.estoque-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid transparent;
+}
+.estoque-pill strong { font-weight: 700; }
+.estoque-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.estoque-pill-baixo { background: #fdf0f0; border-color: #f3c6c6; color: #b42318; }
+.estoque-pill-baixo .estoque-dot { background: #d64545; }
+.estoque-pill-medio { background: #fef7e6; border-color: #f2d594; color: #9a6700; }
+.estoque-pill-medio .estoque-dot { background: #e0a100; }
+.estoque-pill-ok { background: #ecf8f2; border-color: #b7e4cc; color: #16653e; }
+.estoque-pill-ok .estoque-dot { background: #1f8a5b; }
+.estoque-pill-valor {
+    background: #eef4ff;
+    border-color: #c9dbff;
+    color: #1f44a8;
+    border-radius: 10px;
+    padding: 6px 14px;
+    gap: 8px;
+}
+.estoque-pill-valor span { font-size: 12.5px; color: #4762a8; font-weight: 500; }
+.estoque-pill-valor strong { font-size: 14.5px; color: #18358a; }
+
+/* 3. Estoque > Tabela de Produtos: mantém <td> nativo para não quebrar bordas */
+#estoque-grid .table-container-labs { overflow-x: auto; }
+.estoque-tabela { border-collapse: collapse; width: 100%; }
+.estoque-tabela thead th {
+    background: #f5f8fc;
+    border-bottom: 1px solid var(--glass-border);
+    padding: 0.8rem 1rem;
+    white-space: nowrap;
+}
+.estoque-tabela tbody td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #edf1f6;
+    vertical-align: middle;
+}
+.estoque-tabela tbody tr:hover td { background: #f8fafd; }
+.estoque-tabela th.col-center,
+.estoque-tabela td.col-center { text-align: center; }
+.estoque-tabela th.col-actions-head,
+.estoque-tabela td.col-actions-tab {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+    white-space: nowrap;
+    width: 1%;
+}
+.estoque-tabela .actions-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+/* 4. Estoque > Movimentações: painel em cartão branco organizado */
+.mov-painel {
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    gap: 0;
+}
+.mov-filtros {
+    padding: 16px 18px;
+    background: #ffffff;
+    border-bottom: 1px solid #edf1f6;
+    gap: 10px;
+}
+.mov-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: center;
+}
+.mov-grupo-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    min-width: 56px;
+}
+.mov-chip {
+    padding: 0.3rem 0.78rem;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+.mov-campo {
+    height: 36px;
+    font-size: 13.5px;
+    padding: 0 0.75rem;
+}
+#mov-produto.mov-campo { width: 220px; }
+.mov-totais {
+    padding: 12px 18px;
+    background: #f8fafd;
+    border-bottom: 1px solid #edf1f6;
+    gap: 0.6rem;
+    align-items: center;
+}
+.mov-total {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    font-size: 13px;
+}
+.mov-total strong { font-weight: 700; }
+.mov-total-entrada { background: #f2fbf6; border-color: #c5e8d5; }
+.mov-total-saida { background: #fdf3f2; border-color: #f3cbc7; }
+.mov-tabela-wrap {
+    max-height: 56vh;
+    overflow: auto;
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+}
+.custom-table-labs.mov-tabela { border-collapse: collapse; width: 100%; }
+.custom-table-labs.mov-tabela thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f5f8fc;
+    border-bottom: 1px solid var(--glass-border);
+    padding: 0.75rem 1rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: #5b6472;
+    text-align: left;
+}
+.custom-table-labs.mov-tabela td {
+    padding: 0.7rem 1rem;
+    font-size: 13.5px;
+    line-height: 1.35;
+    border-bottom: 1px solid #edf1f6;
+    vertical-align: middle;
+}
+.custom-table-labs.mov-tabela tbody tr:hover td { background: #f8fafd; }
+.custom-table-labs.mov-tabela td:first-child { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.custom-table-labs.mov-tabela td:nth-child(2) { font-weight: 500; color: var(--text-white); }
+.custom-table-labs.mov-tabela th.num,
+.custom-table-labs.mov-tabela td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mov-tipo-tag { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+.mov-rodape {
+    padding: 12px 18px;
+    background: #ffffff;
+    border-top: 1px solid #edf1f6;
+    font-size: 13px;
+}
+.mov-acoes .btn-ghost-labs { height: 36px; font-size: 13px; padding: 0 0.85rem; }
+
+/* 5. Cabeçalhos de todas as listas em grade: alinhados, sem reticências (...) */
+#products-list-labs .list-header-labs > *,
+#customers-list-labs .list-header-labs > *,
+#history-list-labs .list-header-labs > *,
+#entradas-list-labs .list-header-labs > * {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    min-width: 0;
+}
+.list-header-labs .sort-ico { margin-left: 0; flex-shrink: 0; }
 
 /* Clientes: 7 colunas em qualquer largura (corrige quebra abaixo de 1024px) */
 #customers-list-labs .list-header-labs,
 #customers-list-labs .nested-item-labs-row {
-    grid-template-columns: 64px minmax(145px, 1.3fr) minmax(130px, 1.1fr) minmax(115px, 1fr) minmax(95px, 0.9fr) minmax(120px, 1.2fr) 235px !important;
-    gap: 0.65rem !important;
-    min-width: 960px;
+    grid-template-columns: 64px minmax(150px, 1.3fr) minmax(145px, 1.15fr) minmax(120px, 1fr) minmax(105px, 0.9fr) minmax(130px, 1.2fr) 235px !important;
+    gap: 0.75rem !important;
+    min-width: 1000px;
 }
 
-/* Largura mínima segura nas tabelas largas para scroll horizontal sem esmagar colunas */
+/* Produtos: largura segura + alinhamento consistente por coluna */
 #products-list-labs .list-header-labs,
-#products-list-labs .nested-item-labs-row { min-width: 920px; }
-#history-list-labs .list-header-labs,
-#history-list-labs .nested-item-labs-row { min-width: 1020px !important; }
+#products-list-labs .nested-item-labs-row {
+    grid-template-columns: 64px minmax(220px, 2fr) 115px 115px 115px 140px 136px !important;
+    gap: 0.85rem !important;
+    min-width: 960px;
+}
+#products-list-labs .list-header-labs .col-stock,
+#products-list-labs .nested-item-labs-row .col-stock {
+    justify-content: center;
+    text-align: center;
+}
+
+/* Entradas: largura segura + alinhamento consistente */
 #entradas-list-labs .list-header-labs,
-#entradas-list-labs .nested-item-labs-row { min-width: 820px; }
-#estoque-grid .table-container-labs { overflow-x: auto; }
+#entradas-list-labs .nested-item-labs-row {
+    grid-template-columns: 72px 150px minmax(180px, 1.6fr) 125px 100px 130px 112px !important;
+    gap: 0.85rem !important;
+    min-width: 920px;
+}
+
+/* Saídas: ITENS somente com botão Ver, cabeçalhos legíveis sem "...", ações na horizontal */
+#history-list-labs .list-header-labs,
+#history-list-labs .nested-item-labs-row {
+    grid-template-columns: 64px 102px minmax(135px, 1.4fr) minmax(94px, 0.9fr) minmax(86px, 0.8fr) minmax(100px, 0.95fr) minmax(94px, 0.9fr) minmax(100px, 0.95fr) 78px minmax(102px, 0.95fr) 114px !important;
+    gap: 0.75rem !important;
+    min-width: 1180px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+#history-list-labs .nested-item-labs-row .col-date {
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.25;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+#history-list-labs .list-header-labs .col-items-action,
+#history-list-labs .nested-item-labs-row .col-items-action {
+    display: flex !important;
+    align-items: center;
+    justify-content: center !important;
+    overflow: visible !important;
+}
+#history-list-labs .nested-item-labs-row .col-actions,
+#products-list-labs .nested-item-labs-row .col-actions,
+#customers-list-labs .nested-item-labs-row .col-actions,
+#entradas-list-labs .nested-item-labs-row .col-actions {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    overflow: visible !important;
+}
+#history-list-labs .list-header-labs .col-actions,
+#products-list-labs .list-header-labs .col-actions,
+#customers-list-labs .list-header-labs .col-actions,
+#entradas-list-labs .list-header-labs .col-actions {
+    justify-content: flex-end !important;
+    text-align: right;
+}
 
 /* Paginação sticky ancorada à esquerda durante rolagem horizontal */
 .tabela-pager { left: 0; }
@@ -6160,7 +6461,7 @@ i.bx {
     border-radius: 4px;
 }
 
-/* Alinhamento numérico à direita + dígitos tabulares */
+/* Alinhamento numérico à direita (cabeçalho = célula) + dígitos tabulares */
 .num,
 .estoque-tabela th.num,
 .estoque-tabela td.num,
@@ -6188,21 +6489,16 @@ i.bx {
 #entradas-list-labs .nested-item-labs-row .col-qty-sum,
 #entradas-list-labs .nested-item-labs-row .col-price {
     text-align: right;
-    justify-content: flex-end;
+    justify-content: flex-end !important;
     font-variant-numeric: tabular-nums;
 }
 #history-list-labs .nested-item-labs-row .col-total-final {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     align-items: flex-end;
+    overflow: visible !important;
 }
 
-/* Hora discreta sob a data em Saídas */
-#history-list-labs .col-date {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.25;
-}
 .col-date-hora {
     font-size: 11.5px;
     color: var(--text-dim);
@@ -6268,14 +6564,6 @@ i.bx {
 }
 .btn-limpar-filtros:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Ações rápidas na tabela de Estoque e botão de visualização/recibo */
-.estoque-tabela .col-actions-tab {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.35rem;
-    white-space: nowrap;
-}
 .btn-action-view i.bx {
     font-size: 18px;
     width: 18px;
