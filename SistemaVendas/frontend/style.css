@@ -5800,7 +5800,7 @@ i.bx {
     max-height: calc(100vh - 230px);
     min-height: 0;
     overflow-y: auto !important;
-    overflow-x: hidden;
+    overflow-x: auto;
 }
 #products-list-labs.modo-cards, #entradas-list-labs.modo-cards {
     background: #ffffff;
@@ -6128,3 +6128,219 @@ i.bx {
 /* Fiado: atraso e prazo */
 .fiado-atraso { color: #a2473c; font-weight: 600; }
 #customers-list-labs .col-fiado .fiado-atraso { display: block; font-size: 0.72rem; }
+
+/* ==========================================================================
+   Fase 2 — Tabelas, alinhamento numérico, filtros rápidos e modais claros
+   ========================================================================== */
+
+/* Clientes: 7 colunas em qualquer largura (corrige quebra abaixo de 1024px) */
+#customers-list-labs .list-header-labs,
+#customers-list-labs .nested-item-labs-row {
+    grid-template-columns: 64px minmax(145px, 1.3fr) minmax(130px, 1.1fr) minmax(115px, 1fr) minmax(95px, 0.9fr) minmax(120px, 1.2fr) 235px !important;
+    gap: 0.65rem !important;
+    min-width: 960px;
+}
+
+/* Largura mínima segura nas tabelas largas para scroll horizontal sem esmagar colunas */
+#products-list-labs .list-header-labs,
+#products-list-labs .nested-item-labs-row { min-width: 920px; }
+#history-list-labs .list-header-labs,
+#history-list-labs .nested-item-labs-row { min-width: 1020px !important; }
+#entradas-list-labs .list-header-labs,
+#entradas-list-labs .nested-item-labs-row { min-width: 820px; }
+#estoque-grid .table-container-labs { overflow-x: auto; }
+
+/* Paginação sticky ancorada à esquerda durante rolagem horizontal */
+.tabela-pager { left: 0; }
+
+/* Cabeçalhos ordenáveis acessíveis por teclado */
+.sortable:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: 4px;
+}
+
+/* Alinhamento numérico à direita + dígitos tabulares */
+.num,
+.estoque-tabela th.num,
+.estoque-tabela td.num,
+.stock-val {
+    font-variant-numeric: tabular-nums;
+}
+.nested-item-labs-row .num,
+.list-header-labs .num,
+#products-list-labs .list-header-labs .col-cost,
+#products-list-labs .list-header-labs .col-price,
+#products-list-labs .nested-item-labs-row .col-cost,
+#products-list-labs .nested-item-labs-row .col-price,
+#history-list-labs .list-header-labs .col-subtotal,
+#history-list-labs .list-header-labs .col-discount,
+#history-list-labs .list-header-labs .col-total-final,
+#history-list-labs .list-header-labs .col-cost,
+#history-list-labs .list-header-labs .col-profit,
+#history-list-labs .nested-item-labs-row .col-subtotal,
+#history-list-labs .nested-item-labs-row .col-discount,
+#history-list-labs .nested-item-labs-row .col-total-final,
+#history-list-labs .nested-item-labs-row .col-cost,
+#history-list-labs .nested-item-labs-row .col-profit,
+#entradas-list-labs .list-header-labs .col-qty-sum,
+#entradas-list-labs .list-header-labs .col-price,
+#entradas-list-labs .nested-item-labs-row .col-qty-sum,
+#entradas-list-labs .nested-item-labs-row .col-price {
+    text-align: right;
+    justify-content: flex-end;
+    font-variant-numeric: tabular-nums;
+}
+#history-list-labs .nested-item-labs-row .col-total-final {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+/* Hora discreta sob a data em Saídas */
+#history-list-labs .col-date {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+.col-date-hora {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Cabeçalhos sticky claros dentro dos modais (substitui #11111e legado) */
+.modal-list-header {
+    padding: 0.85rem 1rem !important;
+    font-size: 0.75rem !important;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f5f8fc !important;
+    color: #5b6472;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+/* Grupos de filtros, chips rápidos (Clientes) e botão limpar filtros (Saídas/Movimentações) */
+.filtros-grupo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+.filtros-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+.filtro-chip {
+    height: 36px;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: #f5f8fc;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+}
+.filtro-chip:hover { color: var(--text-white); border-color: var(--accent); }
+.filtro-chip.active {
+    background: rgba(var(--accent-rgb), 0.12);
+    border-color: var(--accent);
+    color: #2f56c9;
+    font-weight: 600;
+}
+.btn-limpar-filtros {
+    height: 34px;
+    padding: 0 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: border-color var(--dur-fast), color var(--dur-fast);
+    white-space: nowrap;
+}
+.btn-limpar-filtros:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Ações rápidas na tabela de Estoque e botão de visualização/recibo */
+.estoque-tabela .col-actions-tab {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+.btn-action-view i.bx {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* Modal Itens da Venda enriquecido (preço unitário, subtotal e resumo) */
+.detail-row-mini {
+    grid-template-columns: 44px minmax(0, 1fr) 64px 96px;
+    gap: 0.75rem;
+}
+.detail-name-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.detail-name-mini strong { font-weight: 500; color: var(--text-white); }
+.detail-unit-mini { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.detail-qty-mini { font-variant-numeric: tabular-nums; }
+.detail-sub-mini {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-white);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.sale-details-summary {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    font-size: 13.5px;
+}
+.sale-details-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+    font-size: 12.5px;
+    color: var(--text-dim);
+}
+.sale-details-meta strong { color: var(--text-white); font-weight: 500; }
+.sale-details-totais { display: flex; flex-direction: column; gap: 0.25rem; }
+.sale-details-totais > div {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+.sale-details-totais .desc { color: #c03636; }
+.sale-details-totais .total {
+    color: var(--text-white);
+    font-weight: 700;
+    font-size: 15px;
+    padding-top: 0.3rem;
+    border-top: 1px dashed var(--glass-border);
+}
+
+/* Tabelas do Dashboard: scroll horizontal seguro e dígitos tabulares */
+.dash-tabela-box { overflow-x: auto; }
+.dash-tabela-box td,
+#critical-stock-body td,
+#recent-sales-body td {
+    font-variant-numeric: tabular-nums;
+}
+

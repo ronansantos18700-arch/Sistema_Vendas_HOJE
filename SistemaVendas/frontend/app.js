@@ -949,7 +949,12 @@ const app = {
         const filtroEstoque = document.getElementById('filter-estoque');
         if (filtroEstoque) filtroEstoque.addEventListener('input', () => this.renderEstoque());
         const ordemEstoque = document.getElementById('sort-estoque');
-        if (ordemEstoque) ordemEstoque.addEventListener('change', () => this.renderEstoque());
+        if (ordemEstoque) ordemEstoque.addEventListener('change', () => {
+            if (window.Tabela && typeof window.Tabela.resetarOrdenacao === 'function') {
+                window.Tabela.resetarOrdenacao('estoque-grid');
+            }
+            this.renderEstoque();
+        });
         document.querySelectorAll('#estoque-visao-toggle button').forEach(btn => {
             btn.addEventListener('click', () => {
                 localStorage.setItem('sv_estoque_visao', btn.dataset.visao);
@@ -1211,11 +1216,34 @@ const app = {
         const filterCust = document.getElementById('filter-customers');
         if (filterCust) filterCust.addEventListener('input', (e) => this.renderCustomers(e.target.value));
 
+        const filterCustFiado = document.getElementById('filter-customers-fiado');
+        if (filterCustFiado) {
+            filterCustFiado.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-fiado]');
+                if (!btn) return;
+                this.state.customersFiadoFilter = btn.dataset.fiado || 'todos';
+                this.renderCustomers();
+            });
+        }
+
         const filterHist = document.getElementById('filter-history');
         if (filterHist) filterHist.addEventListener('input', () => this.renderHistory());
 
         const filterDateHist = document.getElementById('filter-date-history');
         if (filterDateHist) filterDateHist.addEventListener('change', () => this.renderHistory());
+
+        const filterPayHist = document.getElementById('filter-payment-history');
+        if (filterPayHist) filterPayHist.addEventListener('change', () => this.renderHistory());
+
+        const btnClearHist = document.getElementById('btn-clear-history-filters');
+        if (btnClearHist) {
+            btnClearHist.addEventListener('click', () => {
+                if (filterHist) filterHist.value = '';
+                if (filterDateHist) filterDateHist.value = '';
+                if (filterPayHist) filterPayHist.value = '';
+                this.renderHistory();
+            });
+        }
 
         // Receipt actions
         const btnPrint = document.getElementById('btn-receipt-print');
@@ -1480,17 +1508,47 @@ const app = {
         container.innerHTML = items.map(item => {
             const initialLetter = item.name ? item.name.charAt(0).toUpperCase() : '?';
             const avatar = item.image
-                ? `<img src="${item.image}" class="detail-img-mini">`
+                ? `<img src="${item.image}" class="detail-img-mini" alt="">`
                 : `<div class="item-avatar-letter" style="width: 40px; height: 40px; font-size: 0.8rem;">${initialLetter}</div>`;
+            const qty = Number(item.qty ?? item.qtySold) || 0;
+            const unit = Number(item.price) || 0;
+            const sub = qty * unit;
 
             return `
                 <div class="detail-row-mini">
                     ${avatar}
-                    <div class="detail-name-mini">${this.esc(item.name)}</div>
-                    <div class="detail-qty-mini">${item.qty || item.qtySold || 0} un.</div>
+                    <div class="detail-name-mini">
+                        <strong>${this.esc(item.name)}</strong>
+                        <small class="detail-unit-mini">${this.formatCurrency(unit)} cada</small>
+                    </div>
+                    <div class="detail-qty-mini">${qty} un.</div>
+                    <div class="detail-sub-mini">${this.formatCurrency(sub)}</div>
                 </div>
             `;
         }).join('');
+
+        const summaryEl = document.getElementById('sale-details-summary');
+        if (summaryEl) {
+            const subtotal = Number(sale.valor_total ?? sale["Valor Total"] ?? sale.total ?? 0);
+            const desconto = Number(sale.desconto ?? sale.Desconto ?? 0);
+            const totalFinal = subtotal - desconto;
+            const cliente = sale.cliente || sale.Cliente || 'Consumidor Final';
+            const pag = this.rotuloPagamento(sale);
+            const data = this.parseDate(sale.date || sale.Data);
+            const dataTxt = data ? data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+            summaryEl.innerHTML = `
+                <div class="sale-details-meta">
+                    <span><strong>Cliente:</strong> ${this.esc(cliente)}</span>
+                    <span><strong>Data:</strong> ${dataTxt}</span>
+                    <span><strong>Pagamento:</strong> ${this.esc(pag)}</span>
+                </div>
+                <div class="sale-details-totais">
+                    <div><span>Subtotal</span><span>${this.formatCurrency(subtotal)}</span></div>
+                    ${desconto > 0 ? `<div class="desc"><span>Desconto</span><span>- ${this.formatCurrency(desconto)}</span></div>` : ''}
+                    <div class="total"><span>Total Final</span><span>${this.formatCurrency(totalFinal)}</span></div>
+                </div>
+            `;
+        }
 
         const titleEl = document.getElementById('details-modal-title');
         if (titleEl) titleEl.textContent = `Venda #${saleId.toString().slice(-6)} - Itens`;
@@ -4558,17 +4616,17 @@ const app = {
                         </div>
                     </div>
                     <span class="col-code" data-label="CÓDIGO">${this.esc(p.code) || 'N/A'}</span>
-                    <span class="col-cost" data-label="CUSTO">${this.formatCurrency(p.cost)}</span>
-                    <span class="col-price" data-label="VENDA">${this.formatCurrency(p.price)}</span>
-                    <div class="col-stock" data-label="ESTOQUE">
-                        <button class="btn-stock-minus" onclick="app.adjustStock('${p.id}', -2)" title="Ajuste Manual — Saída"><i data-lucide="minus"></i></button>
+                    <span class="col-cost num" data-label="CUSTO" data-sort="${Number(p.cost) || 0}">${this.formatCurrency(p.cost)}</span>
+                    <span class="col-price num" data-label="VENDA" data-sort="${Number(p.price) || 0}">${this.formatCurrency(p.price)}</span>
+                    <div class="col-stock" data-label="ESTOQUE" data-sort="${Number(p.stock) || 0}">
+                        <button type="button" class="btn-stock-minus" onclick="app.adjustStock('${p.id}', -2)" title="Ajustar estoque (saída)" aria-label="Ajustar estoque (saída)"><i data-lucide="minus"></i></button>
                         <span class="stock-val ${p.stock < lowLevel ? 'stock-low' : (p.stock < mediumLevel ? 'stock-medium' : '')}">${p.stock}</span>
-                        <button class="btn-stock-add" onclick="app.adjustStock('${p.id}', 2)" title="Ajuste Manual — Entrada"><i data-lucide="plus"></i></button>
+                        <button type="button" class="btn-stock-add" onclick="app.adjustStock('${p.id}', 2)" title="Ajustar estoque (entrada)" aria-label="Ajustar estoque (entrada)"><i data-lucide="plus"></i></button>
                     </div>
                     <div class="col-actions" data-label="AÇÕES">
-                        <button class="btn-action-view" onclick="app.showProductHistory('${p.id}')" title="Histórico de Estoque"><i data-lucide="history"></i></button>
-                        <button class="btn-action-edit" onclick="app.editProduct('${p.id}')"><i data-lucide="edit-3"></i></button>
-                        <button class="btn-action-delete" onclick="app.deleteProduct('${p.id}')"><i data-lucide="trash-2"></i></button>
+                        <button type="button" class="btn-action-view" onclick="app.showProductHistory('${p.id}')" title="Histórico de Estoque" aria-label="Histórico de Estoque"><i data-lucide="history"></i></button>
+                        <button type="button" class="btn-action-edit" onclick="app.editProduct('${p.id}')" title="Editar produto" aria-label="Editar produto"><i data-lucide="edit-3"></i></button>
+                        <button type="button" class="btn-action-delete" onclick="app.deleteProduct('${p.id}')" title="Excluir produto" aria-label="Excluir produto"><i data-lucide="trash-2"></i></button>
                     </div>
                 </div>
                 `;
@@ -4772,10 +4830,29 @@ const app = {
         const busca = query !== undefined ? query : (document.getElementById('filter-customers')?.value || '');
         const termo = String(busca || '').trim().toLowerCase();
         const digitos = termo.replace(/\D/g, '');
+        const filtroFiado = this.state.customersFiadoFilter || 'todos';
+
+        document.querySelectorAll('#filter-customers-fiado [data-fiado]').forEach(btn => {
+            const ativo = (btn.dataset.fiado || 'todos') === filtroFiado;
+            btn.classList.toggle('active', ativo);
+            btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+
+        const resumos = Fiado.resumosPorCliente(this.state.sales);
+        const atrasos = Fiado.atrasosPorCliente(this.state.sales);
+
         const filtered = this.state.customers.filter(c => {
+            const idStr = String(c.id);
+            if (filtroFiado === 'aberto') {
+                const r = resumos.get(idStr);
+                if (!r || !(r.falta > 0)) return false;
+            } else if (filtroFiado === 'atraso') {
+                const at = atrasos.get(idStr);
+                if (!at || !(at.quantidade > 0)) return false;
+            }
             if (!termo) return true;
             if ((c.name || '').toLowerCase().includes(termo)) return true;
-            if (String(c.id || '').toLowerCase().includes(termo)) return true;
+            if (idStr.toLowerCase().includes(termo)) return true;
             const whats = String(c.whatsapp || '');
             if (whats.toLowerCase().includes(termo)) return true;
             if (digitos && whats.replace(/\D/g, '').includes(digitos)) return true;
@@ -4783,12 +4860,15 @@ const app = {
         });
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-dim);">Nenhum cliente encontrado.</div>';
+            const msgVazio = filtroFiado === 'atraso'
+                ? 'Nenhum cliente com venda em atraso.'
+                : filtroFiado === 'aberto'
+                    ? 'Nenhum cliente com fiado em aberto.'
+                    : 'Nenhum cliente encontrado.';
+            container.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-dim);">${msgVazio}</div>`;
             return;
         }
 
-        const resumos = Fiado.resumosPorCliente(this.state.sales);
-        const atrasos = Fiado.atrasosPorCliente(this.state.sales);
         const textoFiado = (r, at) => {
             if (!r || r.totalPrazo <= 0) return '<span class="fiado-sem">-</span>';
             if (r.falta > 0) {
@@ -4802,6 +4882,8 @@ const app = {
         };
         container.innerHTML = filtered.map(c => {
             const r = resumos.get(String(c.id));
+            const sortFiado = !r || r.totalPrazo <= 0 ? -1 : (r.falta > 0 ? r.falta : 0);
+            const dataCad = this.parseDate(c.date);
             const receber = r && r.falta > 0
                 ? `<button type="button" class="btn-fiado-receber-lista" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button>`
                 : '';
@@ -4812,15 +4894,15 @@ const app = {
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
                     <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
-                    <span class="col-fiado" data-label="FIADO">${textoFiado(r, atrasos.get(String(c.id)))}</span>
+                    <span class="col-fiado" data-label="FIADO" data-sort="${sortFiado}">${textoFiado(r, atrasos.get(String(c.id)))}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
-                    <span class="col-date" data-label="DATA">${this.parseDate(c.date) ? this.parseDate(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
+                    <span class="col-date" data-label="DATA" data-sort="${dataCad ? dataCad.getTime() : 0}">${dataCad ? dataCad.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
                     <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
                     <div class="col-actions" data-label="AÇÕES">
                         ${receber}
                         ${extrato}
-                        <button class="btn-action-edit" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
-                        <button class="btn-action-delete" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
+                        <button type="button" class="btn-action-edit" title="Editar cliente" aria-label="Editar cliente" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
+                        <button type="button" class="btn-action-delete" title="Excluir cliente" aria-label="Excluir cliente" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
                     </div>
                 </div>`;
         }).join('');
@@ -5071,6 +5153,10 @@ const app = {
 
         const query = document.getElementById('filter-history')?.value.toLowerCase() || '';
         const dateQuery = document.getElementById('filter-date-history')?.value || '';
+        const paymentQuery = document.getElementById('filter-payment-history')?.value || '';
+
+        const btnLimpar = document.getElementById('btn-clear-history-filters');
+        if (btnLimpar) btnLimpar.classList.toggle('hidden', !(query || dateQuery || paymentQuery));
 
         let filtered = this.state.sales.slice().reverse();
 
@@ -5091,6 +5177,18 @@ const app = {
             });
         }
 
+        if (paymentQuery) {
+            filtered = filtered.filter(s => {
+                const ehMisto = Array.isArray(s.pagamentos) && s.pagamentos.length > 0;
+                const pag = String(s.pagamento || s.PaymentMethod || s.formaPagamento || '').toLowerCase();
+                if (paymentQuery === 'misto') return ehMisto;
+                if (paymentQuery === 'fiado_aberto') return window.Fiado ? Fiado.saldoAberto(s) > 0 : pag === 'fiado';
+                if (paymentQuery === 'fiado') return pag === 'fiado';
+                if (ehMisto) return s.pagamentos.some(p => String(p.forma || '').toLowerCase() === paymentQuery);
+                return pag === paymentQuery || (paymentQuery === 'cartao' && pag === 'cartão');
+            });
+        }
+
         if (filtered.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-dim);">Nenhuma saída encontrada.</div>';
             return;
@@ -5099,6 +5197,9 @@ const app = {
         container.innerHTML = filtered.map(s => {
             const id = s.id || s.ID || '';
             const date = s.date || s.Data || '';
+            const dObj = this.parseDate(date);
+            const dataTxt = dObj ? dObj.toLocaleDateString('pt-BR') : 'N/A';
+            const horaTxt = dObj ? dObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
             const cliente = s.cliente || s.Cliente || '';
             const subtotal = Number(s.valor_total || s["Valor Total"] || s.total || 0);
             const desconto = Number(s.desconto || s.Desconto || 0);
@@ -5106,7 +5207,7 @@ const app = {
             const custo = Number(s.cost || s.custo || s.Custo || s.custoTotal || 0);
             const lucro = Number(s.lucro || s.Lucro || (totalFinal - custo));
             const pagamento = this.rotuloPagamento(s);
-            const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) : 0;
+            const itemsCount = s.items ? s.items.reduce((sum, item) => sum + (Number(item.qty ?? item.qtySold) || 0), 0) : 0;
             const nomesItens = (s.items || []).map(it => it.name).filter(Boolean);
             const itensTxt = nomesItens.length
                 ? `${nomesItens.length} ${nomesItens.length === 1 ? 'produto' : 'produtos'} · ${itemsCount} un.`
@@ -5119,25 +5220,25 @@ const app = {
             return `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${id.toString().slice(-4)}</span>
-                    <span class="col-date" data-label="DATA">${this.parseDate(date) ? this.parseDate(date).toLocaleDateString('pt-BR') : 'N/A'}</span>
+                    <span class="col-date" data-label="DATA" data-sort="${dObj ? dObj.getTime() : 0}">${dataTxt}${horaTxt ? `<small class="col-date-hora">${horaTxt}</small>` : ''}</span>
                     <span class="col-name" data-label="CLIENTE">${this.esc(cliente)}</span>
-                    <span class="col-subtotal" data-label="TOTAL">${this.formatCurrency(subtotal)}</span>
-                    <span class="col-discount" data-label="DESC.">${this.formatCurrency(desconto)}</span>
-                    <span class="col-total-final" data-label="FINAL">${this.formatCurrency(totalFinal)}${this.statusFiadoVendaHtml(s)}</span>
-                    <span class="col-cost" data-label="CUSTO">${this.formatCurrency(custo)}</span>
-                    <span class="col-profit" data-label="LUCRO">${this.formatCurrency(lucro)}</span>
-                    <div class="col-items-action" data-label="ITENS">
+                    <span class="col-subtotal num" data-label="TOTAL" data-sort="${subtotal}">${this.formatCurrency(subtotal)}</span>
+                    <span class="col-discount num" data-label="DESC." data-sort="${desconto}">${this.formatCurrency(desconto)}</span>
+                    <span class="col-total-final num" data-label="FINAL" data-sort="${totalFinal}">${this.formatCurrency(totalFinal)}${this.statusFiadoVendaHtml(s)}</span>
+                    <span class="col-cost num" data-label="CUSTO" data-sort="${custo}">${this.formatCurrency(custo)}</span>
+                    <span class="col-profit num" data-label="LUCRO" data-sort="${lucro}">${this.formatCurrency(lucro)}</span>
+                    <div class="col-items-action" data-label="ITENS" data-sort="${itemsCount}">
                         <div class="itens-resumo">
                             <strong>${itensTxt}</strong>
                             <small>${nomesTxt}</small>
                         </div>
-                        <button class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver todos os itens"><i class="bx bx-list-ul"></i>Ver</button>
+                        <button type="button" class="btn-itens-ver" onclick="app.showSaleDetails('${id}')" title="Ver todos os itens" aria-label="Ver itens da venda"><i class="bx bx-list-ul"></i>Ver</button>
                     </div>
                     <span class="col-payment" data-label="PAGAMENTO">${this.esc(pagamento)}</span>
                     <div class="col-actions" data-label="AÇÕES">
-                        <button class="btn-action-edit" title="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
-                        <button class="btn-action-edit" title="Gerar Recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
-                        <button class="btn-action-delete" title="Excluir Venda" onclick="app.deleteSale('${id}')"><i data-lucide="trash-2"></i></button>
+                        <button type="button" class="btn-action-edit" title="Editar venda" aria-label="Editar venda" onclick="app.openSaleEdit('${id}')"><i data-lucide="edit"></i></button>
+                        <button type="button" class="btn-action-view" title="Gerar Recibo" aria-label="Gerar recibo" onclick="app.openReceiptOptions('${id}')"><i data-lucide="printer"></i></button>
+                        <button type="button" class="btn-action-delete" title="Excluir Venda" aria-label="Excluir venda" onclick="app.deleteSale('${id}')"><i data-lucide="trash-2"></i></button>
                     </div>
                 </div>
                 `;
@@ -6210,17 +6311,17 @@ const app = {
             return `
                 <div class="nested-item-labs-row" style="grid-template-columns: 1fr 80px 120px 120px 50px; padding: 0.75rem 0.5rem; font-size: 0.85rem; border-bottom: 1px solid var(--glass-border);">
                     <span style="font-weight: 500;">${this.esc(item.productName)}</span>
-                    <span>${item.qty}</span>
-                    <span>R$ ${item.unitCost.toFixed(2)}</span>
-                    <span style="font-weight: 600; color: var(--accent);">R$ ${item.totalCost.toFixed(2)}</span>
-                    <button type="button" class="btn-action-delete" onclick="app.removerItemEntrada(${index})">
+                    <span class="num">${item.qty}</span>
+                    <span class="num">${this.formatCurrency(item.unitCost)}</span>
+                    <span class="num" style="font-weight: 600; color: var(--accent);">${this.formatCurrency(item.totalCost)}</span>
+                    <button type="button" class="btn-action-delete" title="Remover item" aria-label="Remover item" onclick="app.removerItemEntrada(${index})">
                         <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                     </button>
                 </div>
             `;
         }).join('');
 
-        document.getElementById('entrada-total-geral').textContent = `R$ ${totalGeral.toFixed(2)}`;
+        document.getElementById('entrada-total-geral').textContent = this.formatCurrency(totalGeral);
         this.initLucide();
     },
 
@@ -6328,30 +6429,34 @@ const app = {
             this.initLucide();
             return;
         }
-        container.innerHTML = filtered.map(e => `
+        container.innerHTML = filtered.map(e => {
+            const dEnt = this.parseDate(e.date);
+            return `
             <div class="nested-item-labs-row">
                 <span class="col-id" data-label="ID">#${e.id.toString().slice(-6)}</span>
-                <span class="col-date" data-label="DATA">${new Date(e.date).toLocaleDateString('pt-BR')}</span>
+                <span class="col-date" data-label="DATA" data-sort="${dEnt ? dEnt.getTime() : 0}">${dEnt ? dEnt.toLocaleDateString('pt-BR') : 'N/A'}</span>
                 <span class="col-name" data-label="FORNECEDOR">${this.esc(e.fornecedor || '---')}</span>
                 <span class="col-code" data-label="Nº NOTA">${this.esc(e.nota || '---')}</span>
-                <span class="col-qty-sum" data-label="ITENS">${e.items.length} itens</span>
-                <span class="col-price" data-label="CUSTO">${this.formatCurrency(e.totalCusto)}</span>
+                <span class="col-qty-sum num" data-label="ITENS" data-sort="${e.items.length}">${e.items.length} itens</span>
+                <span class="col-price num" data-label="CUSTO" data-sort="${Number(e.totalCusto) || 0}">${this.formatCurrency(e.totalCusto)}</span>
                 <div class="col-actions" data-label="AÇÕES" style="justify-content: flex-end;">
-                    <button class="btn-action-edit" onclick="app.showEntradaDetails('${e.id}')" title="Ver Detalhes">
+                    <button type="button" class="btn-action-view" onclick="app.showEntradaDetails('${e.id}')" title="Ver Detalhes" aria-label="Ver detalhes da entrada">
                         <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
                     </button>
-                    <button class="btn-action-delete" onclick="app.deleteEntrada('${e.id}')" title="Excluir Entrada">
+                    <button type="button" class="btn-action-delete" onclick="app.deleteEntrada('${e.id}')" title="Excluir Entrada" aria-label="Excluir entrada">
                         <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                     </button>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         this.initLucide();
     },
 
     // Estoque em tempo real: cards com foto, quantidade e nível (mesmos limites das notificações).
     estoqueTabelaHtml(lista, vendido30, ultimaMov, nivel, rotulo, moeda) {
+        const isAdmin = this.state.currentUser?.role === 'admin';
         const linhas = lista.map(p => {
             const nv = nivel(p);
             const id = String(p.id);
@@ -6359,20 +6464,25 @@ const app = {
             const qtd = Number(p.stock) || 0;
             const dias = vendas > 0 && qtd > 0 ? Math.round(qtd / (vendas / 30)) : 0;
             const cobertura = qtd === 0 ? 'Zerado' : vendas === 0 ? 'Sem giro' : 'Cerca de ' + dias + ' dias';
+            const sortCobertura = qtd === 0 ? -1 : vendas === 0 ? 999999 : dias;
             const ultima = ultimaMov[id] ? new Date(ultimaMov[id]).toLocaleDateString('pt-BR') : '—';
             const capital = qtd * (Number(p.cost) || 0);
+            const btnAjuste = isAdmin
+                ? `<button type="button" class="btn-action-edit" onclick="app.adjustStock('${this.esc(id)}', 2)" title="Ajustar estoque" aria-label="Ajustar estoque"><i data-lucide="edit-3"></i></button>`
+                : '';
             return '<tr class="estoque-linha estoque-' + nv + '">'
                 + '<td><div class="estoque-nome-tab"><strong>' + this.esc(p.name) + '</strong><span>' + this.esc(p.code) + '</span></div></td>'
-                + '<td class="num">' + qtd + '</td>'
+                + '<td class="num" data-sort="' + qtd + '">' + qtd + '</td>'
                 + '<td><span class="estoque-status">' + rotulo[nv] + '</span></td>'
-                + '<td>' + cobertura + '</td>'
-                + '<td class="num">' + vendas + ' un.</td>'
-                + '<td class="num">' + moeda(capital) + '</td>'
-                + '<td>' + ultima + '</td>'
+                + '<td data-sort="' + sortCobertura + '">' + cobertura + '</td>'
+                + '<td class="num" data-sort="' + vendas + '">' + vendas + ' un.</td>'
+                + '<td class="num" data-sort="' + capital + '">' + moeda(capital) + '</td>'
+                + '<td data-sort="' + (ultimaMov[id] || 0) + '">' + ultima + '</td>'
+                + '<td class="col-actions-tab"><button type="button" class="btn-action-view" onclick="app.showProductHistory(\'' + this.esc(id) + '\')" title="Histórico de estoque" aria-label="Histórico de estoque"><i data-lucide="history"></i></button>' + btnAjuste + '</td>'
                 + '</tr>';
         }).join('');
         return '<div class="table-container-labs"><table class="custom-table-labs estoque-tabela">'
-            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th>Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Capital parado</th><th>Última movimentação</th></tr></thead>'
+            + '<thead><tr><th>Produto</th><th class="num">Estoque</th><th>Situação</th><th>Cobertura</th><th class="num">Vendas 30 dias</th><th class="num">Valor em estoque</th><th>Última movimentação</th><th class="num">Ações</th></tr></thead>'
             + '<tbody>' + linhas + '</tbody></table></div>';
     },
 
@@ -6440,6 +6550,20 @@ const app = {
             estado.busca = e.target.value.trim();
             recarregar();
         });
+        document.getElementById('mov-limpar')?.addEventListener('click', () => {
+            estado.periodo = 'tudo';
+            estado.produto = '';
+            estado.tipos = [];
+            estado.busca = '';
+            estado.limite = 50;
+            const inpBusca = document.getElementById('mov-busca');
+            if (inpBusca) inpBusca.value = '';
+            const inpIni = document.getElementById('mov-inicio');
+            if (inpIni) inpIni.value = '';
+            const inpFim = document.getElementById('mov-fim');
+            if (inpFim) inpFim.value = '';
+            this.renderMovimentacoes();
+        });
         document.getElementById('mov-mais')?.addEventListener('click', () => {
             estado.limite += 50;
             this.renderMovimentacoes();
@@ -6486,6 +6610,8 @@ const app = {
         document.querySelectorAll('#mov-periodo [data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === estado.periodo));
         document.querySelectorAll('#mov-tipos [data-tipo]').forEach(b => b.classList.toggle('active', estado.tipos.includes(b.dataset.tipo)));
         document.getElementById('mov-datas')?.classList.toggle('hidden', estado.periodo !== 'personalizado');
+        const temFiltroMov = estado.periodo !== 'tudo' || !!estado.produto || estado.tipos.length > 0 || !!estado.busca;
+        document.getElementById('mov-limpar')?.classList.toggle('hidden', !temFiltroMov);
 
         const sel = document.getElementById('mov-produto');
         if (sel) {
@@ -6660,6 +6786,7 @@ const app = {
             grid.innerHTML = lista.length === 0
                 ? '<div class="pos-empty">Nenhum produto encontrado.</div>'
                 : this.estoqueTabelaHtml(lista, vendido30, ultimaMov, nivel, rotulo, moeda);
+            this.initLucide();
             return;
         }
 
@@ -6706,7 +6833,7 @@ const app = {
                         <p>Vendeu ${vendas} un. em 30 dias</p>
                     </div>
                     <div class="estoque-rodape">
-                        <span>Capital parado<b>${moeda(capital)}</b></span>
+                        <span>Valor em estoque<b>${moeda(capital)}</b></span>
                         <span>Última movimentação<b>${ultima}</b></span>
                     </div>
                 </div>`;
@@ -6785,9 +6912,9 @@ const app = {
                     <div class="nested-item-labs-row" style="grid-template-columns: 140px 1.4fr 70px 110px 80px 1fr; padding: 0.6rem 0.5rem; font-size: 0.82rem; border-bottom: 1px solid var(--glass-border); ${estilo}">
                         <span>${data}</span>
                         <span style="font-weight: 500;">${mov.tipo === 'entrada' && apagada ? 'Entrada (excluída)' : Estoque.rotulo(mov.tipo)}</span>
-                        <span style="${apagada ? 'text-decoration: line-through;' : ''}">${qtd}</span>
-                        <span>${custo}</span>
-                        <span>${saldo}</span>
+                        <span class="num" style="${apagada ? 'text-decoration: line-through;' : ''}">${qtd}</span>
+                        <span class="num">${custo}</span>
+                        <span class="num">${saldo}</span>
                         <span style="color: var(--text-dim);">${this.esc(mov.obs) || ''}</span>
                     </div>`;
             }).join('');
@@ -6801,15 +6928,15 @@ const app = {
         document.getElementById('details-entrada-id').textContent = `ID: ${entrada.id}`;
         document.getElementById('details-entrada-fornecedor').textContent = entrada.fornecedor || '---';
         document.getElementById('details-entrada-nota').textContent = entrada.nota || '---';
-        document.getElementById('details-entrada-total').textContent = `R$ ${entrada.totalCusto.toFixed(2)}`;
+        document.getElementById('details-entrada-total').textContent = this.formatCurrency(entrada.totalCusto);
 
         const container = document.getElementById('details-entrada-items-container');
         container.innerHTML = entrada.items.map(item => `
             <div class="nested-item-labs-row" style="grid-template-columns: 1fr 80px 120px 120px; padding: 0.75rem 0.5rem; font-size: 0.85rem; border-bottom: 1px solid var(--glass-border);">
                 <span style="font-weight: 500;">${this.esc(item.productName)}</span>
-                <span>${item.qty}</span>
-                <span>R$ ${item.unitCost.toFixed(2)}</span>
-                <span style="font-weight: 600;">R$ ${item.totalCost.toFixed(2)}</span>
+                <span class="num">${item.qty}</span>
+                <span class="num">${this.formatCurrency(item.unitCost)}</span>
+                <span class="num" style="font-weight: 600;">${this.formatCurrency(item.totalCost)}</span>
             </div>
         `).join('');
 
