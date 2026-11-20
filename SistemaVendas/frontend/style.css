@@ -5797,15 +5797,15 @@ i.bx {
     background: #ffffff;
     border-radius: 0 0 14px 14px !important;
     margin-top: 0;
-    max-height: calc(100vh - 230px);
+    max-height: none;
     min-height: 0;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: auto;
 }
 #products-list-labs.modo-cards, #entradas-list-labs.modo-cards {
     background: #ffffff;
     border: none;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
 }
 
 /* Cabeçalho e paginação ficam visíveis enquanto a lista rola */
@@ -6228,17 +6228,20 @@ i.bx {
 .estoque-pill-valor span { font-size: 12.5px; color: #4762a8; font-weight: 500; }
 .estoque-pill-valor strong { font-size: 14.5px; color: #18358a; }
 
-/* 3. Estoque > Tabela de Produtos: mantém <td> nativo para não quebrar bordas */
-#estoque-grid .table-container-labs { overflow-x: auto; }
+/* 3. Estoque > Tabela de Produtos: mantém <td> nativo para não quebrar bordas e cabe na tela com paginação */
+#estoque-view.modo-tabela .estoque-grid {
+    overflow-y: visible;
+}
+#estoque-grid .table-container-labs { overflow-x: auto; overflow-y: visible; }
 .estoque-tabela { border-collapse: collapse; width: 100%; }
 .estoque-tabela thead th {
     background: #f5f8fc;
     border-bottom: 1px solid var(--glass-border);
-    padding: 0.8rem 1rem;
+    padding: 0.72rem 1.15rem;
     white-space: nowrap;
 }
 .estoque-tabela tbody td {
-    padding: 0.8rem 1rem;
+    padding: 0.62rem 1.15rem;
     border-bottom: 1px solid #edf1f6;
     vertical-align: middle;
 }
@@ -6260,7 +6263,7 @@ i.bx {
     gap: 0.35rem;
 }
 
-/* 4. Estoque > Movimentações: painel em cartão branco organizado */
+/* 4. Estoque > Movimentações: painel em cartão branco organizado com paginação real */
 .mov-painel {
     background: #ffffff;
     border: 1px solid var(--glass-border);
@@ -6270,7 +6273,7 @@ i.bx {
     gap: 0;
 }
 .mov-filtros {
-    padding: 16px 18px;
+    padding: 14px 18px;
     background: #ffffff;
     border-bottom: 1px solid #edf1f6;
     gap: 10px;
@@ -6281,16 +6284,53 @@ i.bx {
     gap: 8px 10px;
     align-items: center;
 }
+.mov-linha-principal {
+    justify-content: space-between;
+}
+.mov-tipos-linha {
+    padding-top: 8px;
+    border-top: 1px dashed #edf1f6;
+}
 .mov-grupo-label {
     font-size: 11.5px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-dim);
-    min-width: 56px;
+    min-width: 40px;
+}
+.mov-periodo-seg {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 3px;
+    background: #f5f8fc;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+}
+.mov-periodo-seg .mov-chip {
+    border: 0;
+    background: transparent;
+    border-radius: 7px;
+    padding: 0.32rem 0.72rem;
+    font-size: 12.5px;
+    font-weight: 500;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+}
+.mov-periodo-seg .mov-chip:hover {
+    color: var(--text-white);
+    background: rgba(255, 255, 255, 0.65);
+}
+.mov-periodo-seg .mov-chip.active {
+    background: #ffffff;
+    color: #2f56c9;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
 }
 .mov-chip {
-    padding: 0.3rem 0.78rem;
+    padding: 0.28rem 0.75rem;
     font-size: 12.5px;
     font-weight: 500;
 }
@@ -6299,9 +6339,13 @@ i.bx {
     font-size: 13.5px;
     padding: 0 0.75rem;
 }
-#mov-produto.mov-campo { width: 220px; }
+.mov-busca {
+    flex: 1 1 220px;
+    min-width: 200px;
+}
+#mov-produto.mov-campo { width: 210px; }
 .mov-totais {
-    padding: 12px 18px;
+    padding: 10px 18px;
     background: #f8fafd;
     border-bottom: 1px solid #edf1f6;
     gap: 0.6rem;
@@ -6311,7 +6355,7 @@ i.bx {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 12px;
+    padding: 4px 12px;
     border-radius: 8px;
     background: #ffffff;
     border: 1px solid var(--glass-border);
@@ -6321,8 +6365,9 @@ i.bx {
 .mov-total-entrada { background: #f2fbf6; border-color: #c5e8d5; }
 .mov-total-saida { background: #fdf3f2; border-color: #f3cbc7; }
 .mov-tabela-wrap {
-    max-height: 56vh;
-    overflow: auto;
+    max-height: none;
+    overflow-y: visible;
+    overflow-x: auto;
     border: 0;
     border-radius: 0;
     margin: 0;
@@ -6336,14 +6381,14 @@ i.bx {
     z-index: 2;
     background: #f5f8fc;
     border-bottom: 1px solid var(--glass-border);
-    padding: 0.75rem 1rem;
+    padding: 0.7rem 1.1rem;
     font-size: 12px;
     font-weight: 600;
     color: #5b6472;
     text-align: left;
 }
 .custom-table-labs.mov-tabela td {
-    padding: 0.7rem 1rem;
+    padding: 0.62rem 1.1rem;
     font-size: 13.5px;
     line-height: 1.35;
     border-bottom: 1px solid #edf1f6;
@@ -6360,16 +6405,38 @@ i.bx {
     background: #ffffff;
     border-top: 1px solid #edf1f6;
     font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
-.mov-acoes .btn-ghost-labs { height: 36px; font-size: 13px; padding: 0 0.85rem; }
+.mov-rodape-dir {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+}
+.mov-paginacao.hidden { display: none; }
+.mov-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    padding-left: 0.85rem;
+    border-left: 1px solid #edf1f6;
+}
+.mov-acoes .btn-ghost-labs { height: 34px; font-size: 13px; padding: 0 0.85rem; }
 
-/* 5. Cabeçalhos de todas as listas em grade: alinhados, sem reticências (...) */
+/* 5. Cabeçalhos de todas as listas em grade: linha única, alinhados, sem reticências (...) */
 #products-list-labs .list-header-labs > *,
 #customers-list-labs .list-header-labs > *,
 #history-list-labs .list-header-labs > *,
 #entradas-list-labs .list-header-labs > * {
     display: inline-flex !important;
-    align-items: center;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start;
     gap: 4px;
     white-space: nowrap;
     overflow: visible !important;
@@ -6378,43 +6445,69 @@ i.bx {
 }
 .list-header-labs .sort-ico { margin-left: 0; flex-shrink: 0; }
 
-/* Clientes: 7 colunas em qualquer largura (corrige quebra abaixo de 1024px) */
+/* Clientes: 7 colunas equilibradas + cabeçalho FIADO alinhado à esquerda com os valores */
 #customers-list-labs .list-header-labs,
 #customers-list-labs .nested-item-labs-row {
-    grid-template-columns: 64px minmax(150px, 1.3fr) minmax(145px, 1.15fr) minmax(120px, 1fr) minmax(105px, 0.9fr) minmax(130px, 1.2fr) 235px !important;
-    gap: 0.75rem !important;
-    min-width: 1000px;
+    grid-template-columns: 70px minmax(160px, 1.35fr) minmax(165px, 1.25fr) minmax(130px, 1fr) minmax(115px, 0.9fr) minmax(150px, 1.2fr) 240px !important;
+    gap: 0.85rem !important;
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
+    min-width: 1020px;
+}
+#customers-list-labs .list-header-labs .col-fiado {
+    font-size: var(--fs-sm);
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+#customers-list-labs .nested-item-labs-row .col-fiado {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+    gap: 2px;
 }
 
-/* Produtos: largura segura + alinhamento consistente por coluna */
+/* Produtos: colunas proporcionais (sem Produto dominar 60%), margem direita limpa e 7 linhas sem rolagem */
 #products-list-labs .list-header-labs,
 #products-list-labs .nested-item-labs-row {
-    grid-template-columns: 64px minmax(220px, 2fr) 115px 115px 115px 140px 136px !important;
-    gap: 0.85rem !important;
+    grid-template-columns: 74px minmax(230px, 2fr) minmax(150px, 1.3fr) minmax(105px, 0.9fr) minmax(105px, 0.9fr) minmax(135px, 1fr) 138px !important;
+    gap: 0.9rem !important;
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
     min-width: 960px;
+}
+#products-list-labs .nested-item-labs-row {
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
 }
 #products-list-labs .list-header-labs .col-stock,
 #products-list-labs .nested-item-labs-row .col-stock {
-    justify-content: center;
+    justify-content: center !important;
     text-align: center;
 }
 
-/* Entradas: largura segura + alinhamento consistente */
+/* Entradas: largura proporcional + alinhamento consistente */
 #entradas-list-labs .list-header-labs,
 #entradas-list-labs .nested-item-labs-row {
-    grid-template-columns: 72px 150px minmax(180px, 1.6fr) 125px 100px 130px 112px !important;
+    grid-template-columns: 76px 145px minmax(190px, 1.6fr) minmax(125px, 1fr) minmax(95px, 0.8fr) minmax(125px, 1fr) 112px !important;
     gap: 0.85rem !important;
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
     min-width: 920px;
 }
 
-/* Saídas: ITENS somente com botão Ver, cabeçalhos legíveis sem "...", ações na horizontal */
+/* Saídas: ITENS somente com botão Ver, cabeçalhos legíveis sem "...", ações na horizontal, 7 linhas sem rolagem */
 #history-list-labs .list-header-labs,
 #history-list-labs .nested-item-labs-row {
-    grid-template-columns: 64px 102px minmax(135px, 1.4fr) minmax(94px, 0.9fr) minmax(86px, 0.8fr) minmax(100px, 0.95fr) minmax(94px, 0.9fr) minmax(100px, 0.95fr) 78px minmax(102px, 0.95fr) 114px !important;
+    grid-template-columns: 66px 104px minmax(140px, 1.4fr) minmax(94px, 0.9fr) minmax(86px, 0.8fr) minmax(102px, 0.95fr) minmax(94px, 0.9fr) minmax(102px, 0.95fr) 80px minmax(105px, 0.95fr) 118px !important;
     gap: 0.75rem !important;
     min-width: 1180px !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
+}
+#history-list-labs .nested-item-labs-row {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
 }
 #history-list-labs .nested-item-labs-row .col-date {
     display: flex !important;
@@ -6451,8 +6544,12 @@ i.bx {
     text-align: right;
 }
 
-/* Paginação sticky ancorada à esquerda durante rolagem horizontal */
-.tabela-pager { left: 0; }
+/* Paginação alinhada com as margens das tabelas */
+.tabela-pager {
+    left: 0;
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
+}
 
 /* Cabeçalhos ordenáveis acessíveis por teclado */
 .sortable:focus-visible {
@@ -6461,42 +6558,49 @@ i.bx {
     border-radius: 4px;
 }
 
-/* Alinhamento numérico à direita (cabeçalho = célula) + dígitos tabulares */
+/* Alinhamento numérico à direita (cabeçalho = célula) vencendo flex-direction: column de .nested-item-labs-row > span */
 .num,
 .estoque-tabela th.num,
 .estoque-tabela td.num,
 .stock-val {
     font-variant-numeric: tabular-nums;
 }
-.nested-item-labs-row .num,
-.list-header-labs .num,
 #products-list-labs .list-header-labs .col-cost,
 #products-list-labs .list-header-labs .col-price,
-#products-list-labs .nested-item-labs-row .col-cost,
-#products-list-labs .nested-item-labs-row .col-price,
 #history-list-labs .list-header-labs .col-subtotal,
 #history-list-labs .list-header-labs .col-discount,
 #history-list-labs .list-header-labs .col-total-final,
 #history-list-labs .list-header-labs .col-cost,
 #history-list-labs .list-header-labs .col-profit,
+#entradas-list-labs .list-header-labs .col-qty-sum,
+#entradas-list-labs .list-header-labs .col-price {
+    text-align: right !important;
+    justify-content: flex-end !important;
+    font-variant-numeric: tabular-nums;
+}
+#products-list-labs .nested-item-labs-row .col-cost,
+#products-list-labs .nested-item-labs-row .col-price,
 #history-list-labs .nested-item-labs-row .col-subtotal,
 #history-list-labs .nested-item-labs-row .col-discount,
-#history-list-labs .nested-item-labs-row .col-total-final,
 #history-list-labs .nested-item-labs-row .col-cost,
 #history-list-labs .nested-item-labs-row .col-profit,
-#entradas-list-labs .list-header-labs .col-qty-sum,
-#entradas-list-labs .list-header-labs .col-price,
 #entradas-list-labs .nested-item-labs-row .col-qty-sum,
 #entradas-list-labs .nested-item-labs-row .col-price {
-    text-align: right;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
     justify-content: flex-end !important;
+    text-align: right !important;
     font-variant-numeric: tabular-nums;
 }
 #history-list-labs .nested-item-labs-row .col-total-final {
     display: flex !important;
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    text-align: right !important;
     overflow: visible !important;
+    font-variant-numeric: tabular-nums;
 }
 
 .col-date-hora {

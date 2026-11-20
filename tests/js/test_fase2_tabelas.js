@@ -360,24 +360,24 @@ function criarAmbienteApp() {
 
         vm.runInContext(fs.readFileSync(path.join(front, 'tabela.js'), 'utf8'), ctx, { filename: 'tabela.js' });
 
-        // Deve ter criado paginação com 2 páginas (15 + 5) e aria-label nos botões
+        // Deve ter criado paginação com 3 páginas (7 + 7 + 6) e aria-label nos botões
         const pager = host.querySelector('.tabela-pager');
         assert.ok(pager, 'paginação criada');
         assert.ok(pager.innerHTML.includes('aria-label="Página anterior"'));
         assert.ok(pager.innerHTML.includes('aria-label="Próxima página"'));
-        assert.ok(pager.innerHTML.includes('1 / 2'));
+        assert.ok(pager.innerHTML.includes('1 / 3'));
 
         // Avança para página 2 via evento delegado no pager
         const btnProxFake = new FakeEl('button', { dataset: { pag: '1' } });
         pager.dispatch('click', { target: btnProxFake });
         const visiveisPg2 = cont.children.filter(r => !r.hidden);
-        assert.strictEqual(visiveisPg2.length, 5, 'página 2 exibe 5 itens');
-        assert.ok(pager.innerHTML.includes('2 / 2'));
+        assert.strictEqual(visiveisPg2.length, 7, 'página 2 exibe 7 itens');
+        assert.ok(pager.innerHTML.includes('2 / 3'));
 
-        // Simula filtro externo reduzindo para 16 itens -> deve resetar para página 1!
-        trocarLinhas(cont, linhas20.slice(0, 16));
+        // Simula filtro externo reduzindo para 10 itens -> deve resetar para página 1!
+        trocarLinhas(cont, linhas20.slice(0, 10));
         const visiveisAposFiltro = cont.children.filter(r => !r.hidden);
-        assert.strictEqual(visiveisAposFiltro.length, 15, 'após filtro deve resetar para página 1 com 15 itens visíveis');
+        assert.strictEqual(visiveisAposFiltro.length, 7, 'após filtro deve resetar para página 1 com 7 itens visíveis');
         assert.ok(pager.innerHTML.includes('1 / 2'), 'indicador de página volta para 1 / 2');
 
         // Cabeçalhos ordenáveis têm tabindex, role="button", aria-sort e ordenam com Enter
@@ -583,14 +583,16 @@ function criarAmbienteApp() {
         assert.ok(elementos['mov-limpar'].classList.contains('hidden'), 'volta a ficar oculto após limpar');
     });
 
-    await testar('index.html e style.css: sem cabeçalhos escuros #11111e, sem atributo hidden em #mov-mais, Clientes 7 colunas e overflow-x: auto', () => {
+    await testar('index.html e style.css: sem cabeçalhos escuros #11111e, paginação real em Movimentações, Clientes 7 colunas e alinhamento consistente', () => {
         assert.ok(!html.includes('#11111e'), 'index.html não deve conter cabeçalhos escuros hardcoded #11111e');
         const modalHeaders = html.match(/modal-list-header/g) || [];
         assert.ok(modalHeaders.length >= 3, 'os 3 cabeçalhos de tabela em modal devem usar .modal-list-header');
-        assert.ok(html.includes('id="mov-mais" class="btn-ghost-labs hidden"'), '#mov-mais deve usar classe hidden consistente');
-        assert.ok(!html.includes('id="mov-mais" class="btn-ghost-labs" hidden'), '#mov-mais não deve ter atributo booleano hidden');
+        assert.ok(html.includes('id="mov-paginacao"') && html.includes('id="mov-prev"') && html.includes('id="mov-next"'), 'Movimentações deve ter paginação real');
+        assert.ok(!html.includes('id="mov-mais"'), 'botão legado Mostrar mais removido em favor da paginação');
         assert.ok(css.includes('overflow-x: auto;'), 'style.css deve habilitar rolagem horizontal segura nas listas');
-        assert.ok(css.includes('/* Clientes: 7 colunas em qualquer largura'), 'style.css deve corrigir grade 7 colunas de Clientes');
+        assert.ok(css.includes('overflow-y: visible !important;'), 'tabelas paginadas não devem ter rolagem vertical interna');
+        assert.ok(css.includes('flex-direction: row !important;'), 'cabeçalhos e células numéricas devem alinhar em linha única');
+        assert.ok(css.includes('/* Clientes: 7 colunas equilibradas'), 'style.css deve corrigir grade 7 colunas de Clientes');
         assert.ok(css.includes('.estoque-abas button {\n    width: auto;'), 'botões Produtos/Movimentações devem ter largura automática sem sobreposição');
         assert.ok(css.includes('display: table-cell;'), 'td.col-actions-tab deve preservar display: table-cell');
         assert.ok(css.includes('flex-wrap: nowrap;'), 'col-actions deve manter botões na horizontal');

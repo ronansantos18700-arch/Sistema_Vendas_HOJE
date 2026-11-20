@@ -179,22 +179,41 @@ teste('período personalizado mostra as datas e filtra pelo intervalo', () => {
   assert.strictEqual(elementos['mov-datas'].classList.contains('hidden'), false);
 });
 
-teste('paginação: 50 por vez, "Mostrar mais" soma 50 e some ao acabar', () => {
+teste('paginação: 7 por página, botões anterior/próxima navegam e atualizam contagem', () => {
   const muitas = [];
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < 20; i++) {
     muitas.push({ id: 'X' + i, date: diaAtras(0, 0) + '', produtoId: 'P1', tipo: 'ajuste', qtd: 1, custoUnit: null, refId: null, obs: 'n' + i, ignorada: false });
   }
   const { app, elementos } = criarAmbiente({ movimentacoes: muitas, produtos });
   app.renderMovimentacoes();
-  assert.strictEqual(linhasTabela(elementos['mov-tbody']), 50);
-  assert.strictEqual(elementos['mov-mais'].classList.contains('hidden'), false);
-  assert.ok(elementos['mov-contagem'].textContent.includes('50 de 120'));
-  app._movEstado().limite += 50;
+  assert.strictEqual(linhasTabela(elementos['mov-tbody']), 7);
+  assert.strictEqual(elementos['mov-paginacao'].classList.contains('hidden'), false);
+  assert.strictEqual(elementos['mov-page-info'].textContent, '1 / 3');
+  assert.strictEqual(elementos['mov-prev'].disabled, true);
+  assert.strictEqual(elementos['mov-next'].disabled, false);
+  assert.ok(elementos['mov-contagem'].textContent.includes('1–7 de 20'));
+
+  app._movEstado().page = 3;
   app.renderMovimentacoes();
-  assert.strictEqual(linhasTabela(elementos['mov-tbody']), 100);
-  app._movEstado().limite = 150;
-  app.renderMovimentacoes();
-  assert.strictEqual(elementos['mov-mais'].classList.contains('hidden'), true);
+  assert.strictEqual(linhasTabela(elementos['mov-tbody']), 6);
+  assert.strictEqual(elementos['mov-page-info'].textContent, '3 / 3');
+  assert.strictEqual(elementos['mov-prev'].disabled, false);
+  assert.strictEqual(elementos['mov-next'].disabled, true);
+  assert.ok(elementos['mov-contagem'].textContent.includes('15–20 de 20'));
+});
+
+teste('confirmação antes de exportar Excel ou PDF: só baixa após confirmar no modal', () => {
+  const { app, downloads } = criarAmbiente({ movimentacoes: movimentacoesBase(), produtos });
+  let pedidoConfirmacao = null;
+  app.confirmAction = (titulo, msg, onConfirm) => {
+    pedidoConfirmacao = { titulo, msg, onConfirm };
+  };
+  app.confirmarExportacaoMovimentacoes('xlsx');
+  assert.ok(pedidoConfirmacao && pedidoConfirmacao.titulo.includes('Excel'));
+  assert.ok(pedidoConfirmacao.msg.includes('5 movimentação'));
+  assert.strictEqual(downloads.length, 0, 'não baixa antes da confirmação');
+  pedidoConfirmacao.onConfirm();
+  assert.strictEqual(downloads.length, 1, 'baixa após confirmar no modal');
 });
 
 teste('sem movimentações: mensagem de lista vazia', () => {

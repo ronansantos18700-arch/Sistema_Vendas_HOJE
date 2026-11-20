@@ -8,17 +8,24 @@
 (function (raiz) {
     'use strict';
 
-    const PAGE_SIZE = 15;
+    const PAGE_SIZE = 7;
 
     // Cada tabela: contêiner que recebe as linhas, host onde fica a paginação
     // e o cabeçalho com as colunas (na mesma ordem das células).
     const TABELAS = [
-        { container: 'products-items-container', host: 'products-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card' },
-        { container: 'customers-items-container', host: 'customers-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row' },
-        { container: 'history-items-container', host: 'history-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row' },
-        { container: 'entradas-items-container', host: 'entradas-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card' },
-        { container: 'estoque-grid', host: 'estoque-grid', tabela: true },
+        { container: 'products-items-container', host: 'products-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card', pageSize: 7, pageSizeCards: 8 },
+        { container: 'customers-items-container', host: 'customers-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row', pageSize: 7 },
+        { container: 'history-items-container', host: 'history-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row', pageSize: 7 },
+        { container: 'entradas-items-container', host: 'entradas-list-labs', header: '.list-header-labs', rows: '.nested-item-labs-row, .tabela-card', pageSize: 7, pageSizeCards: 8 },
+        { container: 'estoque-grid', host: 'estoque-grid', tabela: true, pageSize: 7 },
     ];
+
+    function pageSizeDe(cfg, container) {
+        if (container && container.dataset && container.dataset.visao === 'cards' && cfg.pageSizeCards) {
+            return cfg.pageSizeCards;
+        }
+        return cfg.pageSize || PAGE_SIZE;
+    }
 
     const estados = new WeakMap();
     const observadores = new Map();
@@ -142,11 +149,12 @@
     function paginar(cfg, container, st) {
         const linhas = linhasDe(cfg, container);
         const total = linhas.length;
-        const pags = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const porPagina = pageSizeDe(cfg, container);
+        const pags = Math.max(1, Math.ceil(total / porPagina));
         if (st.page > pags) st.page = pags;
         if (st.page < 1) st.page = 1;
-        const ini = (st.page - 1) * PAGE_SIZE;
-        const fim = ini + PAGE_SIZE;
+        const ini = (st.page - 1) * porPagina;
+        const fim = ini + porPagina;
 
         linhas.forEach((l, i) => {
             l.classList.add('tabela-item');

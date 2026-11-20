@@ -6591,7 +6591,7 @@ const app = {
 
     /** Estado do histórico de movimentações (filtros e paginação). */
     _movEstado() {
-        if (!this._mov) this._mov = { periodo: 'tudo', produto: '', tipos: [], busca: '', limite: 50 };
+        if (!this._mov) this._mov = { periodo: 'tudo', produto: '', tipos: [], busca: '', page: 1, pageSize: 7 };
         return this._mov;
     },
 
@@ -6610,8 +6610,10 @@ const app = {
     },
 
     bindMovimentacoes() {
+        if (this._movBound) return;
+        this._movBound = true;
         const estado = this._movEstado();
-        const recarregar = () => { estado.limite = 50; this.renderMovimentacoes(); };
+        const recarregar = () => { estado.page = 1; this.renderMovimentacoes(); };
 
         document.querySelectorAll('#estoque-abas button').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -6658,7 +6660,7 @@ const app = {
             estado.produto = '';
             estado.tipos = [];
             estado.busca = '';
-            estado.limite = 50;
+            estado.page = 1;
             const inpBusca = document.getElementById('mov-busca');
             if (inpBusca) inpBusca.value = '';
             const inpIni = document.getElementById('mov-inicio');
@@ -6667,12 +6669,18 @@ const app = {
             if (inpFim) inpFim.value = '';
             this.renderMovimentacoes();
         });
-        document.getElementById('mov-mais')?.addEventListener('click', () => {
-            estado.limite += 50;
+        document.getElementById('mov-prev')?.addEventListener('click', () => {
+            if (estado.page > 1) {
+                estado.page -= 1;
+                this.renderMovimentacoes();
+            }
+        });
+        document.getElementById('mov-next')?.addEventListener('click', () => {
+            estado.page += 1;
             this.renderMovimentacoes();
         });
-        document.getElementById('mov-xlsx')?.addEventListener('click', () => this.exportarMovimentacoes('xlsx'));
-        document.getElementById('mov-pdf')?.addEventListener('click', () => this.exportarMovimentacoes('pdf'));
+        document.getElementById('mov-xlsx')?.addEventListener('click', () => this.confirmarExportacaoMovimentacoes('xlsx'));
+        document.getElementById('mov-pdf')?.addEventListener('click', () => this.confirmarExportacaoMovimentacoes('pdf'));
     },
 
     /** Intervalo do filtro de período, em dias YYYY-MM-DD (vazio = sem limite). */
@@ -6707,7 +6715,13 @@ const app = {
     renderMovimentacoes() {
         const estado = this._movEstado();
         const { filtradas, total } = this.movimentosFiltrados();
-        const visiveis = HistoricoMov.paginar(filtradas, estado.limite);
+        const porPagina = Math.max(1, Number(estado.pageSize) || 7);
+        const totalPags = Math.max(1, Math.ceil(filtradas.length / porPagina));
+        if (!Number.isInteger(estado.page) || estado.page < 1) estado.page = 1;
+        if (estado.page > totalPags) estado.page = totalPags;
+        const ini = (estado.page - 1) * porPagina;
+        const fim = Math.min(ini + porPagina, filtradas.length);
+        const visiveis = filtradas.slice(ini, fim);
         const t = HistoricoMov.totais(filtradas);
 
         document.querySelectorAll('#mov-periodo [data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === estado.periodo));
@@ -6767,9 +6781,39 @@ const app = {
         if (contagem) {
             contagem.textContent = filtradas.length === 0
                 ? ''
-                : `Mostrando ${visiveis.length} de ${filtradas.length} movimentações`;
+                : `Mostrando ${ini + 1}–${fim} de ${filtradas.length} movimentações`;
         }
-        document.getElementById('mov-mais')?.classList.toggle('hidden', filtradas.length <= estado.limite);
+        const pagBox = document.getElementById('mov-paginacao');
+        if (pagBox) pagBox.classList.toggle('hidden', filtradas.length === 0);
+        const pagInfo = document.getElementById('mov-page-info');
+        if (pagInfo) pagInfo.textContent = `${estado.page} / ${totalPags}`;
+        const btnPrev = document.getElementById('mov-prev');
+        if (btnPrev) btnPrev.disabled = estado.page <= 1;
+        const btnNext = document.getElementById('mov-next');
+        if (btnNext) btnNext.disabled = estado.page >= totalPags;
+    },
+
+    /** Abre modal de confirmação antes de exportar Excel ou PDF do histórico de movimentações. */
+    confirmarExportacaoMovimentacoes(formato) {
+        if (this.requirePasswordChange()) return;
+        if (!this.requireAdmin('exportar o histórico de movimentações')) return;
+
+        const { filtradas, inicio, fim } = this.movimentosFiltrados();
+        if (filtradas.length === 0) {
+            this.showNotification('error', 'Nenhuma movimentação para exportar.');
+            return;
+        }
+        const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+        const periodoTexto = !inicio && !fim
+            ? 'todo o período'
+            : (inicio ? dataBr(inicio) : 'início') + ' a ' + (fim ? dataBr(fim) : 'hoje');
+        const rotuloFmt = formato === 'pdf' ? 'PDF (.pdf)' : 'Excel (.xlsx)';
+        this.confirmAction(
+            `Exportar Movimentações (${formato === 'pdf' ? 'PDF' : 'Excel'})`,
+            `Deseja exportar ${filtradas.length} movimentação(ões) de ${periodoTexto} em ${rotuloFmt}?`,
+            () => this.exportarMovimentacoes(formato),
+            'download'
+        );
     },
 
     /** Exporta o histórico filtrado (todas as linhas, não só as visíveis). Só administrador. */

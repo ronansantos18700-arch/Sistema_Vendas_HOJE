@@ -641,26 +641,23 @@
                     <!-- Histórico de movimentações (somente administrador, somente leitura) -->
                     <div id="estoque-mov" class="mov-painel hidden">
                         <div class="mov-filtros">
-                            <div class="mov-linha">
-                                <span class="mov-grupo-label">Período</span>
-                                <div class="mov-chips" id="mov-periodo" role="group" aria-label="Período">
+                            <div class="mov-linha mov-linha-principal">
+                                <input type="text" id="mov-busca" class="glass-input-labs mov-campo mov-busca" placeholder="Buscar observação, origem ou produto..." autocomplete="off">
+                                <select id="mov-produto" class="glass-input-labs mov-campo" aria-label="Produto">
+                                    <option value="">Todos os produtos</option>
+                                </select>
+                                <div class="mov-chips mov-periodo-seg" id="mov-periodo" role="group" aria-label="Período">
                                     <button type="button" class="mov-chip" data-periodo="hoje">Hoje</button>
                                     <button type="button" class="mov-chip" data-periodo="7">7 dias</button>
                                     <button type="button" class="mov-chip" data-periodo="30">30 dias</button>
                                     <button type="button" class="mov-chip active" data-periodo="tudo">Tudo</button>
                                     <button type="button" class="mov-chip" data-periodo="personalizado">Personalizado</button>
                                 </div>
-                                <div class="mov-datas hidden" id="mov-datas">
-                                    <label>De <input type="date" id="mov-inicio"></label>
-                                    <label>até <input type="date" id="mov-fim"></label>
-                                </div>
-                            </div>
-                            <div class="mov-linha">
-                                <select id="mov-produto" class="glass-input-labs mov-campo" aria-label="Produto">
-                                    <option value="">Todos os produtos</option>
-                                </select>
-                                <input type="text" id="mov-busca" class="glass-input-labs mov-campo mov-busca" placeholder="Buscar observação, origem ou produto..." autocomplete="off">
                                 <button type="button" id="mov-limpar" class="btn-limpar-filtros hidden">Limpar filtros</button>
+                            </div>
+                            <div class="mov-datas hidden" id="mov-datas">
+                                <label>De <input type="date" id="mov-inicio"></label>
+                                <label>até <input type="date" id="mov-fim"></label>
                             </div>
                             <div class="mov-linha mov-tipos-linha">
                                 <span class="mov-grupo-label">Tipo</span>
@@ -687,10 +684,16 @@
                         </div>
                         <div class="mov-rodape">
                             <span id="mov-contagem" class="mov-contagem"></span>
-                            <div class="mov-acoes">
-                                <button type="button" id="mov-mais" class="btn-ghost-labs hidden">Mostrar mais</button>
-                                <button type="button" id="mov-xlsx" class="btn-ghost-labs"><i class="bx bx-spreadsheet"></i> Excel (.xlsx)</button>
-                                <button type="button" id="mov-pdf" class="btn-ghost-labs"><i class="bx bxs-file-pdf"></i> PDF</button>
+                            <div class="mov-rodape-dir">
+                                <div id="mov-paginacao" class="tabela-pager-controles mov-paginacao">
+                                    <button type="button" id="mov-prev" class="tabela-pager-btn" title="Página anterior" aria-label="Página anterior"><i class="bx bx-chevron-left" aria-hidden="true"></i></button>
+                                    <span id="mov-page-info" class="tabela-pager-num">1 / 1</span>
+                                    <button type="button" id="mov-next" class="tabela-pager-btn" title="Próxima página" aria-label="Próxima página"><i class="bx bx-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="mov-acoes">
+                                    <button type="button" id="mov-xlsx" class="btn-ghost-labs"><i class="bx bx-spreadsheet"></i> Excel (.xlsx)</button>
+                                    <button type="button" id="mov-pdf" class="btn-ghost-labs"><i class="bx bxs-file-pdf"></i> PDF</button>
+                                </div>
                             </div>
                         </div>
                     </div>
