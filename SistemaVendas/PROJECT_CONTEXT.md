@@ -276,18 +276,6 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
-### 2026-11-20 (histórico de movimentações em Estoque)
-
-- Nova aba **Movimentações** dentro da tela Estoque (`#estoque-abas`). Só administrador vê a aba; para os demais ela some e a tela fica em Produtos (`sincronizarAbaEstoque`). É só leitura.
-- Lógica pura em `frontend/historico_movimentos.js` (`HistoricoMov`): linhas com saldo após (vindo de `Estoque.historico`), filtros, totais, paginação de 50 e seção de exportação. Sem DOM.
-- Filtros: período (Hoje, 7 dias, 30 dias, Tudo, Personalizado com datas), produto, tipos (seleção múltipla, vazio = todos) e busca em observação, origem e nome do produto. Padrão: Tudo.
-- Colunas: data e hora, produto, tipo (com etiqueta), quantidade (+/−), custo unitário, saldo após, origem (venda, estorno ou entrada) e observação. Movimentações ignoradas aparecem apagadas, com a marca "ignorada", e não entram nos totais.
-- Totais do filtro: entradas, saídas líquidas (vendas menos estornos), ajustes e quantidade de ignoradas.
-- Exportação em `.xlsx` ou `.pdf` com as linhas filtradas (não só as visíveis). Nome: `movimentacoes_AAAA-MM-DD_a_AAAA-MM-DD.xlsx`, ou `movimentacoes_todas.xlsx` sem período. Auditoria `MOVIMENTACOES_EXPORT`.
-- Limite do PDF: produto e observação longos são cortados com reticências (o XLSX traz o texto inteiro).
-- Testes: `tests/js/test_historico_movimentos.js` (lógica) e `tests/js/test_movimentacoes_app.js` (tela e exportação, com DOM simulado). O XLSX e o PDF gerados foram lidos com `openpyxl` e `pypdf`.
-- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows, em 1366x768.
-
 ### 2026-11-20 (relatórios exportáveis: Excel e PDF, em Configurações)
 
 - Refeito sobre a base atual (a versão CSV de `691bfc2` foi revertida). Substitui o CSV por **.xlsx**; o PDF continua.
