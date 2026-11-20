@@ -563,7 +563,7 @@
                 <section id="products-view" class="view products-view">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-products" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar produtos..." autocomplete="off">
+                            <input type="text" id="filter-products" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por nome ou código..." autocomplete="off">
                             <select id="filter-category" class="glass-input-labs" style="width: 200px;">
                                 <option value="">Todas as categorias</option>
                             </select>
@@ -672,7 +672,7 @@
                 <section id="customers-view" class="view customers-view">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
-                            <input type="text" id="filter-customers" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar clientes..." autocomplete="off">
+                            <input type="text" id="filter-customers" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por nome ou WhatsApp..." autocomplete="off">
                         </div>
                         <button class="btn-save" onclick="app.openModal('customer')">Novo Cliente</button>
                     </div>
@@ -982,10 +982,10 @@
                                     </div>
 
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
-                                        <button class="btn-save-labs" id="start-tutorial" onclick="app.startTutorial()">
+                                        <button type="button" class="btn-save-labs" id="start-tutorial">
                                             <i data-lucide="help-circle"></i> Iniciar Tutorial
                                         </button>
-                                        <button class="btn-save-labs" id="open-backup-modal" onclick="app.openModal('backup')">
+                                        <button type="button" class="btn-save-labs" id="open-backup-modal" onclick="app.openModal('backup')">
                                             <i data-lucide="database"></i> Backup de Dados
                                         </button>
                                     </div>
