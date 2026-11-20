@@ -185,6 +185,31 @@ teste('atalhos de período: mês atual, mês anterior e ano, em datas locais', (
   assert.strictEqual(app.intervaloRelatorio('personalizado'), null, 'personalizado usa as datas digitadas');
 });
 
+teste('todos os períodos: sem datas, exporta o histórico inteiro e não mostra datas', () => {
+  const { app, elementos, downloads, ctx } = criarAmbiente({
+    'rel-vendas': { checked: true }, 'rel-lucro': { checked: false }, 'rel-estoque': { checked: false }, 'rel-pagamentos': { checked: false }
+  });
+  assert.deepStrictEqual(puro(app.intervaloRelatorio('todos')), { inicio: '', fim: '' });
+  app.selecionarPeriodoRelatorio('todos');
+  assert.strictEqual(elementos['rel-inicio'].value, '');
+  assert.strictEqual(elementos['rel-datas'].hidden, true);
+  assert.strictEqual(elementos['rel-periodo-texto'].hidden, false, 'texto do período visível');
+  assert.ok(elementos['rel-periodo-texto'].textContent.includes('todo o histórico'));
+  app.exportarRelatorios();
+  assert.strictEqual(downloads[0].nome, 'relatorios_inicio_a_hoje.xlsx');
+  assert.ok(conteudo(ctx, downloads[0]).length > 0);
+});
+
+teste('personalizado: mostra as datas e esconde o texto (mesma linha, sem mudar a altura)', () => {
+  const { app, elementos } = criarAmbiente({});
+  app.selecionarPeriodoRelatorio('personalizado');
+  assert.strictEqual(elementos['rel-datas'].hidden, false);
+  assert.strictEqual(elementos['rel-periodo-texto'].hidden, true);
+  app.selecionarPeriodoRelatorio('mes');
+  assert.strictEqual(elementos['rel-datas'].hidden, true);
+  assert.strictEqual(elementos['rel-periodo-texto'].hidden, false);
+});
+
 teste('7 dias: inclui hoje e mais seis dias para trás', () => {
   const { app } = criarAmbiente({});
   const r = app.intervaloRelatorio('7dias');

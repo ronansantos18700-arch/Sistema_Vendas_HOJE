@@ -2065,6 +2065,7 @@ const app = {
             case 'mes': return { inicio: iso(new Date(ano, mes, 1)), fim: iso(hoje) };
             case 'mes_anterior': return { inicio: iso(new Date(ano, mes - 1, 1)), fim: iso(new Date(ano, mes, 0)) };
             case 'ano': return { inicio: iso(new Date(ano, 0, 1)), fim: iso(hoje) };
+            case 'todos': return { inicio: '', fim: '' };
             default: return null;
         }
     },
@@ -2076,14 +2077,12 @@ const app = {
     },
 
     selecionarPeriodoRelatorio(periodo) {
-        const validos = ['hoje', '7dias', 'mes', 'mes_anterior', 'ano', 'personalizado'];
+        const validos = ['hoje', '7dias', 'mes', 'mes_anterior', 'ano', 'todos', 'personalizado'];
         this.state.relatorioPeriodo = validos.includes(periodo) ? periodo : 'mes';
         document.querySelectorAll('.rel-chip').forEach((b) => {
             b.classList.toggle('active', b.dataset.periodo === this.state.relatorioPeriodo);
         });
         const intervalo = this.intervaloRelatorio(this.state.relatorioPeriodo);
-        const datas = document.getElementById('rel-datas');
-        if (datas) datas.hidden = !!intervalo;
         if (intervalo) {
             const ini = document.getElementById('rel-inicio');
             const fim = document.getElementById('rel-fim');
@@ -2133,8 +2132,12 @@ const app = {
         const fim = (document.getElementById('rel-fim') || {}).value || '';
         const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 
+        const personalizado = this.state.relatorioPeriodo === 'personalizado';
+        const datas = document.getElementById('rel-datas');
+        if (datas) datas.hidden = !personalizado;
         const periodoEl = document.getElementById('rel-periodo-texto');
         if (periodoEl) {
+            periodoEl.hidden = personalizado;
             periodoEl.textContent = (ini || fim)
                 ? `Período: de ${dataBr(ini) || 'o início'} até ${dataBr(fim) || 'hoje'}.`
                 : 'Período: todo o histórico de vendas.';

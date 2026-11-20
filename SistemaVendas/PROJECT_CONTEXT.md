@@ -289,6 +289,7 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Auditoria: `RELATORIO_EXPORT` a cada exportação (formato, relatórios, período).
 - Validação: testes em `tests/js/test_relatorios.js` (agregações, ZIP com CRC, abas, escape, PDF) e `tests/js/test_relatorios_app.js` (tela e exportação, com DOM simulado). Os arquivos gerados também foram abertos com `openpyxl` (xlsx) e `pypdf` (PDF), sem erro.
 - Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+- Ajustes de tela (2026-11-20): layout em duas colunas (período e formato à esquerda; informações à direita), cartões compactos, sem rolagem em 1366x768 (estimado, não medido). Opção "Todos os períodos" (sem filtro de data). Período personalizado usa a mesma linha dos atalhos, então a tela não pula ao abrir as datas. Ícones trocados por nomes que já existiam no mapa original de `vendor/icons.js` (os novos apareciam como quadrado no navegador do usuário).
 - Pendente: o backup de dados (`exportBackup`) não é afetado.
 
 ### 2026-11-20 (redesenho do dashboard: Vendas e Estoque)
