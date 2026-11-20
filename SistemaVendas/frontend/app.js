@@ -4242,6 +4242,10 @@ const app = {
             const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
             return 'Misto: ' + sale.pagamentos.map(p => `${nomes[p.forma] || p.forma} ${this.formatCurrency(p.valor)}`).join(' + ');
         }
+        if (sale.pagamento === 'fiado') {
+            const saldo = Fiado.saldoAberto(sale);
+            return saldo > 0 ? `Fiado · em aberto ${this.formatCurrency(saldo)}` : 'Fiado · quitado';
+        }
         return sale.pagamento || sale["Forma de Pagamento"] || 'N/A';
     },
 
@@ -4271,6 +4275,15 @@ const app = {
         }
         const customerEl = document.getElementById('pos-customer');
         let cliente = (customerEl && customerEl.value) || 'Consumidor Final';
+
+        if (pagamentoVenda.pagamento === 'fiado') {
+            const checagem = Fiado.validarVendaFiado(cliente);
+            if (!checagem.ok) {
+                this.showNotification('error', checagem.motivo);
+                return;
+            }
+            pagamentoVenda = { pagamento: 'fiado', recebimentos: [] };
+        }
 
         // Armazena a venda pendente no estado
         this.state.pendingSale = {
@@ -4726,10 +4739,13 @@ const app = {
             return;
         }
 
+        const saldosFiado = Fiado.saldosPorCliente(this.state.sales);
         container.innerHTML = filtered.map(c => `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
-                    <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
+                    <span class="col-name" data-label="NOME">${this.esc(c.name)}${saldosFiado.has(c.name)
+                        ? ` <span class="cliente-fiado">Em aberto <strong>${this.formatCurrency(saldosFiado.get(c.name))}</strong><button type="button" class="btn-fiado-receber" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button></span>`
+                        : ''}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
                     <span class="col-date" data-label="DATA">${this.parseDate(c.date) ? this.parseDate(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
                     <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
@@ -4740,6 +4756,51 @@ const app = {
                 </div>
             `).join('');
         this.initLucide();
+    },
+
+    /** Abre o recebimento de fiado de um cliente: saldo, vendas em aberto e valor sugerido (saldo total). */
+    abrirRecebimentoFiado(customerId) {
+        if (this.requirePasswordChange()) return;
+        const c = this.state.customers.find(x => String(x.id) === String(customerId));
+        if (!c) return;
+        const saldo = Fiado.saldoCliente(this.state.sales, c.name);
+        if (saldo <= 0) {
+            this.showNotification('error', 'Este cliente não tem saldo em aberto.');
+            return;
+        }
+        this.state.fiadoCliente = c.name;
+        document.getElementById('fiado-titulo').textContent = `Receber fiado · ${c.name}`;
+        document.getElementById('fiado-saldo').textContent = this.formatCurrency(saldo);
+        document.getElementById('fiado-lista').innerHTML = Fiado.emAberto(this.state.sales, c.name).map(v => {
+            const data = new Date(v.date).toLocaleDateString('pt-BR');
+            return `<div class="fiado-linha"><span>${data} · venda #${this.esc(String(v.id || v.ID).slice(-6))}</span><strong>${this.formatCurrency(Fiado.saldoAberto(v))}</strong></div>`;
+        }).join('');
+        document.getElementById('fiado-valor').value = saldo.toFixed(2);
+        document.getElementById('fiado-forma').value = 'dinheiro';
+        document.getElementById('fiado-erro').classList.add('hidden');
+        this.openModal('fiado');
+    },
+
+    async confirmarRecebimentoFiado() {
+        if (this.requirePasswordChange()) return;
+        const nome = this.state.fiadoCliente;
+        const erro = document.getElementById('fiado-erro');
+        const valor = Number(document.getElementById('fiado-valor').value);
+        const forma = document.getElementById('fiado-forma').value;
+        const resultado = Fiado.registrarRecebimento(this.state.sales, nome, valor, forma, new Date().toISOString(), 'R' + Date.now());
+        if (!resultado.ok) {
+            erro.textContent = resultado.motivo;
+            erro.classList.remove('hidden');
+            return;
+        }
+        this.logAudit('FIADO_RECEBIMENTO', { cliente: nome, valor: valor, forma: forma, vendas: resultado.aplicacoes });
+        this.state.fiadoCliente = null;
+        this.closeModal();
+        await this.salvarDados();
+        this.showNotification('success', `Recebimento de ${this.formatCurrency(valor)} registrado.`);
+        this.renderCustomers();
+        this.renderHistory();
+        this.updateDashboardStats();
     },
 
     async deleteCustomer(id) {
@@ -4852,6 +4913,11 @@ const app = {
     },
 
     async deleteSale(id) {
+        const vendaRef = this.state.sales.find(s => (s.ID || s.id) === id);
+        if (vendaRef && Fiado.recebido(vendaRef) > 0) {
+            this.showNotification('error', 'Esta venda já tem recebimentos. Não é possível excluí-la.');
+            return;
+        }
         this.confirmAction(
             'Excluir Venda',
             'Deseja realmente excluir este registro de saída? O estoque dos produtos será estornado automaticamente.',
@@ -4910,12 +4976,14 @@ const app = {
             .map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
         clienteSel.value = sale.cliente || 'Consumidor Final';
 
-        const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
+        const nomesForma = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX', fiado: 'Fiado (a prazo)' };
         const misto = Array.isArray(sale.pagamentos) && sale.pagamentos.length > 0;
+        const comRecebimento = Fiado.recebido(sale) > 0;
+        const formas = comRecebimento ? ['fiado'] : [...EdicaoVenda.FORMAS, 'fiado'];
         const pagSel = document.getElementById('sale-edit-pagamento');
         pagSel.innerHTML = (misto ? '<option value="manter">Manter pagamento dividido</option>' : '')
-            + EdicaoVenda.FORMAS.map(f => `<option value="${f}">${nomesForma[f]}</option>`).join('');
-        pagSel.value = misto ? 'manter' : (EdicaoVenda.FORMAS.includes(sale.pagamento) ? sale.pagamento : 'dinheiro');
+            + formas.map(f => `<option value="${f}">${nomesForma[f]}</option>`).join('');
+        pagSel.value = misto ? 'manter' : (formas.includes(sale.pagamento) ? sale.pagamento : 'dinheiro');
 
         document.getElementById('sale-edit-desconto').value = Number(sale.desconto) || 0;
         document.getElementById('sale-edit-title').textContent = `Editar venda #${String(sale.id || sale.ID).slice(-6)}`;
@@ -4988,7 +5056,16 @@ const app = {
         let totais, pag, plano;
         try {
             totais = EdicaoVenda.recalcularVenda(sale, qtds, desconto);
-            pag = EdicaoVenda.pagamentoAposEdicao(sale, totais.valor_final, escolha);
+            if (escolha === 'fiado' || Fiado.recebido(sale) > 0) {
+                const checagem = Fiado.validarEdicao(sale, totais.valor_final, escolha, cliente);
+                if (!checagem.ok) throw new Error(checagem.motivo);
+                if (Fiado.recebido(sale) > 0 && cliente !== sale.cliente) {
+                    throw new Error('Esta venda já tem recebimentos: não é possível trocar o cliente.');
+                }
+            }
+            pag = escolha === 'fiado'
+                ? { pagamento: 'fiado' }
+                : EdicaoVenda.pagamentoAposEdicao(sale, totais.valor_final, escolha);
             plano = EdicaoVenda.planejarEdicao(this.state.movimentacoes, sale, qtds);
         } catch (e) {
             this.mostrarErroEdicaoVenda(e.message);
@@ -5367,6 +5444,9 @@ const app = {
 
         const historyModal = document.getElementById('product-history-modal');
         if (historyModal) historyModal.classList.toggle('hidden', type !== 'product-history-modal');
+
+        const fiadoModal = document.getElementById('fiado-modal');
+        if (fiadoModal) fiadoModal.classList.toggle('hidden', type !== 'fiado');
 
         this.initLucide();
 

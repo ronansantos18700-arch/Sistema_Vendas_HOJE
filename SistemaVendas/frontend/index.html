@@ -529,6 +529,7 @@
                                     <button type="button" class="pos-pay-btn active" data-pay="dinheiro">Dinheiro</button>
                                     <button type="button" class="pos-pay-btn" data-pay="cartao">Cartão</button>
                                     <button type="button" class="pos-pay-btn" data-pay="pix">PIX</button>
+                                    <button type="button" class="pos-pay-btn" data-pay="fiado" title="Venda a prazo: exige cliente cadastrado">Fiado</button>
                                 </div>
                                 <button type="button" id="btn-split-pay" class="pos-split-toggle">Dividir pagamento</button>
                                 <div id="pos-split" class="pos-split hidden">
@@ -542,6 +543,7 @@
                                     <option value="dinheiro">Dinheiro</option>
                                     <option value="cartao">Cartão</option>
                                     <option value="pix">PIX</option>
+                                    <option value="fiado">Fiado (a prazo)</option>
                                 </select>
                                 <div id="pos-paid-group" class="pos-paid-group">
                                     <input type="number" id="pos-paid" inputmode="decimal" placeholder="Valor pago (R$)" autocomplete="off">
@@ -1249,6 +1251,40 @@
                 </div>
             </div>
 
+            <!-- Modal Receber Fiado (somente leitura do saldo e do rateio) -->
+            <div id="fiado-modal" class="modal hidden" style="max-width: 560px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 id="fiado-titulo" style="margin: 0;">Receber fiado</h3>
+                    <button class="btn-action-delete" onclick="app.closeModal()" title="Fechar">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="fiado-resumo">
+                    <span>Saldo em aberto</span>
+                    <strong id="fiado-saldo">R$ 0,00</strong>
+                </div>
+                <div id="fiado-lista" class="fiado-lista"></div>
+                <div class="modal-grid-labs" style="grid-template-columns: 1fr 1fr; margin-top: 1rem;">
+                    <div class="input-group-labs">
+                        <label class="input-label-labs">VALOR RECEBIDO (R$)</label>
+                        <input type="number" id="fiado-valor" class="glass-input-labs" inputmode="decimal" step="0.01" min="0.01" autocomplete="off">
+                    </div>
+                    <div class="input-group-labs">
+                        <label class="input-label-labs">FORMA</label>
+                        <select id="fiado-forma" class="glass-input-labs">
+                            <option value="dinheiro">Dinheiro</option>
+                            <option value="cartao">Cartão</option>
+                            <option value="pix">PIX</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="fiado-erro" class="login-error-msg hidden" style="margin-top: 0.75rem;"></div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Cancelar</button>
+                    <button class="btn-save-labs" id="fiado-confirmar" onclick="app.confirmarRecebimentoFiado()" style="flex: 1;">Registrar recebimento</button>
+                </div>
+            </div>
+
             <!-- Modal Nova Entrada -->
             <div id="entrada-modal" class="modal glass hidden" style="max-width: 800px; height: 90vh; max-height: 90vh; display: flex; flex-direction: column;">
                 <h3 style="margin-bottom: 1rem; flex-shrink: 0;">Registrar Entrada de Estoque</h3>
@@ -1704,6 +1740,7 @@
 
     <script src="estoque.js"></script>
     <script src="historico_movimentos.js"></script>
+    <script src="fiado.js"></script>
     <script src="sha256.js"></script>
     <script src="api.js"></script>
     <script src="edicao_venda.js"></script>

@@ -276,6 +276,19 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Não compilado no Windows nem executado no WebView2: validar edição com venda normal, venda mista e venda com estoque insuficiente, e confirmar que o estoque bate depois de reiniciar.
 - Arquivos: `SistemaVendas/frontend/edicao_venda.js` (novo), `SistemaVendas/frontend/app.js`, `SistemaVendas/frontend/index.html`, `SistemaVendas/frontend/style.css`, `tests/js/test_edicao_venda.js` (novo).
 
+### 2026-11-20 (fiado: venda a prazo com recebimento)
+
+- Forma de pagamento **Fiado** no PDV (botão e seletor). Exige cliente cadastrado; "Consumidor Final" é recusado.
+- Receita e lucro ficam na data da venda. A venda fica com `pagamento: 'fiado'` e `recebimentos: []` (campo extra, gravado em `_extra` no banco; sem mudança de tabela nem de servidor).
+- Saldo em aberto = valor final menos os recebimentos. Nunca fica negativo.
+- Clientes: "Em aberto R$ x" e botão **Receber**. O modal mostra as vendas em aberto e aceita valor parcial ou total, na forma dinheiro, cartão ou PIX. O valor é distribuído nas vendas da mais antiga para a mais recente. Auditoria `FIADO_RECEBIMENTO`.
+- Histórico de vendas mostra "Fiado · em aberto R$ x" ou "Fiado · quitado".
+- Venda com recebimento não pode ser excluída, continua fiado na edição e não pode trocar de cliente.
+- Relatórios: em "Recebimentos por forma", fiado conta só o que foi recebido, pela forma da baixa. O saldo em aberto aparece em linha à parte, fora do total.
+- Limitação: o recebimento é contado nas vendas do período (pela data da venda), não pela data da baixa. Não há estorno de recebimento na tela.
+- Lógica pura em `frontend/fiado.js` (`Fiado`). Testes: `tests/js/test_fiado.js`, `tests/js/test_fiado_app.js` e casos novos em `tests/js/test_relatorios.js`.
+- Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
+
 ### 2026-11-20 (histórico de movimentações em Estoque)
 
 - Nova aba **Movimentações** dentro da tela Estoque (`#estoque-abas`). Só administrador vê a aba; para os demais ela some e a tela fica em Produtos (`sincronizarAbaEstoque`). É só leitura.

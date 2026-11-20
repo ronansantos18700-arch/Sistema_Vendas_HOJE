@@ -276,6 +276,39 @@ teste('PDF: caractere fora de Latin-1 vira ? (não corrompe o arquivo)', () => {
   assert.ok(t.includes('Loja ? Central'));
 });
 
+teste('fiado: recebimentos entram por forma; saldo em aberto fica numa linha à parte, fora do total', () => {
+  const lista = [
+    { id: 'F1', date: '2026-11-10T10:00:00', valor_total: 100, desconto: 0, valor_final: 100, cost: 60, pagamento: 'fiado',
+      recebimentos: [{ forma: 'pix', valor: 40 }, { forma: 'dinheiro', valor: 10 }],
+      items: [{ id: 'P1', name: 'Arroz', qty: 1, price: 100, cost: 60 }] },
+    { id: 'F2', date: '2026-11-12T10:00:00', valor_total: 50, desconto: 0, valor_final: 50, cost: 30, pagamento: 'fiado',
+      recebimentos: [],
+      items: [{ id: 'P2', name: 'Feijão', qty: 1, price: 50, cost: 30 }] },
+    { id: 'F3', date: '2026-11-13T10:00:00', valor_total: 30, desconto: 0, valor_final: 30, cost: 10, pagamento: 'fiado',
+      recebimentos: [{ forma: 'cartao', valor: 30 }],
+      items: [{ id: 'P3', name: 'Sal', qty: 1, price: 30, cost: 10 }] }
+  ];
+  const s = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)));
+  const porForma = Object.fromEntries(s.linhas.filter((l) => !l[0].startsWith('Fiado em aberto')).map((l) => [l[0], l[2]]));
+  assert.strictEqual(porForma['PIX'], 40);
+  assert.strictEqual(porForma['Dinheiro'], 10);
+  assert.strictEqual(porForma['Cartão'], 30);
+  const aberto = s.linhas.find((l) => l[0].startsWith('Fiado em aberto'));
+  assert.ok(aberto, 'linha de fiado em aberto');
+  assert.strictEqual(aberto[1], 2, 'duas vendas com saldo (F1 e F2)');
+  assert.strictEqual(aberto[2], 100, 'saldo: 50 de F1 + 50 de F2');
+  assert.strictEqual(s.totais[2], 80, 'total = só o recebido (40 + 10 + 30)');
+});
+
+teste('fiado sem recebimento não aparece como recebido', () => {
+  const s = R.secaoRecebimentos(JSON.parse(JSON.stringify([
+    { id: 'F9', date: '2026-11-10T10:00:00', valor_final: 90, pagamento: 'fiado', items: [] }
+  ])));
+  assert.strictEqual(s.totais[2], 0);
+  assert.strictEqual(s.linhas.length, 1, 'só a linha de fiado em aberto');
+  assert.strictEqual(s.linhas[0][2], 90);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

@@ -130,7 +130,15 @@
             if (vendaContada) g.vendas += 1;
         };
         for (const v of vendas) {
-            if (Array.isArray(v.pagamentos) && v.pagamentos.length) {
+            if (v.pagamento === 'fiado') {
+                // Fiado: conta só o que foi recebido (baixas), na forma em que entrou.
+                const formas = new Set();
+                for (const r of (Array.isArray(v.recebimentos) ? v.recebimentos : [])) {
+                    const forma = String(r.forma || 'N/A');
+                    somar(forma, numero(r.valor), !formas.has(forma));
+                    formas.add(forma);
+                }
+            } else if (Array.isArray(v.pagamentos) && v.pagamentos.length) {
                 const formas = new Set();
                 for (const p of v.pagamentos) {
                     const forma = String(p.forma || 'N/A');
@@ -145,6 +153,22 @@
         return [...grupos.values()]
             .map((g) => ({ forma: rotulo(g.forma), vendas: g.vendas, valor: arredondar2(g.valor) }))
             .sort((a, b) => b.valor - a.valor);
+    }
+
+    /** Fiado ainda não recebido nas vendas dadas: quantidade de vendas com saldo e valor em aberto. */
+    function fiadoEmAberto(vendas) {
+        let vendasAbertas = 0;
+        let valor = 0;
+        for (const v of vendas) {
+            if (v.pagamento !== 'fiado') continue;
+            const recebidoVenda = (Array.isArray(v.recebimentos) ? v.recebimentos : []).reduce((acc, r) => acc + numero(r.valor), 0);
+            const saldo = arredondar2(Math.max(0, valorVenda(v) - recebidoVenda));
+            if (saldo > 0) {
+                vendasAbertas += 1;
+                valor += saldo;
+            }
+        }
+        return { vendas: vendasAbertas, valor: arredondar2(valor) };
     }
 
     /** Situação de estoque: sem estoque (<= 0), baixo (< nível baixo), médio (< nível médio) ou OK. */
@@ -273,6 +297,11 @@
     function secaoRecebimentos(vendas) {
         const linhas = recebimentosPorForma(vendas);
         const valor = arredondar2(linhas.reduce((acc, l) => acc + l.valor, 0));
+        const aberto = fiadoEmAberto(vendas);
+        const linhasSecao = linhas.map((l) => [l.forma, l.vendas, l.valor]);
+        if (aberto.valor > 0) {
+            linhasSecao.push(['Fiado em aberto (ainda não recebido, fora do total)', aberto.vendas, aberto.valor]);
+        }
         return {
             id: 'pagamentos',
             titulo: 'Recebimentos por forma de pagamento',
@@ -281,7 +310,7 @@
                 { titulo: 'Vendas', tipo: 'inteiro', largura: 1, alinhar: 'direita' },
                 { titulo: 'Valor recebido', tipo: 'moeda', largura: 2, alinhar: 'direita' }
             ],
-            linhas: linhas.map((l) => [l.forma, l.vendas, l.valor]),
+            linhas: linhasSecao,
             totais: ['TOTAL', linhas.reduce((acc, l) => acc + l.vendas, 0), valor]
         };
     }
