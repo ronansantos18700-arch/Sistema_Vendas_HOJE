@@ -316,7 +316,109 @@
         });
     }
 
+    /**
+     * Prazo e limite (versão enxuta, sem cobrança automática).
+     * - Cliente: `limite_credito` (R$; vazio ou 0 = sem limite) e `prazo_dias` (vazio = sem prazo).
+     * - Venda fiado: `vencimento` (YYYY-MM-DD, dia local) = dia da venda + prazo do cliente, quando há prazo.
+     * - Atrasada = fiado com saldo em aberto e vencimento anterior a hoje.
+     */
+
+    const pad2 = (n) => String(n).padStart(2, '0');
+
+    /** Data local YYYY-MM-DD (padrão: agora). Vazio se a data não for válida. */
+    function dataLocal(d) {
+        const x = d instanceof Date ? d : new Date(d === undefined ? Date.now() : d);
+        if (isNaN(x.getTime())) return '';
+        return x.getFullYear() + '-' + pad2(x.getMonth() + 1) + '-' + pad2(x.getDate());
+    }
+
+    /** Dia de vencimento = dia local da venda + prazo em dias. Null quando o cliente não tem prazo. */
+    function vencimentoPara(dataVenda, prazoDias) {
+        if (prazoDias === '' || prazoDias === null || prazoDias === undefined) return null;
+        const dias = Number(prazoDias);
+        if (!Number.isInteger(dias) || dias < 0) return null;
+        const base = new Date(dataVenda);
+        if (isNaN(base.getTime())) return null;
+        base.setDate(base.getDate() + dias);
+        return dataLocal(base);
+    }
+
+    /** Dias corridos entre um vencimento (YYYY-MM-DD) e hoje. Zero quando não está atrasado ou não tem vencimento. */
+    function diasAtraso(vencimento, hoje) {
+        if (!vencimento || typeof vencimento !== 'string') return 0;
+        const ref = hoje || dataLocal();
+        const [a, m, d] = vencimento.split('-').map(Number);
+        const [ha, hm, hd] = ref.split('-').map(Number);
+        if (![a, m, d, ha, hm, hd].every(Number.isFinite)) return 0;
+        const dif = Math.round((Date.UTC(ha, hm - 1, hd) - Date.UTC(a, m - 1, d)) / 86400000);
+        return Math.max(0, dif);
+    }
+
+    /** Venda fiado com saldo em aberto e vencimento já passado. */
+    function atrasada(venda, hoje) {
+        return ehFiado(venda) && saldoAberto(venda) > 0 && diasAtraso(venda.vencimento, hoje) > 0;
+    }
+
+    function resumoAtraso(lista, hoje) {
+        const atrasadas = lista.filter((v) => atrasada(v, hoje));
+        return {
+            quantidade: atrasadas.length,
+            valor: r2(atrasadas.reduce((acc, v) => acc + saldoAberto(v), 0)),
+            diasMax: atrasadas.reduce((m, v) => Math.max(m, diasAtraso(v.vencimento, hoje)), 0)
+        };
+    }
+
+    /** Situação de atraso de um cliente: { quantidade, valor, diasMax }. */
+    function situacaoAtraso(vendas, clienteId, hoje) {
+        return resumoAtraso(emAberto(vendas, clienteId), hoje);
+    }
+
+    /** Mapa id do cliente → situação de atraso, só para quem tem venda atrasada. */
+    function atrasosPorCliente(vendas, hoje) {
+        const mapa = new Map();
+        (vendas || []).forEach((v) => {
+            const id = clienteIdDe(v);
+            if (!id || !atrasada(v, hoje)) return;
+            const r = mapa.get(id) || { quantidade: 0, valor: 0, diasMax: 0 };
+            r.quantidade += 1;
+            r.valor = r2(r.valor + saldoAberto(v));
+            r.diasMax = Math.max(r.diasMax, diasAtraso(v.vencimento, hoje));
+            mapa.set(id, r);
+        });
+        return mapa;
+    }
+
+    /**
+     * Confere o limite de crédito antes de uma venda fiado. Sem limite (vazio ou 0) não bloqueia.
+     * Devolve { ok, motivo, disponivel }. Não grava nada.
+     */
+    function validarLimite(vendas, clienteId, limite, valorNovo) {
+        if (limite === '' || limite === null || limite === undefined) return { ok: true };
+        const lim = Number(limite);
+        if (!(lim > 0)) return { ok: true };
+        const disponivel = r2(Math.max(0, lim - saldoCliente(vendas, clienteId)));
+        if (r2(valorNovo) > disponivel + TOLERANCIA) {
+            return { ok: false, motivo: 'Limite de crédito excedido para este cliente.', disponivel: disponivel };
+        }
+        return { ok: true, disponivel: disponivel };
+    }
+
+    /** Valida o cadastro: limite e prazo, quando preenchidos, precisam ser números válidos. */
+    function validarCadastroCredito(limite, prazoDias) {
+        if (limite !== '' && limite !== null && limite !== undefined) {
+            const n = Number(limite);
+            if (!Number.isFinite(n) || n < 0) return { ok: false, motivo: 'O limite de crédito não pode ser negativo.' };
+        }
+        if (prazoDias !== '' && prazoDias !== null && prazoDias !== undefined) {
+            const n = Number(prazoDias);
+            if (!Number.isInteger(n) || n < 0 || n > 3650) return { ok: false, motivo: 'O prazo deve ser um número inteiro de dias (0 a 3650).' };
+        }
+        return { ok: true };
+    }
+
     const API = {
+        dataLocal, vencimentoPara, diasAtraso, atrasada, situacaoAtraso, atrasosPorCliente,
+        validarLimite, validarCadastroCredito,
         CONSUMIDOR_FINAL, FORMAS_RECEBIMENTO, NOMES_FORMA,
         ehFiado, recebimentos, recebido, saldoAberto, emAberto, saldoCliente, saldosPorCliente,
         validarVendaFiado, distribuir, registrarRecebimento, validarEdicao,

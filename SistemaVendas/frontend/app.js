@@ -4311,7 +4311,13 @@ const app = {
                 this.showNotification('error', checagem.motivo);
                 return;
             }
-            pagamentoVenda = { pagamento: 'fiado', recebimentos: [], cliente_id: String(clienteCadastro.id) };
+            const limite = Fiado.validarLimite(this.state.sales, String(clienteCadastro.id), clienteCadastro.limite_credito, totalFinal);
+            if (!limite.ok) {
+                this.showNotification('error', `${limite.motivo} Disponível para fiado: ${this.formatCurrency(limite.disponivel)}.`);
+                return;
+            }
+            const vencimento = Fiado.vencimentoPara(new Date(), clienteCadastro.prazo_dias);
+            pagamentoVenda = { pagamento: 'fiado', recebimentos: [], cliente_id: String(clienteCadastro.id), ...(vencimento ? { vencimento } : {}) };
         }
 
         // Armazena a venda pendente no estado
@@ -4727,6 +4733,11 @@ const app = {
     async handleCustomerSubmit(e) {
         e.preventDefault();
         try {
+            const limiteRaw = document.getElementById('cust-limite').value.trim();
+            const prazoRaw = document.getElementById('cust-prazo').value.trim();
+            const credito = Fiado.validarCadastroCredito(limiteRaw, prazoRaw);
+            if (!credito.ok) throw new Error(credito.motivo);
+
             const customer = {
                 id: this.state.editingId || 'C' + Date.now().toString(),
                 name: document.getElementById('cust-name').value.trim(),
@@ -4734,7 +4745,9 @@ const app = {
                 email: document.getElementById('cust-email').value.trim(),
                 obs: document.getElementById('cust-obs').value.trim(),
                 date: new Date().toISOString(),
-                image: document.getElementById('cust-image-url').value
+                image: document.getElementById('cust-image-url').value,
+                limite_credito: limiteRaw === '' ? null : Number(limiteRaw),
+                prazo_dias: prazoRaw === '' ? null : Number(prazoRaw)
             };
 
             this.validate(customer, {
@@ -4774,11 +4787,15 @@ const app = {
         }
 
         const resumos = Fiado.resumosPorCliente(this.state.sales);
-        const textoFiado = (r) => {
+        const atrasos = Fiado.atrasosPorCliente(this.state.sales);
+        const textoFiado = (r, at) => {
             if (!r || r.totalPrazo <= 0) return '<span class="fiado-sem">-</span>';
             if (r.falta > 0) {
+                const aviso = at && at.quantidade > 0
+                    ? `<span class="fiado-atraso">${at.quantidade} venda(s) em atraso · ${at.diasMax} dia(s)</span>`
+                    : '';
                 return `<span class="fiado-falta"><strong>${this.formatCurrency(r.falta)}</strong> em aberto</span>` +
-                    `<small>Pago ${this.formatCurrency(r.pago)} de ${this.formatCurrency(r.totalPrazo)}</small>`;
+                    `<small>Pago ${this.formatCurrency(r.pago)} de ${this.formatCurrency(r.totalPrazo)}</small>` + aviso;
             }
             return `<span class="fiado-quitado">Quitado</span><small>${this.formatCurrency(r.totalPrazo)} a prazo</small>`;
         };
@@ -4794,7 +4811,7 @@ const app = {
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
                     <span class="col-name" data-label="NOME">${this.esc(c.name)}</span>
-                    <span class="col-fiado" data-label="FIADO">${textoFiado(r)}</span>
+                    <span class="col-fiado" data-label="FIADO">${textoFiado(r, atrasos.get(String(c.id)))}</span>
                     <span class="col-whatsapp" data-label="WHATSAPP">${this.formatWhatsApp(c.whatsapp)}</span>
                     <span class="col-date" data-label="DATA">${this.parseDate(c.date) ? this.parseDate(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span>
                     <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
@@ -4846,7 +4863,13 @@ const app = {
         document.getElementById('fiado-lista').innerHTML = r.vendas.map(v => {
             const data = new Date(v.date).toLocaleDateString('pt-BR');
             const situacao = v.falta > 0 ? `<strong>Falta ${m(v.falta)}</strong>` : '<span class="fiado-quitado">Quitada</span>';
-            return `<div class="fiado-linha fiado-venda"><span>${data} · venda #${this.esc(String(v.vendaId).slice(-6))}</span><span>Total ${m(v.total)} · Pago ${m(v.pago)} · ${situacao}</span></div>`;
+            const orig = this.state.sales.find(s => String(s.id) === String(v.vendaId));
+            const venc = orig && orig.vencimento ? orig.vencimento : '';
+            const atraso = v.falta > 0 ? Fiado.diasAtraso(venc) : 0;
+            const prazo = venc && v.falta > 0
+                ? (atraso > 0 ? ` · <span class="fiado-atraso">Atrasada há ${atraso} dia(s)</span>` : ` · <small>Vence ${venc.split('-').reverse().join('/')}</small>`)
+                : '';
+            return `<div class="fiado-linha fiado-venda"><span>${data} · venda #${this.esc(String(v.vendaId).slice(-6))}${prazo}</span><span>Total ${m(v.total)} · Pago ${m(v.pago)} · ${situacao}</span></div>`;
         }).join('') || '<div class="fiado-linha"><span>Nenhuma venda a prazo.</span></div>';
 
         const admin = this.state.currentUser?.role === 'admin';
@@ -5035,6 +5058,8 @@ const app = {
         document.getElementById('cust-email').value = c.email || '';
         document.getElementById('cust-obs').value = c.obs || '';
         document.getElementById('cust-image-url').value = c.image || '';
+        document.getElementById('cust-limite').value = c.limite_credito ?? '';
+        document.getElementById('cust-prazo').value = c.prazo_dias ?? '';
 
         this.openModal('customer');
     },

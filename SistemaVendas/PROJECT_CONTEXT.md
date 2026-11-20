@@ -413,3 +413,18 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Sem período (todos os períodos), conta tudo, como antes.
 - Testes: `tests/js/test_relatorios.js` (regra) e `tests/js/test_relatorios_app.js` (chamada do app).
 
+### 2026-11-20 (fiado: prazo, limite e atraso)
+- Cadastro do cliente ganhou **Limite de crédito (R$)** e **Prazo para pagar (dias)**. Vazio = sem limite / sem prazo. Gravados em `_extra` (sem mudança de tabela).
+- Venda fiado de cliente com prazo grava `vencimento` (YYYY-MM-DD, dia da venda + prazo, dia local).
+- Limite: o PDV recusa a venda fiado que passa do disponível (limite menos saldo em aberto do cliente) e informa o disponível.
+- Atrasada = fiado com saldo em aberto e vencimento anterior a hoje. A lista de Clientes mostra "N venda(s) em atraso · X dia(s)"; o modal de Receber mostra "Atrasada há X dia(s)" ou "Vence dd/mm/aaaa".
+- Sem cobrança automática: nada é enviado nem bloqueado depois da venda. Editar o limite ou o prazo não muda vendas já feitas.
+- Funções em `fiado.js`: `dataLocal`, `vencimentoPara`, `diasAtraso`, `atrasada`, `situacaoAtraso`, `atrasosPorCliente`, `validarLimite`, `validarCadastroCredito`.
+- Testes: `tests/js/test_fiado.js` (regras) e `tests/js/test_fiado_app.js` (PDV, cadastro, lista e modal).
+
+### 2026-11-20 (validação de pagamento no servidor e linha de base ao carregar)
+- `Database.ValidarRecebimentosFiado` confere recebimentos de vendas gravadas: só venda fiado tem recebimento, valor maior que zero, forma conhecida (dinheiro, cartão, PIX) e soma não maior que o valor final. Usado por `ApplyChanges`, `ReplaceAll` e pela rota `POST /api/dados/alteracoes` (que devolve a mensagem para o usuário). Sem mudança de esquema.
+- Ao carregar, o app guarda o snapshot do que foi lido. A primeira gravação manda só o que mudou nesta sessão, e não regrava tabelas inteiras por cima de outro terminal.
+- Teste: `tests/js/test_carregamento.js` confere que a gravação após carregar envia só a venda alterada.
+- Pendente: a compilação C# não foi feita no sandbox (sem .NET); conferir no Windows com `dotnet build`.
+

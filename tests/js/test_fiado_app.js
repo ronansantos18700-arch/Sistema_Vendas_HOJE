@@ -398,6 +398,81 @@ teste('histórico de vendas: fiado mostra falta ou quitado abaixo do valor final
   assert.strictEqual(app.statusFiadoVendaHtml({ id: 'V3', pagamento: 'pix', valor_final: 10 }), '', 'venda à vista não mostra nada');
 });
 
+teste('PDV: venda fiado de cliente com prazo grava o vencimento (dia da venda + prazo)', async () => {
+  const { app } = criarAmbiente({ customers: [{ id: 'C1', name: 'Ana', prazo_dias: 30 }], sales: [], cart: carrinho(), cliente: 'C1' });
+  await app.finishSale();
+  assert.ok(app.state.pendingSale, 'venda pendente criada');
+  assert.strictEqual(app.state.pendingSale.vencimento, F.vencimentoPara(new Date(), 30));
+});
+
+teste('PDV: venda fiado sem prazo não grava vencimento', async () => {
+  const { app } = criarAmbiente({ customers: [{ id: 'C1', name: 'Ana', prazo_dias: null }], sales: [], cart: carrinho(), cliente: 'C1' });
+  await app.finishSale();
+  assert.ok(app.state.pendingSale, 'venda pendente criada');
+  assert.strictEqual('vencimento' in app.state.pendingSale, false);
+});
+
+teste('PDV: limite de crédito recusa a venda que passa do disponível, com o valor disponível', async () => {
+  const { app } = criarAmbiente({
+    customers: [{ id: 'C1', name: 'Ana', limite_credito: 150 }],
+    sales: [venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z')], cart: carrinho(), cliente: 'C1'
+  });
+  await app.finishSale();
+  const erro = app.notificacoes.find((n) => n.tipo === 'error' && n.msg.includes('Limite de crédito'));
+  assert.ok(erro, 'mostra o erro de limite');
+  assert.ok(txt(erro.msg).includes(txt(app.formatCurrency(50))), 'informa o disponível (R$ 50,00)');
+  assert.strictEqual(app.state.pendingSale, undefined, 'nada é pendente');
+});
+
+teste('clientes: salvar cadastro grava limite e prazo; prazo inválido é recusado', async () => {
+  const { app, ctx } = criarAmbiente({ customers: [], sales: [], cart: [] });
+  const campos = { 'cust-name': 'Carla', 'cust-whatsapp': '21999990000', 'cust-email': '', 'cust-obs': '', 'cust-image-url': '', 'cust-limite': '500', 'cust-prazo': '30' };
+  Object.entries(campos).forEach(([id, v]) => { ctx.document.getElementById(id).value = v; });
+  await app.handleCustomerSubmit({ preventDefault: noop });
+  const c = app.state.customers.find((x) => x.name === 'Carla');
+  assert.ok(c, 'cliente cadastrado');
+  assert.strictEqual(c.limite_credito, 500);
+  assert.strictEqual(c.prazo_dias, 30);
+
+  ctx.document.getElementById('cust-name').value = 'Dani';
+  ctx.document.getElementById('cust-prazo').value = '1.5';
+  await app.handleCustomerSubmit({ preventDefault: noop });
+  assert.strictEqual(app.state.customers.some((x) => x.name === 'Dani'), false, 'prazo fracionado não entra');
+  assert.ok(app.notificacoes.some((n) => n.tipo === 'error' && n.msg.includes('prazo')));
+});
+
+teste('clientes: cliente com venda atrasada mostra o aviso na lista; venda no prazo não', () => {
+  const { app, elementos } = criarAmbiente({
+    customers: [{ id: 'C1', name: 'Ana' }, { id: 'C2', name: 'Beto' }],
+    sales: [
+      venda('V1', 'Ana', 100, '2000-01-01T10:00:00Z', { vencimento: '2000-01-31' }),
+      venda('V2', 'Beto', 50, '2000-01-01T10:00:00Z', { vencimento: '2999-01-01' })
+    ],
+    cart: []
+  });
+  app.renderCustomers();
+  const html = elementos['customers-items-container'].innerHTML;
+  assert.ok(html.includes('1 venda(s) em atraso'), 'Ana aparece com atraso');
+  const linhaBeto = html.split('nested-item-labs-row').find((l) => l.includes('Beto'));
+  assert.ok(linhaBeto && !linhaBeto.includes('em atraso'), 'Beto (no prazo) não aparece com atraso');
+});
+
+teste('modal: venda atrasada aparece como atrasada, venda no prazo mostra o vencimento', () => {
+  const { app, elementos } = criarAmbiente({
+    customers: [{ id: 'C1', name: 'Ana' }],
+    sales: [
+      venda('V1', 'Ana', 100, '2000-01-01T10:00:00Z', { vencimento: '2000-01-31' }),
+      venda('V2', 'Ana', 40, '2000-02-01T10:00:00Z', { vencimento: '2999-03-10' })
+    ],
+    cart: []
+  });
+  app.state.fiadoCliente = 'C1';
+  app.atualizarModalFiado();
+  const lista = elementos['fiado-lista'].innerHTML;
+  assert.ok(lista.includes('Atrasada há'), 'venda vencida marcada');
+  assert.ok(lista.includes('Vence 10/03/2999'), 'venda no prazo mostra a data no formato dd/mm/aaaa');
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

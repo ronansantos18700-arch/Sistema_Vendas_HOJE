@@ -308,6 +308,73 @@ teste('extrato: cliente quitado continua com o histórico completo', () => {
   assert.strictEqual(e.movimentos[2].saldoApos, 0);
 });
 
+teste('vencimento = dia da venda + prazo do cliente; sem prazo não há vencimento', () => {
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 14, 10), 30), '2026-12-14');
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 14, 10), 0), '2026-11-14');
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 25, 10), 10), '2026-12-05', 'vira o mês');
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 14), ''), null);
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 14), null), null);
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 14), -1), null);
+  assert.strictEqual(F.vencimentoPara(new Date(2026, 10, 14), 2.5), null);
+});
+
+teste('dias de atraso: só conta depois do vencimento, em dias corridos', () => {
+  assert.strictEqual(F.diasAtraso('2026-11-10', '2026-11-14'), 4);
+  assert.strictEqual(F.diasAtraso('2026-11-14', '2026-11-14'), 0, 'vence hoje não é atraso');
+  assert.strictEqual(F.diasAtraso('2026-11-20', '2026-11-14'), 0, 'ainda no prazo');
+  assert.strictEqual(F.diasAtraso('', '2026-11-14'), 0, 'sem vencimento');
+  assert.strictEqual(F.diasAtraso('2026-10-31', '2026-11-01'), 1, 'vira o mês');
+});
+
+teste('venda atrasada: fiado, com saldo em aberto e vencimento passado', () => {
+  const hoje = '2026-11-14';
+  assert.strictEqual(F.atrasada(venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z', { vencimento: '2026-11-10' }), hoje), true);
+  // pago por completo: não está mais atrasada
+  assert.strictEqual(F.atrasada(venda('V2', 'Ana', 100, '2026-11-01T10:00:00Z', { vencimento: '2026-11-10', recebimentos: [{ id: 'R1-1', valor: 100, forma: 'pix' }] }), hoje), false);
+  // à vista nunca conta como atrasada
+  assert.strictEqual(F.atrasada(venda('V3', 'Ana', 100, '2026-11-01T10:00:00Z', { pagamento: 'pix', vencimento: '2026-11-10' }), hoje), false);
+  // sem vencimento (cliente sem prazo)
+  assert.strictEqual(F.atrasada(venda('V4', 'Ana', 100, '2026-11-01T10:00:00Z'), hoje), false);
+});
+
+teste('situação de atraso por cliente: quantidade, valor e maior atraso', () => {
+  const vendas = [
+    venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z', { vencimento: '2026-11-10' }),
+    venda('V2', 'Ana', 50, '2026-11-05T10:00:00Z', { vencimento: '2026-11-08', recebimentos: [{ id: 'R1-1', valor: 20, forma: 'dinheiro' }] }),
+    venda('V3', 'Ana', 40, '2026-11-12T10:00:00Z', { vencimento: '2026-11-20' }),
+    venda('V4', 'Beto', 30, '2026-11-01T10:00:00Z', { vencimento: '2026-11-02' })
+  ];
+  const ana = F.situacaoAtraso(vendas, 'C1', '2026-11-14');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ana)), { quantidade: 2, valor: 130, diasMax: 6 });
+  const m = F.atrasosPorCliente(vendas, '2026-11-14');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(m.get('C2'))), { quantidade: 1, valor: 30, diasMax: 12 });
+  assert.strictEqual(m.has('C3'), false, 'cliente sem atraso não entra');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(F.situacaoAtraso(vendas, 'C3', '2026-11-14'))), { quantidade: 0, valor: 0, diasMax: 0 });
+});
+
+teste('limite de crédito: sem limite não bloqueia; com limite, bloqueia quando passa do disponível', () => {
+  const vendas = [venda('V1', 'Ana', 100, '2026-11-01T10:00:00Z')];
+  assert.strictEqual(F.validarLimite(vendas, 'C1', '', 999).ok, true, 'vazio = sem limite');
+  assert.strictEqual(F.validarLimite(vendas, 'C1', 0, 999).ok, true, '0 = sem limite');
+  assert.strictEqual(F.validarLimite(vendas, 'C1', 300, 200).ok, true, 'saldo 100 + 200 = 300 cabe');
+  const r = F.validarLimite(vendas, 'C1', 300, 200.01);
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.disponivel, 200);
+  // limite reduzido abaixo do saldo: disponível nunca fica negativo
+  assert.strictEqual(F.validarLimite(vendas, 'C1', 50, 1).disponivel, 0);
+  // o limite considera só o saldo do próprio cliente
+  assert.strictEqual(F.validarLimite(vendas, 'C2', 50, 40).ok, true);
+});
+
+teste('cadastro de crédito: limite não negativo e prazo inteiro de 0 a 3650', () => {
+  assert.strictEqual(F.validarCadastroCredito('', '').ok, true);
+  assert.strictEqual(F.validarCadastroCredito('500', '30').ok, true);
+  assert.strictEqual(F.validarCadastroCredito('-1', '').ok, false);
+  assert.strictEqual(F.validarCadastroCredito('abc', '').ok, false);
+  assert.strictEqual(F.validarCadastroCredito('', '1.5').ok, false);
+  assert.strictEqual(F.validarCadastroCredito('', '3651').ok, false);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

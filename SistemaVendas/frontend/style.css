@@ -6124,3 +6124,7 @@ i.bx {
 .fiado-status-aberto { color: #a2473c; font-weight: 600; font-size: 0.72rem; }
 .fiado-status-quitado { color: #2b7a5b; font-weight: 600; font-size: 0.72rem; }
 
+
+/* Fiado: atraso e prazo */
+.fiado-atraso { color: #a2473c; font-weight: 600; }
+#customers-list-labs .col-fiado .fiado-atraso { display: block; font-size: 0.72rem; }
