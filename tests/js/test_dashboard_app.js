@@ -175,6 +175,15 @@ const vendas = () => [
     assert.strictEqual(JSON.stringify(registro.criados[1].data.datasets.map(d => d.label)), '["Faturamento","Custo"]');
   });
 
+  await teste('menu: existe botão do Dashboard e ele abre a tela', async () => {
+    const html = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+    assert.ok(html.includes('data-view="dashboard"'), 'botão data-view="dashboard" no menu');
+    const { app, dom } = criarApp(produtos(), vendas());
+    app.switchView('dashboard');
+    assert.strictEqual(app.state.currentView, 'dashboard');
+    assert.notStrictEqual(dom.getElementById('dash-faturamento').textContent, '', 'renderDashboard rodou ao abrir a tela');
+  });
+
   console.log(falhas === 0 ? '\nTodos os testes de integração do dashboard passaram.' : `\n${falhas} teste(s) falharam.`);
   process.exitCode = falhas === 0 ? 0 : 1;
 })();
