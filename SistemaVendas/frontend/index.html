@@ -593,6 +593,11 @@
 
                 <!-- Estoque em tempo real -->
                 <section id="estoque-view" class="view estoque-view">
+                    <div id="estoque-abas" class="seg-toggle estoque-abas hidden" role="group" aria-label="Seção do estoque">
+                        <button type="button" data-aba="produtos" class="active">Produtos</button>
+                        <button type="button" data-aba="movimentos">Movimentações</button>
+                    </div>
+                    <div id="estoque-produtos" class="estoque-produtos">
                     <div class="view-header-labs">
                         <div style="display: flex; gap: 1rem;">
                             <input type="text" id="filter-estoque" class="glass-input-labs" style="width: 300px;" placeholder="Filtrar por nome ou código..." autocomplete="off">
@@ -608,6 +613,59 @@
                         <span id="estoque-resumo" class="estoque-resumo"></span>
                     </div>
                     <div id="estoque-grid" class="estoque-grid"></div>
+                    </div>
+
+                    <!-- Histórico de movimentações (somente administrador, somente leitura) -->
+                    <div id="estoque-mov" class="mov-painel hidden">
+                        <div class="mov-filtros">
+                            <div class="mov-linha">
+                                <div class="mov-chips" id="mov-periodo" role="group" aria-label="Período">
+                                    <button type="button" class="mov-chip" data-periodo="hoje">Hoje</button>
+                                    <button type="button" class="mov-chip" data-periodo="7">7 dias</button>
+                                    <button type="button" class="mov-chip" data-periodo="30">30 dias</button>
+                                    <button type="button" class="mov-chip active" data-periodo="tudo">Tudo</button>
+                                    <button type="button" class="mov-chip" data-periodo="personalizado">Personalizado</button>
+                                </div>
+                                <div class="mov-datas hidden" id="mov-datas">
+                                    <label>De <input type="date" id="mov-inicio"></label>
+                                    <label>até <input type="date" id="mov-fim"></label>
+                                </div>
+                            </div>
+                            <div class="mov-linha">
+                                <select id="mov-produto" class="glass-input-labs mov-campo" aria-label="Produto">
+                                    <option value="">Todos os produtos</option>
+                                </select>
+                                <input type="text" id="mov-busca" class="glass-input-labs mov-campo mov-busca" placeholder="Buscar em observação, origem ou produto..." autocomplete="off">
+                            </div>
+                            <div class="mov-chips" id="mov-tipos" role="group" aria-label="Tipos de movimentação"></div>
+                        </div>
+                        <div id="mov-totais" class="mov-totais"></div>
+                        <div class="table-container-labs mov-tabela-wrap">
+                            <table class="custom-table-labs mov-tabela">
+                                <thead>
+                                    <tr>
+                                        <th>Data e hora</th>
+                                        <th>Produto</th>
+                                        <th>Tipo</th>
+                                        <th class="num">Qtd</th>
+                                        <th class="num">Custo unit.</th>
+                                        <th class="num">Saldo após</th>
+                                        <th>Origem</th>
+                                        <th>Observação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mov-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div class="mov-rodape">
+                            <span id="mov-contagem" class="mov-contagem"></span>
+                            <div class="mov-acoes">
+                                <button type="button" id="mov-mais" class="btn-ghost-labs" hidden>Mostrar mais</button>
+                                <button type="button" id="mov-xlsx" class="btn-ghost-labs"><i class="bx bx-spreadsheet"></i> Excel (.xlsx)</button>
+                                <button type="button" id="mov-pdf" class="btn-ghost-labs"><i class="bx bxs-file-pdf"></i> PDF</button>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Customers View -->
@@ -1647,6 +1705,7 @@
     </div>
 
     <script src="estoque.js"></script>
+    <script src="historico_movimentos.js"></script>
     <script src="sha256.js"></script>
     <script src="api.js"></script>
     <script src="edicao_venda.js"></script>
