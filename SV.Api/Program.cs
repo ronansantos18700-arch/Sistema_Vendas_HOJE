@@ -46,7 +46,6 @@ app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = arquivosSite });
 app.UseStaticFiles(new StaticFileOptions { FileProvider = arquivosSite });
 
 Dados.Iniciar(caminhoBanco);
-Dados.GarantirAdministrador();
 Console.WriteLine("Banco: " + caminhoBanco);
 
 Rotas.Mapear(app);

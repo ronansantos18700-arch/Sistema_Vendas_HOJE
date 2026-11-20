@@ -269,6 +269,80 @@ namespace SV.Api
 
             // --- Dados ---
 
+            // --- Primeiro administrador: só existe enquanto não há nenhum usuário ---
+
+            app.MapGet("/api/setup", () =>
+            {
+                try
+                {
+                    return Results.Json(new { precisaAdministrador = Dados.ContarUsuarios() == 0 });
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao verificar o primeiro acesso: " + ex);
+                    return Erro(500, "Erro ao ler os usuários.");
+                }
+            });
+
+            app.MapPost("/api/setup", async Task<IResult> (HttpRequest req) =>
+            {
+                JObject corpo = await LerCorpo(req);
+                if (corpo == null) return Erro(400, "Requisição inválida.");
+
+                string nome = ((string)corpo["fullname"] ?? "").Trim();
+                string login = ((string)corpo["username"] ?? "").Trim();
+                string senha = (string)corpo["senha"] ?? "";
+
+                string erro = ValidarUsuario(nome, login, "admin");
+                if (erro != null) return Erro(400, erro);
+                if (senha.Length < Senha.TamanhoMinimo)
+                {
+                    return Erro(400, "A senha deve ter no mínimo " + Senha.TamanhoMinimo + " caracteres.");
+                }
+
+                try
+                {
+                    Dados.CriarPrimeiroAdministrador(nome, login, senha);
+                    return Results.Content("{\"ok\":true}", TipoJson, null, 201);
+                }
+                catch (RegraNegocioException ex)
+                {
+                    return Erro(409, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao criar o primeiro administrador: " + ex);
+                    return Erro(500, "Erro ao criar o administrador.");
+                }
+            });
+
+            // Apaga tudo. Só administrador, com confirmação digitada no corpo; encerra todas as sessões.
+            app.MapPost("/api/dados/limpar", async Task<IResult> (HttpRequest req) =>
+            {
+                Sessao sessao = Autenticar(req);
+                if (sessao == null) return Erro(401, "Sessão expirada. Entre novamente.");
+                if (sessao.Papel != "admin") return Erro(403, "Somente administradores.");
+
+                JObject corpo = await LerCorpo(req);
+                if (corpo == null || (string)corpo["confirmacao"] != "APAGAR TUDO")
+                {
+                    return Erro(400, "Confirmação inválida. Nada foi apagado.");
+                }
+
+                try
+                {
+                    Dados.LimparTudo();
+                    Sessoes.EncerrarTodas();
+                    Console.WriteLine("Todos os dados foram apagados por " + sessao.Usuario + ".");
+                    return Results.Json(new { ok = true });
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Erro ao apagar os dados: " + ex);
+                    return Erro(500, "Não foi possível apagar os dados.");
+                }
+            });
+
             app.MapGet("/api/dados/{tipo}", (string tipo, HttpRequest req) =>
             {
                 if (Autenticar(req) == null) return Erro(401, "Sessão expirada. Entre novamente.");

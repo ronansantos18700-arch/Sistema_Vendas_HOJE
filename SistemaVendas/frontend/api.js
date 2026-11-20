@@ -190,6 +190,25 @@
             await this.requisitar('DELETE', '/api/usuarios/' + encodeURIComponent(id));
         }
 
+        // Primeiro administrador: o servidor só aceita enquanto não há nenhum usuário.
+        async precisaPrimeiroAdministrador() {
+            const dados = JSON.parse(await this.requisitar('GET', '/api/setup', { autenticado: false }));
+            return !!dados.precisaAdministrador;
+        }
+
+        async criarPrimeiroAdministrador({ fullname, username, senha }) {
+            await this.requisitar('POST', '/api/setup', {
+                corpo: { fullname, username, senha },
+                autenticado: false
+            });
+        }
+
+        // Apaga todos os dados do servidor. O servidor também encerra todas as sessões.
+        async limparTudo() {
+            await this.requisitar('POST', '/api/dados/limpar', { corpo: { confirmacao: 'APAGAR TUDO' } });
+            this.token = '';
+        }
+
         // Devolve o JSON (texto) de um tipo de dado, como o Bridge.GetData.
         async lerDados(tipo) {
             return this.requisitar('GET', '/api/dados/' + encodeURIComponent(tipo));

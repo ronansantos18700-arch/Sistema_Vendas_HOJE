@@ -100,6 +100,20 @@ namespace SistemaVendas
             new Tabela("caixa", true),
         };
 
+        /// <summary>Apaga os dados de todas as tabelas (usuários inclusive) em uma transação só.</summary>
+        public static void LimparTudo()
+        {
+            using (var conn = Abrir())
+            using (var tx = conn.BeginTransaction())
+            {
+                foreach (Tabela t in Tabelas)
+                {
+                    Executar(conn, tx, "DELETE FROM " + Q(t.Nome));
+                }
+                tx.Commit();
+            }
+        }
+
         /// <summary>Caminho do arquivo do banco (mesma pasta de dados do WebView2).</summary>
         public static string Caminho = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

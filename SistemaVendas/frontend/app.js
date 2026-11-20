@@ -448,6 +448,9 @@ const app = {
 
         const { loginScreen, appContainer } = this.getDOMRefs();
 
+        // Banco sem usuários: mostra o formulário do primeiro administrador em vez do login.
+        await this.verificarPrimeiroAdministrador();
+
         // Se já houver um usuário logado no estado (ex: após refresh), tenta restaurar
         if (this.state.currentUser) {
             const initialView = this.state.currentUser.role === 'operador' ? 'pos' : 'pos';
@@ -462,6 +465,116 @@ const app = {
 
         this.updateNotifications();
         this.renderAll();
+    },
+
+    // --- Primeiro administrador e limpeza total ---
+
+    /** Mostra o formulário do primeiro administrador quando o servidor não tem nenhum usuário. */
+    async verificarPrimeiroAdministrador() {
+        if (!this.config.loginAtivo || !this.servidor) return;
+        let precisa = false;
+        try {
+            precisa = await this.servidor.precisaPrimeiroAdministrador();
+        } catch (_) {
+            return; // sem resposta do servidor: segue com o login normal (o monitor avisa)
+        }
+        this.mostrarFormularioSetup(precisa);
+    },
+
+    mostrarFormularioSetup(ativo) {
+        const setupForm = document.getElementById('setup-form');
+        const loginForm = document.getElementById('login-form');
+        if (setupForm) setupForm.classList.toggle('hidden', !ativo);
+        if (loginForm) loginForm.classList.toggle('hidden', ativo);
+        const erro = document.getElementById('setup-error');
+        if (erro) erro.classList.add('hidden');
+    },
+
+    async handleSetupSubmit(e) {
+        e.preventDefault();
+        const campo = (id) => document.getElementById(id);
+        const mostrarErro = (msg) => {
+            const el = document.getElementById('setup-error');
+            if (el) {
+                el.textContent = msg;
+                el.classList.remove('hidden');
+            }
+        };
+
+        const nome = campo('setup-nome').value.trim();
+        const usuario = campo('setup-usuario').value.trim();
+        const senha = campo('setup-senha').value;
+        const confirmacao = campo('setup-senha2').value;
+        if (!nome || !usuario) return mostrarErro('Informe o nome e o usuário.');
+        if (senha.length < 6) return mostrarErro('A senha deve ter no mínimo 6 caracteres.');
+        if (senha !== confirmacao) return mostrarErro('As senhas não conferem.');
+
+        this.setLoading(true);
+        try {
+            await this.servidor.criarPrimeiroAdministrador({ fullname: nome, username: usuario, senha });
+        } catch (err) {
+            this.setLoading(false);
+            return mostrarErro(err.message || 'Não foi possível criar o administrador.');
+        }
+        this.setLoading(false);
+
+        // Entra logo com o administrador criado.
+        campo('setup-senha').value = '';
+        campo('setup-senha2').value = '';
+        this.mostrarFormularioSetup(false);
+        campo('login-username').value = usuario;
+        campo('login-password').value = senha;
+        await this.login(usuario, senha);
+        campo('login-password').value = '';
+    },
+
+    /** Apaga todos os dados. Só administrador, com duas confirmações. */
+    limparTodosDados() {
+        if (!this.requireAdmin('apagar todos os dados')) return;
+        this.confirmAction(
+            'Apagar todos os dados?',
+            'Produtos, clientes, vendas, estoque, recebimentos, configurações e usuários serão apagados. Esta ação não pode ser desfeita.',
+            // O modal atual fecha logo depois do clique; a segunda confirmação abre depois disso.
+            () => setTimeout(() => this.confirmAction(
+                'Confirmar pela segunda vez',
+                'Ao confirmar, os dados são apagados agora e você será desconectado. Para voltar a usar o sistema, crie um novo administrador.',
+                () => this.confirmarLimpezaTotal(),
+                'trash-2'
+            ), 0),
+            'trash-2'
+        );
+    },
+
+    async confirmarLimpezaTotal() {
+        if (!this.servidor) {
+            this.showNotification('error', 'Sem servidor configurado: não há dados para apagar.');
+            return;
+        }
+        this.setLoading(true);
+        try {
+            await this.servidor.limparTudo();
+        } catch (err) {
+            this.setLoading(false);
+            this.showNotification('error', 'Não foi possível apagar os dados: ' + err.message);
+            return;
+        }
+        this.setLoading(false);
+
+        // Registra a ação antes de sair (o registro de auditoria fica no navegador).
+        this.logAudit('DADOS_APAGADOS', {});
+
+        // Nada do que estava em memória ou no navegador pode voltar ao banco.
+        this.state.dataLoaded = false;
+        this.state.snapshotSalvo = null;
+        ['products', 'customers', 'sales', 'users', 'entradas', 'categories', 'movimentacoes', 'reversals']
+            .forEach((k) => { this.state[k] = []; });
+        ['sv_products', 'sv_customers', 'sv_sales', 'sv_users', 'sv_settings', 'sv_entradas', 'sv_categories', 'sv_movimentacoes', 'sv_reversals']
+            .forEach((k) => localStorage.removeItem(k));
+
+        // O servidor já encerrou as sessões; aqui só volta para a tela de login.
+        this.logout();
+        await this.verificarPrimeiroAdministrador();
+        this.showNotification('success', 'Todos os dados foram apagados. Crie o novo administrador para entrar.');
     },
 
     // --- Authentication ---
@@ -675,6 +788,7 @@ const app = {
         if (!user) return;
 
         const isAdmin = user.role === 'admin';
+        document.getElementById('zona-perigo')?.classList.toggle('hidden', !isAdmin);
 
         // Seletores de botões que devem ser escondidos para operadores
         const restrictedBtns = [
@@ -868,6 +982,10 @@ const app = {
     },
 
     setupEventListeners() {
+        // Primeiro administrador (banco sem usuários)
+        const setupForm = document.getElementById('setup-form');
+        if (setupForm) setupForm.addEventListener('submit', (e) => this.handleSetupSubmit(e));
+
         // Login Form
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
@@ -2797,21 +2915,6 @@ const app = {
                     role: String(u.role || 'operador')
                 }));
 
-                // Criar usuário admin padrão se não houver usuários (somente sem servidor)
-                if (this.state.users.length === 0 && !this.emModoServidor()) {
-                    const hashedPassword = await this.hashPassword('1234', 'admin');
-                    this.state.users.push({
-                        id: 'U' + Date.now(),
-                        fullname: 'Administrador Padrão',
-                        username: 'admin',
-                        password: hashedPassword,
-                        role: 'admin',
-                        isDefaultCredential: true
-                    });
-                    await this.salvarDados();
-                    console.log('Usuário admin padrão criado: admin / 1234');
-                }
-
                 this.updateBrand();
                 this.state.dataLoaded = true;
             } else {
@@ -2824,20 +2927,6 @@ const app = {
                 this.state.entradas = JSON.parse(localStorage.getItem('sv_entradas') || '[]');
                 this.state.categories = JSON.parse(localStorage.getItem('sv_categories') || '[]');
                 this.state.movimentacoes = JSON.parse(localStorage.getItem('sv_movimentacoes') || '[]');
-
-                // Criar usuário admin padrão se não houver usuários (fallback, somente sem servidor)
-                if (this.state.users.length === 0 && !this.emModoServidor()) {
-                    const hashedPassword = await this.hashPassword('1234', 'admin');
-                    this.state.users.push({
-                        id: 'U' + Date.now(),
-                        fullname: 'Administrador Padrão',
-                        username: 'admin',
-                        password: hashedPassword,
-                        role: 'admin',
-                        isDefaultCredential: true
-                    });
-                    localStorage.setItem('sv_users', JSON.stringify(this.state.users));
-                }
 
                 this.updateBrand();
                 this.state.dataLoaded = true;
