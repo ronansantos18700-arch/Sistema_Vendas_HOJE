@@ -39,6 +39,30 @@
                 </div>
                 <button type="submit" class="btn-save-labs" style="width: 100%; margin-top: 1rem;">ENTRAR NO SISTEMA</button>
             </form>
+            <!-- Primeiro acesso: aparece só quando o servidor não tem nenhum usuário -->
+            <form id="setup-form" class="hidden">
+                <p style="font-size: 0.85rem; color: var(--text-dim); margin: 0 0 1rem;">
+                    Nenhum usuário cadastrado. Crie o primeiro administrador para entrar no sistema.
+                </p>
+                <div class="input-group-labs">
+                    <label class="input-label-labs">NOME COMPLETO</label>
+                    <input type="text" id="setup-nome" class="glass-input-labs" required autocomplete="name">
+                </div>
+                <div class="input-group-labs">
+                    <label class="input-label-labs">USUÁRIO</label>
+                    <input type="text" id="setup-usuario" class="glass-input-labs" required autocomplete="username">
+                </div>
+                <div class="input-group-labs">
+                    <label class="input-label-labs">SENHA (MÍNIMO 6 CARACTERES)</label>
+                    <input type="password" id="setup-senha" class="glass-input-labs" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="input-group-labs">
+                    <label class="input-label-labs">CONFIRMAR SENHA</label>
+                    <input type="password" id="setup-senha2" class="glass-input-labs" required minlength="6" autocomplete="new-password">
+                </div>
+                <div id="setup-error" class="login-error-msg hidden"></div>
+                <button type="submit" class="btn-save-labs" style="width: 100%; margin-top: 1rem;">CRIAR ADMINISTRADOR E ENTRAR</button>
+            </form>
             <div class="login-footer">
                 <span>&copy; 2024 Labs. Design</span>
             </div>
@@ -989,6 +1013,19 @@
                                             <i data-lucide="database"></i> Backup de Dados
                                         </button>
                                     </div>
+                                </div>
+
+                                <!-- Zona de perigo: só administrador (escondida pelas permissões) -->
+                                <div id="zona-perigo" class="sv-settings-card" style="margin-top: 1.5rem; border-color: rgba(181, 103, 106, 0.5);">
+                                    <div class="sv-card-header">
+                                        <div class="sv-header-info">
+                                            <h4>Apagar todos os dados</h4>
+                                            <p>Apaga produtos, clientes, vendas, estoque, recebimentos, configurações e usuários. Não há como desfazer. Depois, será preciso criar um novo administrador.</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn-cancel-labs" onclick="app.limparTodosDados()" style="margin-top: 1rem; background: rgba(181, 103, 106, 0.1); border-color: #b5676a; color: #b5676a;">
+                                        <i data-lucide="trash-2"></i> Apagar todos os dados
+                                    </button>
                                 </div>
                             </section>
 

@@ -71,7 +71,7 @@ function check(nome, cond) { console.log((cond ? 'OK   ' : 'FALHA') + ' ' + nome
   const vazio = criarContexto({});
   await vazio.carregarDados();
   check('banco vazio carrega sem erro', erros.length === 0 && !notificacoes.some(n => n.tipo === 'error'));
-  check('banco vazio cria admin padrão', vazio.state.users.length === 1);
+  check('banco vazio não cria admin padrão (o primeiro administrador é criado pelo formulário)', vazio.state.users.length === 0);
 
   // Primeira gravação depois de carregar: manda só a venda alterada, não as tabelas inteiras
   // (senão regravaria por cima de um recebimento lançado em outro terminal).

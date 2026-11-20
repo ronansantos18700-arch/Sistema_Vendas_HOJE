@@ -435,3 +435,13 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Ao voltar o servidor, `servidorVoltou` só tenta gravar se a leitura já tiver dado certo; caso contrário, recarrega (sem isso, o app ficaria preso).
 - Teste: `tests/js/test_carregamento.js` (leitura que falha).
 
+### 2026-11-20 (apagar todos os dados e primeiro administrador)
+- Ferramentas > "Apagar todos os dados" (só administrador, com duas confirmações). Apaga todas as tabelas (usuários inclusive) e as imagens dos produtos, sem backup automático. Encerra todas as sessões.
+- Rota `POST /api/dados/limpar`: exige sessão de administrador e o corpo `{"confirmacao":"APAGAR TUDO"}`.
+- Sem usuários, a tela de login mostra o formulário do **primeiro administrador**: `GET /api/setup` (diz se falta) e `POST /api/setup` (cria só enquanto o banco não tem usuários; checado dentro da trava do servidor). A senha tem no mínimo 6 caracteres.
+- Removidas as criações automáticas do admin/1234 (servidor na inicialização, `Dados.GarantirAdministrador`, e no carregamento do navegador).
+- A auditoria do navegador (`sv_audit_log`) é mantida e registra `DADOS_APAGADOS`.
+- Não alterado: o botão antigo "Resetar Usuários" (Configurações > Usuários) ainda recria admin/1234 no modo sem servidor. Decidir se deve ser removido.
+- Testes: `tests/js/test_primeiro_admin.js`. `test_carregamento.js` agora confere que banco vazio não cria admin.
+- Pendente: compilar o C# no Windows (`dotnet build`) e testar o fluxo no servidor real.
+

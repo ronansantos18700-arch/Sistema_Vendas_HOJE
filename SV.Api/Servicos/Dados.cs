@@ -274,38 +274,58 @@ namespace SV.Api.Servicos
             }
         }
 
-        /// <summary>Cria o administrador padrão quando não há nenhum usuário (primeira execução).</summary>
-        public static void GarantirAdministrador()
+        /// <summary>Quantos usuários existem. Com zero, o sistema pede o primeiro administrador.</summary>
+        public static int ContarUsuarios()
         {
-            if (JArray.Parse(Ler("users")).Count > 0) return;
-
-            var admin = new JObject
+            lock (_trava)
             {
-                ["id"] = "U" + DateTime.UtcNow.Ticks,
-                ["fullname"] = "Administrador Padrão",
-                ["username"] = "admin",
-                ["password"] = Senha.Gerar("1234", "admin"),
-                ["role"] = "admin",
-                ["isDefaultCredential"] = true
-            };
-
-            var alteracao = new JObject
-            {
-                ["users"] = new JObject
-                {
-                    ["upsert"] = new JArray(admin)
-                }
-            };
-            if (!Aplicar(alteracao.ToString(Formatting.None)))
-            {
-                throw new InvalidOperationException("Não foi possível criar o administrador inicial.");
+                return JArray.Parse(Ler("users")).Count;
             }
-            Console.WriteLine("Administrador inicial criado (admin). Troque a senha no primeiro acesso.");
         }
 
-        // ---------------------------------------------------------------
-        // Imagens (ficam na pasta "imagens" ao lado do banco)
-        // ---------------------------------------------------------------
+        /// <summary>
+        /// Cria o primeiro administrador. Só é aceito enquanto não há nenhum usuário,
+        /// conferido dentro da mesma trava, para dois pedidos não criarem dois.
+        /// </summary>
+        public static JObject CriarPrimeiroAdministrador(string nome, string login, string senhaPlano)
+        {
+            lock (_trava)
+            {
+                if (ContarUsuarios() > 0)
+                {
+                    throw new RegraNegocioException("Já existe um usuário cadastrado.");
+                }
+                return CriarUsuario(nome, login, "admin", senhaPlano);
+            }
+        }
+
+        /// <summary>
+        /// Apaga todos os dados: tabelas (usuários inclusive) e as imagens dos produtos.
+        /// Irreversível: não há backup automático.
+        /// </summary>
+        public static void LimparTudo()
+        {
+            lock (_trava)
+            {
+                SistemaVendas.Database.LimparTudo();
+
+                string pasta = PastaImagens();
+                foreach (string arquivo in Directory.GetFiles(pasta))
+                {
+                    try
+                    {
+                        File.Delete(arquivo);
+                    }
+                    catch (IOException)
+                    {
+                        // Imagem em uso: o banco já foi limpo; a imagem órfã não aparece mais no sistema.
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
+            }
+        }
 
         public static string PastaImagens()
         {
