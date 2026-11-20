@@ -697,32 +697,41 @@ const app = {
         if (!ctx) return;
 
         const filteredSales = this.getFilteredSales();
-        const productStats = {};
-
-        filteredSales.forEach(sale => {
-            if (sale.items && Array.isArray(sale.items)) {
-                sale.items.forEach(item => {
-                    const id = item.productId || item.id;
-                    if (!productStats[id]) {
-                        const productInfo = this.state.products.find(p => p.id === id);
-                        productStats[id] = {
-                            id: id,
-                            name: item.name || productInfo?.name || 'Produto Desconhecido',
-                            profit: 0
-                        };
-                    }
-                    const qty = Number(item.qtySold) || Number(item.qty) || 0;
-                    const price = Number(item.price) || 0;
-                    const cost = Number(item.cost) || 0;
-                    const profit = (price - cost) * qty;
-                    productStats[id].profit += profit;
-                });
-            }
-        });
-
-        const top5 = Object.values(productStats)
-            .sort((a, b) => b.profit - a.profit)
-            .slice(0, 5);
+        let top5;
+        if (window.Dashboard && typeof Dashboard.rankingProdutos === 'function') {
+            // Fonte única da verdade: mesmo cálculo com rateio de desconto usado em #dash-ven-lucro
+            top5 = Dashboard.rankingProdutos(filteredSales, this.state.products)
+                .sort((a, b) => b.lucro - a.lucro)
+                .slice(0, 5)
+                .map(p => ({ id: p.id, name: p.nome, profit: p.lucro }));
+        } else {
+            const productStats = {};
+            filteredSales.forEach(sale => {
+                const total = Number(sale.valor_total) || 0;
+                const final = total - (Number(sale.desconto) || 0);
+                const fator = total > 0 ? final / total : 1;
+                if (sale.items && Array.isArray(sale.items)) {
+                    sale.items.forEach(item => {
+                        const id = item.productId || item.id;
+                        if (!productStats[id]) {
+                            const productInfo = this.state.products.find(p => p.id === id);
+                            productStats[id] = {
+                                id: id,
+                                name: item.name || productInfo?.name || 'Produto Desconhecido',
+                                profit: 0
+                            };
+                        }
+                        const qty = Number(item.qtySold) || Number(item.qty) || 0;
+                        const price = Number(item.price) || 0;
+                        const cost = Number(item.cost) || 0;
+                        productStats[id].profit += (price * fator - cost) * qty;
+                    });
+                }
+            });
+            top5 = Object.values(productStats)
+                .sort((a, b) => b.profit - a.profit)
+                .slice(0, 5);
+        }
 
         const labels = top5.map(p => {
             return p.name.length > 18 ? p.name.substring(0, 18) + '...' : p.name;
@@ -882,27 +891,27 @@ const app = {
         // Toggle Password
         const btnTogglePass = document.getElementById('toggle-password');
         if (btnTogglePass) {
+            btnTogglePass.setAttribute('aria-label', 'Mostrar senha');
             btnTogglePass.addEventListener('click', () => {
                 const passInput = document.getElementById('login-password');
                 const icon = document.getElementById('toggle-password-icon');
-                if (passInput.type === 'password') {
-                    passInput.type = 'text';
-                    icon.innerHTML = '<i data-lucide="eye-off"></i>';
-                } else {
-                    passInput.type = 'password';
-                    icon.innerHTML = '<i data-lucide="eye"></i>';
-                }
-                // Usar lucide.createIcons apenas no container do ícone para evitar erros globais
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons({
-                        attrs: { 
-                            class: 'lucide-icon',
-                            'stroke-width': 1.2
-                        },
-                        nameAttr: 'data-lucide',
-                        icons: undefined,
-                        root: icon
-                    });
+                const mostrar = passInput.type === 'password';
+                passInput.type = mostrar ? 'text' : 'password';
+                btnTogglePass.setAttribute('aria-label', mostrar ? 'Ocultar senha' : 'Mostrar senha');
+                if (icon) {
+                    icon.textContent = '';
+                    icon.setAttribute('data-lucide', mostrar ? 'eye-off' : 'eye');
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons({
+                            attrs: {
+                                class: 'lucide-icon',
+                                'stroke-width': 1.2
+                            },
+                            nameAttr: 'data-lucide',
+                            icons: undefined,
+                            root: icon
+                        });
+                    }
                 }
             });
         }
@@ -1188,7 +1197,10 @@ const app = {
         if (userForm) userForm.addEventListener('submit', (e) => this.handleUserSubmit(e));
 
         const filterProd = document.getElementById('filter-products');
-        if (filterProd) filterProd.addEventListener('input', (e) => this.renderProducts(e.target.value));
+        if (filterProd) filterProd.addEventListener('input', (e) => {
+            const categoria = document.getElementById('filter-category')?.value || '';
+            this.renderProducts(e.target.value, categoria);
+        });
 
         const filterCat = document.getElementById('filter-category');
         if (filterCat) filterCat.addEventListener('change', (e) => {
@@ -1386,7 +1398,6 @@ const app = {
 
             this.updatePaidVisibility();
             this.calculateTotals();
-            this.updatePaidVisibility();
 
             const barcodeInput = document.getElementById('pos-barcode');
             if (barcodeInput) barcodeInput.focus();
@@ -2879,33 +2890,29 @@ const app = {
     },
 
     // --- Dashboard Helpers ---
+    chaveDiaLocal(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        if (window.Dashboard && typeof Dashboard.chaveDia === 'function') return Dashboard.chaveDia(d);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    },
+
     getFilteredSales() {
         const sales = this.state.sales || [];
         if (sales.length === 0) return [];
 
         const now = new Date();
-        let fromDate = null;
+        const intervalos = window.Dashboard && typeof Dashboard.intervalosPeriodo === 'function'
+            ? Dashboard.intervalosPeriodo(this.state.dashboardFilter, now)
+            : null;
 
-        switch (this.state.dashboardFilter) {
-            case '7d':
-                fromDate = new Date(now);
-                fromDate.setDate(now.getDate() - 6);
-                break;
-            case 'month':
-                fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                break;
-            case 'year':
-                fromDate = new Date(now.getFullYear(), 0, 1);
-                break;
-            default:
-                return sales;
-        }
+        if (!intervalos) return sales;
 
         return sales.filter(s => {
             const dateStr = s.date || s.Data;
             const d = this.parseDate(dateStr);
             if (!d) return false;
-            return d >= fromDate && d <= now;
+            return d >= intervalos.atualInicio && d <= intervalos.atualFim;
         });
     },
 
@@ -2923,7 +2930,7 @@ const app = {
         const ativos = ['faturamento', 'lucro', 'custo'].filter((k) => this.state.activeChartDatasets.includes(k));
         const definicoes = {
             faturamento: { label: 'Faturamento', data: serie.revenue, cor: '#4070f4', fundo: 'rgba(64, 112, 244, 0.1)' },
-            lucro: { label: 'Lucro', data: serie.profit, cor: '#8a9099', fundo: 'rgba(138, 144, 153, 0.1)' },
+            lucro: { label: 'Lucro', data: serie.profit, cor: '#2e9e6a', fundo: 'rgba(46, 158, 106, 0.12)' },
             custo: { label: 'Custo', data: serie.cost, cor: '#d64545', fundo: 'rgba(214, 69, 69, 0.1)' }
         };
 
@@ -3276,30 +3283,14 @@ const app = {
         if (!ctx) return;
 
         const filteredSales = this.getFilteredSales();
-        const paymentStats = {};
-        let totalRevenue = 0;
+        const metodos = window.Dashboard && typeof Dashboard.resumoPagamentos === 'function'
+            ? Dashboard.resumoPagamentos(filteredSales)
+            : [];
 
-        filteredSales.forEach(sale => {
-            const method = sale.pagamento || sale.PaymentMethod || sale.formaPagamento || 'Outros';
-            const amount = sale.valor_total ?? sale["Valor Total"] ?? sale.total ?? 0;
-
-            if (!paymentStats[method]) {
-                paymentStats[method] = { count: 0, revenue: 0 };
-            }
-            paymentStats[method].count++;
-            paymentStats[method].revenue += amount;
-            totalRevenue += amount;
-        });
-
-        // Ordem do maior para o menor faturamento: o principal meio fica no topo.
-        const metodos = Object.entries(paymentStats).sort((a, b) => b[1].revenue - a[1].revenue);
-        const labels = metodos.map(([m, st]) => {
-            const pct = totalRevenue > 0 ? (st.revenue / totalRevenue) * 100 : 0;
-            return `${m.charAt(0).toUpperCase() + m.slice(1)} (${pct.toFixed(0)}%)`;
-        });
-        const revenues = metodos.map(([, st]) => st.revenue);
-        const counts = metodos.map(([, st]) => st.count);
-        const percentuais = metodos.map(([, st]) => totalRevenue > 0 ? ((st.revenue / totalRevenue) * 100).toFixed(1) : 0);
+        const labels = metodos.map((m) => `${m.rotulo} (${m.percentual.toFixed(0)}%)`);
+        const revenues = metodos.map((m) => m.faturamento);
+        const counts = metodos.map((m) => m.vendas);
+        const percentuais = metodos.map((m) => m.percentual.toFixed(1).replace('.', ','));
 
         if (this.state.charts.paymentMethods) {
             this.state.charts.paymentMethods.destroy();
@@ -3732,26 +3723,15 @@ const app = {
 
     getPreviousPeriodSales(filter) {
         const now = new Date();
-        let startCurrent, startPrevious;
+        const intervalos = window.Dashboard && typeof Dashboard.intervalosPeriodo === 'function'
+            ? Dashboard.intervalosPeriodo(filter, now)
+            : null;
+        if (!intervalos) return [];
 
-        if (filter === '7d') {
-            startCurrent = new Date(now);
-            startCurrent.setDate(now.getDate() - 7);
-            startPrevious = new Date(startCurrent);
-            startPrevious.setDate(startCurrent.getDate() - 7);
-        } else if (filter === 'month') {
-            startCurrent = new Date(now.getFullYear(), now.getMonth(), 1);
-            startPrevious = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        } else if (filter === 'year') {
-            startCurrent = new Date(now.getFullYear(), 0, 1);
-            startPrevious = new Date(now.getFullYear() - 1, 0, 1);
-        } else {
-            return [];
-        }
-
-        return this.state.sales.filter(s => {
+        return (this.state.sales || []).filter(s => {
             const d = this.parseDate(s.date || s.Data);
-            return d >= startPrevious && d < startCurrent;
+            if (!d) return false;
+            return d >= intervalos.anteriorInicio && d <= intervalos.anteriorFim;
         });
     },
 
@@ -3774,22 +3754,24 @@ const app = {
         const el = document.getElementById(elementId);
         if (!el) return;
 
-        let diffPercent = 0;
-        if (previous > 0) {
-            diffPercent = ((current - previous) / previous) * 100;
-        } else if (current > 0) {
-            diffPercent = 100;
-        } else if (current === 0 && previous === 0) {
-            diffPercent = 0;
-        } else {
-            diffPercent = -100;
-        }
-
         const valueEl = el.querySelector('.var-value');
-        if (valueEl) {
+        if (!valueEl) return;
+
+        if (previous > 0) {
+            const diffPercent = ((current - previous) / previous) * 100;
             const sign = diffPercent >= 0 ? '▲' : '▼';
-            valueEl.textContent = `${sign} ${Math.abs(diffPercent).toFixed(1)}%`;
+            const fmt = Math.abs(diffPercent).toFixed(1).replace('.', ',');
+            valueEl.textContent = `${sign} ${fmt}%`;
             valueEl.className = 'var-value ' + (diffPercent >= 0 ? 'positive' : 'negative');
+        } else if (current > 0) {
+            valueEl.textContent = 'Novo';
+            valueEl.className = 'var-value positive';
+        } else if (current < 0) {
+            valueEl.textContent = '▼ 100,0%';
+            valueEl.className = 'var-value negative';
+        } else {
+            valueEl.textContent = '0,0%';
+            valueEl.className = 'var-value';
         }
     },
 
@@ -4522,7 +4504,13 @@ const app = {
         const container = document.getElementById('products-items-container');
         if (!container) return;
 
-        let filtered = this.state.products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+        const termo = String(query || '').trim().toLowerCase();
+        let filtered = this.state.products.filter(p => {
+            if (!termo) return true;
+            return (p.name || '').toLowerCase().includes(termo)
+                || String(p.code || '').toLowerCase().includes(termo)
+                || String(p.id || '').toLowerCase().includes(termo);
+        });
 
         if (category) {
             filtered = filtered.filter(p => p.category === category);
@@ -4589,6 +4577,7 @@ const app = {
     },
 
     async adjustStock(id, amount) {
+        if (!this.requireAdmin('ajustar estoque')) return;
         const p = this.state.products.find(prod => prod.id === id);
         if (p) {
             // Se o amount for +/- 1, faz o ajuste direto (botões da lista)
@@ -4776,11 +4765,22 @@ const app = {
         }
     },
 
-    renderCustomers(query = '') {
+    renderCustomers(query) {
         this.renderFiadoPendentes();
         const container = document.getElementById('customers-items-container');
         if (!container) return;
-        const filtered = this.state.customers.filter(c => c.name.toLowerCase().includes(query.toLowerCase()));
+        const busca = query !== undefined ? query : (document.getElementById('filter-customers')?.value || '');
+        const termo = String(busca || '').trim().toLowerCase();
+        const digitos = termo.replace(/\D/g, '');
+        const filtered = this.state.customers.filter(c => {
+            if (!termo) return true;
+            if ((c.name || '').toLowerCase().includes(termo)) return true;
+            if (String(c.id || '').toLowerCase().includes(termo)) return true;
+            const whats = String(c.whatsapp || '');
+            if (whats.toLowerCase().includes(termo)) return true;
+            if (digitos && whats.replace(/\D/g, '').includes(digitos)) return true;
+            return false;
+        });
 
         if (filtered.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-dim);">Nenhum cliente encontrado.</div>';
@@ -5087,8 +5087,7 @@ const app = {
                 const date = s.date || s.Data || '';
                 const d = this.parseDate(date);
                 if (!d) return false;
-                const dStr = d.toISOString().split('T')[0];
-                return dStr === dateQuery;
+                return this.chaveDiaLocal(d) === dateQuery;
             });
         }
 
@@ -5412,6 +5411,14 @@ const app = {
         const list = document.getElementById('notification-list');
         if (!badge || !list) return;
 
+        // Notificações administrativas (estoque/configurações) são restritas a administradores
+        if (this.state.currentUser && this.state.currentUser.role !== 'admin') {
+            this._notifLista = [];
+            badge.classList.add('hidden');
+            this.renderNotifPage();
+            return;
+        }
+
         const notifications = [];
         const nSettings = this.state.settings.notifications || {
             stockLow: true,
@@ -5566,6 +5573,7 @@ const app = {
         this.initLucide();
 
         if (okBtn) {
+            okBtn.style.display = '';
             okBtn.textContent = 'Confirmar';
             okBtn.onclick = () => {
                 onConfirm();
@@ -5749,6 +5757,7 @@ const app = {
         const okBtn = document.getElementById('confirm-modal-ok');
         const cancelBtn = document.getElementById('confirm-modal-cancel');
         if (okBtn) {
+            okBtn.style.display = '';
             okBtn.textContent = 'Confirmar';
             okBtn.onclick = null;
         }
@@ -6263,14 +6272,16 @@ const app = {
         this.renderProducts(queryAtiva, categoriaAtiva);
     },
 
-    renderEntradas(query = '', dateFilter = '') {
+    renderEntradas(query, dateFilter) {
         const container = document.getElementById('entradas-items-container');
         if (!container) return;
 
+        const busca = query !== undefined ? query : (document.getElementById('filter-entradas')?.value || '');
+        const filtroData = dateFilter !== undefined ? dateFilter : (document.getElementById('filter-date-entradas')?.value || '');
         let filtered = this.state.entradas;
 
-        if (query) {
-            const q = query.toLowerCase();
+        if (busca) {
+            const q = String(busca).toLowerCase();
             filtered = filtered.filter(e =>
                 e.id.toLowerCase().includes(q) ||
                 (e.fornecedor && e.fornecedor.toLowerCase().includes(q)) ||
@@ -6278,8 +6289,11 @@ const app = {
             );
         }
 
-        if (dateFilter) {
-            filtered = filtered.filter(e => e.date.startsWith(dateFilter));
+        if (filtroData) {
+            filtered = filtered.filter(e => {
+                const d = this.parseDate(e.date);
+                return d ? this.chaveDiaLocal(d) === filtroData : String(e.date || '').startsWith(filtroData);
+            });
         }
 
         if (filtered.length === 0) {
@@ -6607,10 +6621,12 @@ const app = {
         const limite = Date.now() - 30 * 24 * 3600 * 1000;
         const vendido30 = {};
         (this.state.sales || []).forEach(v => {
-            if (new Date(v.date).getTime() < limite) return;
+            const dv = this.parseDate(v.date || v.Data);
+            if (!dv || dv.getTime() < limite) return;
             (v.items || []).forEach(it => {
-                const id = String(it.id);
-                vendido30[id] = (vendido30[id] || 0) + (Number(it.qty) || 0);
+                const id = String(it.productId != null ? it.productId : it.id);
+                const qtd = Number(it.qtySold) || Number(it.qty) || 0;
+                vendido30[id] = (vendido30[id] || 0) + qtd;
             });
         });
         const ultimaMov = {};

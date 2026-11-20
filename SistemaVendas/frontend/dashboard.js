@@ -359,6 +359,108 @@
         Jul: 'julho', Ago: 'agosto', Set: 'setembro', Out: 'outubro', Nov: 'novembro', Dez: 'dezembro'
     };
 
+    const ROTULOS_PAGAMENTO = Object.freeze({
+        dinheiro: 'Dinheiro',
+        cartao: 'Cartão',
+        'cartão': 'Cartão',
+        pix: 'PIX',
+        fiado: 'Fiado',
+        outros: 'Outros'
+    });
+
+    /**
+     * Intervalos locais para o período selecionado e seu período anterior equivalente.
+     * - 7d: 7 dias civis (hoje - 6 dias 00:00 até agora) vs os 7 dias civis imediatamente anteriores.
+     * - month: início do mês atual até agora vs início do mês anterior até o ponto equivalente (MTD).
+     * - year: início do ano atual até agora vs início do ano anterior até o ponto equivalente (YTD).
+     */
+    function intervalosPeriodo(filtro, agora) {
+        const ref = agora instanceof Date ? agora : new Date();
+        const ano = ref.getFullYear();
+        const mes = ref.getMonth();
+        const dia = ref.getDate();
+        const h = ref.getHours(), m = ref.getMinutes(), s = ref.getSeconds(), ms = ref.getMilliseconds();
+
+        if (filtro === '7d') {
+            const atualInicio = new Date(ano, mes, dia - 6, 0, 0, 0, 0);
+            const anteriorInicio = new Date(ano, mes, dia - 13, 0, 0, 0, 0);
+            const anteriorFim = new Date(atualInicio.getTime() - 1);
+            return { atualInicio, atualFim: ref, anteriorInicio, anteriorFim };
+        }
+        if (filtro === 'month') {
+            const atualInicio = new Date(ano, mes, 1, 0, 0, 0, 0);
+            const anteriorInicio = new Date(ano, mes - 1, 1, 0, 0, 0, 0);
+            const ultimoDiaAnt = new Date(ano, mes, 0).getDate();
+            const diaEq = Math.min(dia, ultimoDiaAnt);
+            const anteriorFim = new Date(ano, mes - 1, diaEq, h, m, s, ms);
+            return { atualInicio, atualFim: ref, anteriorInicio, anteriorFim };
+        }
+        if (filtro === 'year') {
+            const atualInicio = new Date(ano, 0, 1, 0, 0, 0, 0);
+            const anteriorInicio = new Date(ano - 1, 0, 1, 0, 0, 0, 0);
+            const ultimoDiaAnt = new Date(ano - 1, mes + 1, 0).getDate();
+            const diaEq = Math.min(dia, ultimoDiaAnt);
+            const anteriorFim = new Date(ano - 1, mes, diaEq, h, m, s, ms);
+            return { atualInicio, atualFim: ref, anteriorInicio, anteriorFim };
+        }
+        return null;
+    }
+
+    /**
+     * Vendas agrupadas por forma de pagamento (sobre valor líquido após desconto).
+     * Vendas divididas (sale.pagamentos) rateiam cada parcela na sua forma real.
+     * Devolve [{ forma, rotulo, vendas, faturamento, percentual }] ordenado do maior faturamento.
+     */
+    function resumoPagamentos(vendas) {
+        const grupos = new Map();
+        const normalizar = (raw) => {
+            const s = String(raw || '').trim();
+            if (!s) return 'outros';
+            const k = s.toLowerCase();
+            if (k === 'cartão') return 'cartao';
+            return k;
+        };
+        const rotuloDe = (chave) => {
+            if (ROTULOS_PAGAMENTO[chave]) return ROTULOS_PAGAMENTO[chave];
+            return chave.charAt(0).toUpperCase() + chave.slice(1);
+        };
+        const somar = (chave, valor, contarVenda) => {
+            if (!grupos.has(chave)) grupos.set(chave, { forma: chave, rotulo: rotuloDe(chave), vendas: 0, faturamento: 0 });
+            const g = grupos.get(chave);
+            g.faturamento += valor;
+            if (contarVenda) g.vendas += 1;
+        };
+
+        let total = 0;
+        for (const venda of (vendas || [])) {
+            if (Array.isArray(venda.pagamentos) && venda.pagamentos.length > 0) {
+                const vistas = new Set();
+                for (const p of venda.pagamentos) {
+                    const chave = normalizar(p.forma);
+                    const val = num(p.valor);
+                    somar(chave, val, !vistas.has(chave));
+                    vistas.add(chave);
+                    total += val;
+                }
+            } else {
+                const chave = normalizar(venda.pagamento || venda.PaymentMethod || venda.formaPagamento);
+                const val = valoresVenda(venda).faturamento;
+                somar(chave, val, true);
+                total += val;
+            }
+        }
+
+        return [...grupos.values()]
+            .map((g) => ({
+                forma: g.forma,
+                rotulo: g.rotulo,
+                vendas: g.vendas,
+                faturamento: arred2(g.faturamento),
+                percentual: total > 0 ? (g.faturamento / total) * 100 : 0
+            }))
+            .sort((a, b) => b.faturamento - a.faturamento);
+    }
+
     function percentual(valor) {
         return (Math.round(Math.abs(valor) * 10) / 10).toFixed(1).replace('.', ',') + '%';
     }
@@ -426,7 +528,8 @@
 
     const API = {
         COBERTURA_ALVO_DIAS, COBERTURA_CRITICA_DIAS,
-        chaveDia, valoresVenda, serieLinha, kpisEstoque, kpisVendas, escaparHtml, dataVenda,
+        chaveDia, valoresVenda, serieLinha, intervalosPeriodo, resumoPagamentos,
+        kpisEstoque, kpisVendas, escaparHtml, dataVenda,
         rankingProdutos, alertasEstoque, insightsVendas, insightsEstoque
     };
 
