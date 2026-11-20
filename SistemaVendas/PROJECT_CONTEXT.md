@@ -286,7 +286,7 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Venda com recebimento não pode ser excluída, continua fiado na edição e não pode trocar de cliente.
 - Relatórios: em "Recebimentos por forma", fiado conta só o que foi recebido, pela forma da baixa. O saldo em aberto aparece em linha à parte, fora do total.
 - Estorno de recebimento (somente administrador): no modal de Receber, cada operação aparece em "Recebimentos registrados" e pode ser estornada inteira, em todas as vendas em que foi distribuída. Pede confirmação. Auditoria `FIADO_ESTORNO`. Depois de estornar, a venda pode ser excluída.
-- Limitação: o recebimento é contado nas vendas do período (pela data da venda), não pela data da baixa.
+- Limitação resolvida em 2026-11-20 (ver a entrada de correção dos relatórios): recebimento de fiado conta pela data do pagamento.
 - Lógica pura em `frontend/fiado.js` (`Fiado`). Testes: `tests/js/test_fiado.js`, `tests/js/test_fiado_app.js` e casos novos em `tests/js/test_relatorios.js`.
 - Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
 
@@ -404,4 +404,12 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Ainda não feito: o frontend continua usando a ponte local. A troca para a API é a etapa 2. Gravação por registro e validação de estoque no servidor são as etapas 3 e 4.
 - Não compilado: o sandbox não tem .NET nem acesso ao NuGet. A sintaxe foi verificada com o parser tree-sitter; tipos e referências ainda precisam de `dotnet build` no Windows.
 - Valor de referência do hash: `admin` / `1234` → `d1f098152e97b7542feffd65fe27620905e804b5fd594d5db98aa82fda903e71`.
+
+### 2026-11-20 (relatórios: recebimento de fiado pela data do pagamento)
+
+- Seção "Recebimentos por forma de pagamento": fiado recebido no período entra pela data do pagamento, mesmo que a venda seja de outro mês. Vendas à vista continuam pela data da venda.
+- "Fiado em aberto hoje" é o saldo atual de todas as vendas, fora do total, sem filtro de período.
+- Receita, lucro e vendas continuam pela data da venda.
+- Sem período (todos os períodos), conta tudo, como antes.
+- Testes: `tests/js/test_relatorios.js` (regra) e `tests/js/test_relatorios_app.js` (chamada do app).
 

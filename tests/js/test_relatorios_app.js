@@ -260,6 +260,18 @@ teste('marcar e desmarcar todos', () => {
   assert.strictEqual(elementos['rel-exportar'].disabled, true);
 });
 
+teste('pagamentos do período: fiado recebido no período entra, mesmo com venda de outro mês', () => {
+  const { app } = criarAmbiente({});
+  const base = app.montarSecoesRelatorio(['pagamentos'], '2026-11-18', '2026-11-19')[0].totais[2];
+  assert.strictEqual(base, 34, 'V1 (16 dinheiro) + V2 (10 pix + 8 dinheiro)');
+  app.state.sales.push({ id: 'F1', date: '2026-10-05T10:00:00', valor_total: 100, valor_final: 100, cost: 60, pagamento: 'fiado',
+    recebimentos: [{ id: 'R1-1', date: '2026-11-18T12:00:00', valor: 40, forma: 'pix' }], items: [] });
+  const secao = app.montarSecoesRelatorio(['pagamentos'], '2026-11-18', '2026-11-19')[0];
+  assert.strictEqual(secao.totais[2], 74, 'inclui os 40 recebidos no período');
+  const fora = app.montarSecoesRelatorio(['pagamentos'], '2026-10-01', '2026-10-31')[0];
+  assert.strictEqual(fora.totais[2], 0, 'em outubro não há pagamento (a venda é de outubro, mas o dinheiro entrou em novembro)');
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

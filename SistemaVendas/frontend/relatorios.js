@@ -50,6 +50,16 @@
         });
     }
 
+    /** Data dentro do período (YYYY-MM-DD, inclusivo). Sem período, tudo entra. */
+    function noPeriodo(iso, inicio, fim) {
+        if (!inicio && !fim) return true;
+        const dia = diaLocal(iso);
+        if (!dia) return false;
+        if (inicio && dia < inicio) return false;
+        if (fim && dia > fim) return false;
+        return true;
+    }
+
     /** Valor de uma venda: o valor final (com desconto). */
     function valorVenda(v) { return numero(v.valor_final); }
     /** Custo de uma venda. */
@@ -120,8 +130,13 @@
             .sort((a, b) => b.lucro - a.lucro);
     }
 
-    /** Valor recebido por forma de pagamento. Misto soma cada parcela; troco não entra. */
-    function recebimentosPorForma(vendas) {
+    /**
+     * Valor recebido por forma de pagamento, no período.
+     * - Venda à vista: conta pela data da venda. Misto soma cada parcela; troco não entra.
+     * - Fiado: conta cada recebimento pela data do pagamento (não pela data da venda).
+     * Sem período (inicio/fim vazios), conta tudo.
+     */
+    function recebimentosPorForma(vendas, inicio, fim) {
         const grupos = new Map();
         const somar = (forma, valor, vendaContada) => {
             if (!grupos.has(forma)) grupos.set(forma, { forma: forma, vendas: 0, valor: 0 });
@@ -131,14 +146,18 @@
         };
         for (const v of vendas) {
             if (v.pagamento === 'fiado') {
-                // Fiado: conta só o que foi recebido (baixas), na forma em que entrou.
+                // Fiado: só o que foi recebido, na forma em que entrou, na data do pagamento.
                 const formas = new Set();
                 for (const r of (Array.isArray(v.recebimentos) ? v.recebimentos : [])) {
+                    if (!noPeriodo(r.date, inicio, fim)) continue;
                     const forma = String(r.forma || 'N/A');
                     somar(forma, numero(r.valor), !formas.has(forma));
                     formas.add(forma);
                 }
-            } else if (Array.isArray(v.pagamentos) && v.pagamentos.length) {
+                continue;
+            }
+            if (!noPeriodo(v.date, inicio, fim)) continue;
+            if (Array.isArray(v.pagamentos) && v.pagamentos.length) {
                 const formas = new Set();
                 for (const p of v.pagamentos) {
                     const forma = String(p.forma || 'N/A');
@@ -294,17 +313,18 @@
         };
     }
 
-    function secaoRecebimentos(vendas) {
-        const linhas = recebimentosPorForma(vendas);
+    /** Seção de recebimentos. `vendas` deve ser o total de vendas (não só o período): o fiado em aberto é o saldo atual. */
+    function secaoRecebimentos(vendas, inicio, fim) {
+        const linhas = recebimentosPorForma(vendas, inicio, fim);
         const valor = arredondar2(linhas.reduce((acc, l) => acc + l.valor, 0));
         const aberto = fiadoEmAberto(vendas);
         const linhasSecao = linhas.map((l) => [l.forma, l.vendas, l.valor]);
         if (aberto.valor > 0) {
-            linhasSecao.push(['Fiado em aberto (ainda não recebido, fora do total)', aberto.vendas, aberto.valor]);
+            linhasSecao.push(['Fiado em aberto hoje (saldo atual, fora do total)', aberto.vendas, aberto.valor]);
         }
         return {
             id: 'pagamentos',
-            titulo: 'Recebimentos por forma de pagamento',
+            titulo: 'Recebimentos por forma de pagamento (fiado pela data do pagamento)',
             colunas: [
                 { titulo: 'Forma', tipo: 'texto', largura: 3 },
                 { titulo: 'Vendas', tipo: 'inteiro', largura: 1, alinhar: 'direita' },

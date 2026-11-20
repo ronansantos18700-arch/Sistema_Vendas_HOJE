@@ -309,6 +309,47 @@ teste('fiado sem recebimento não aparece como recebido', () => {
   assert.strictEqual(s.linhas[0][2], 90);
 });
 
+teste('recebimento de fiado conta no período do pagamento, mesmo com venda de outro mês', () => {
+  const lista = [
+    { id: 'A1', date: '2026-10-05T10:00:00', valor_final: 100, pagamento: 'fiado',
+      recebimentos: [{ forma: 'pix', valor: 40, date: '2026-11-03T10:00:00' }] }
+  ];
+  const s = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)), '2026-11-01', '2026-11-30');
+  assert.strictEqual(s.totais[2], 40, 'pagamento de novembro entra em novembro');
+  const outro = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)), '2026-10-01', '2026-10-31');
+  assert.strictEqual(outro.totais[2], 0, 'não entra em outubro, mesmo sendo a data da venda');
+});
+
+teste('recebimento de fiado depois do período não entra nele', () => {
+  const lista = [
+    { id: 'A2', date: '2026-11-05T10:00:00', valor_final: 100, pagamento: 'fiado',
+      recebimentos: [{ forma: 'dinheiro', valor: 60, date: '2026-12-02T10:00:00' }] }
+  ];
+  const s = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)), '2026-11-01', '2026-11-30');
+  assert.strictEqual(s.totais[2], 0);
+  const dezembro = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)), '2026-12-01', '2026-12-31');
+  assert.strictEqual(dezembro.totais[2], 60);
+});
+
+teste('venda à vista continua contando pela data da venda no período', () => {
+  const lista = [
+    { id: 'V9', date: '2026-11-05T10:00:00', valor_final: 25, pagamento: 'pix' },
+    { id: 'V8', date: '2026-10-05T10:00:00', valor_final: 99, pagamento: 'pix' }
+  ];
+  const s = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)), '2026-11-01', '2026-11-30');
+  assert.strictEqual(s.totais[2], 25);
+});
+
+teste('fiado em aberto é o saldo atual, mesmo com período filtrado', () => {
+  const lista = [
+    { id: 'A3', date: '2026-10-05T10:00:00', valor_final: 100, pagamento: 'fiado', recebimentos: [] }
+  ];
+  const s = R.secaoRecebimentos(JSON.parse(JSON.stringify(lista)), '2026-11-01', '2026-11-30');
+  const aberto = s.linhas.find((l) => l[0].startsWith('Fiado em aberto'));
+  assert.ok(aberto, 'saldo em aberto aparece mesmo fora do período da venda');
+  assert.strictEqual(aberto[2], 100);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

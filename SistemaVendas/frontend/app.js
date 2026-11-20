@@ -2179,7 +2179,8 @@ const app = {
             vendas: () => R.secaoVendasPorPeriodo(vendas, agrupar),
             lucro: () => R.secaoLucroPorProduto(vendas),
             estoque: () => R.secaoEstoqueAtual(this.state.products, nivelBaixo, nivelMedio),
-            pagamentos: () => R.secaoRecebimentos(vendas)
+            // Recebimentos usam o total de vendas: o fiado recebido no período entra pela data do pagamento
+            pagamentos: () => R.secaoRecebimentos(this.state.sales, inicio, fim)
         };
         return ids.map((id) => construtores[id]());
     },
