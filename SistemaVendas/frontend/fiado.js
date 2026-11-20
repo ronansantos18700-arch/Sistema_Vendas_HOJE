@@ -108,6 +108,50 @@
         return plano;
     }
 
+    /** Identificador da operação de recebimento: a parte antes do último hífen (cada parcela é "operação-n"). */
+    function operacaoDe(idRecebimento) {
+        const id = String(idRecebimento || '');
+        const i = id.lastIndexOf('-');
+        return i > 0 ? id.slice(0, i) : id;
+    }
+
+    /**
+     * Recebimentos do cliente agrupados por operação (um clique em Receber = uma operação),
+     * mais recente primeiro. Cada item: { operacao, date, forma, valor, vendas: [id] }.
+     */
+    function operacoes(vendas, cliente) {
+        const mapa = new Map();
+        (vendas || []).filter((v) => ehFiado(v) && v.cliente === cliente).forEach((v) => {
+            const idVenda = v.id || v.ID;
+            recebimentos(v).forEach((r) => {
+                const op = operacaoDe(r.id);
+                if (!mapa.has(op)) mapa.set(op, { operacao: op, date: r.date, forma: r.forma, valor: 0, vendas: [] });
+                const o = mapa.get(op);
+                o.valor = r2(o.valor + (Number(r.valor) || 0));
+                if (!o.vendas.includes(idVenda)) o.vendas.push(idVenda);
+            });
+        });
+        return [...mapa.values()].sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+    }
+
+    /**
+     * Estorna uma operação de recebimento inteira, em todas as vendas em que ela foi distribuída.
+     * Altera as vendas só quando encontra a operação. Devolve { ok, motivo, vendas: [{vendaId, valor}], valor }.
+     */
+    function estornarRecebimento(vendas, operacao) {
+        const alteradas = [];
+        (vendas || []).forEach((v) => {
+            if (!ehFiado(v)) return;
+            const lista = recebimentos(v);
+            const daOperacao = lista.filter((r) => operacaoDe(r.id) === operacao);
+            if (daOperacao.length === 0) return;
+            alteradas.push({ vendaId: v.id || v.ID, valor: recebido({ recebimentos: daOperacao }) });
+            v.recebimentos = lista.filter((r) => operacaoDe(r.id) !== operacao);
+        });
+        if (alteradas.length === 0) return { ok: false, motivo: 'Recebimento não encontrado.' };
+        return { ok: true, vendas: alteradas, valor: r2(alteradas.reduce((acc, a) => acc + a.valor, 0)) };
+    }
+
     /**
      * Regras da edição de uma venda fiado:
      * - venda com recebimentos continua fiado;
@@ -132,7 +176,8 @@
     const API = {
         CONSUMIDOR_FINAL, FORMAS_RECEBIMENTO, NOMES_FORMA,
         ehFiado, recebimentos, recebido, saldoAberto, emAberto, saldoCliente, saldosPorCliente,
-        validarVendaFiado, distribuir, registrarRecebimento, validarEdicao
+        validarVendaFiado, distribuir, registrarRecebimento, validarEdicao,
+        operacaoDe, operacoes, estornarRecebimento
     };
 
     raiz.Fiado = API;

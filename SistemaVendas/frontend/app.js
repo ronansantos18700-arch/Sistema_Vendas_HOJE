@@ -4769,16 +4769,63 @@ const app = {
             return;
         }
         this.state.fiadoCliente = c.name;
-        document.getElementById('fiado-titulo').textContent = `Receber fiado · ${c.name}`;
-        document.getElementById('fiado-saldo').textContent = this.formatCurrency(saldo);
-        document.getElementById('fiado-lista').innerHTML = Fiado.emAberto(this.state.sales, c.name).map(v => {
-            const data = new Date(v.date).toLocaleDateString('pt-BR');
-            return `<div class="fiado-linha"><span>${data} · venda #${this.esc(String(v.id || v.ID).slice(-6))}</span><strong>${this.formatCurrency(Fiado.saldoAberto(v))}</strong></div>`;
-        }).join('');
         document.getElementById('fiado-valor').value = saldo.toFixed(2);
         document.getElementById('fiado-forma').value = 'dinheiro';
         document.getElementById('fiado-erro').classList.add('hidden');
+        this.atualizarModalFiado();
         this.openModal('fiado');
+    },
+
+    /** Preenche o modal de Fiado com o estado atual do cliente (saldo, vendas em aberto e recebimentos). */
+    atualizarModalFiado() {
+        const nome = this.state.fiadoCliente;
+        if (!nome) return;
+        const saldo = Fiado.saldoCliente(this.state.sales, nome);
+        document.getElementById('fiado-titulo').textContent = `Receber fiado · ${nome}`;
+        document.getElementById('fiado-saldo').textContent = this.formatCurrency(saldo);
+        document.getElementById('fiado-lista').innerHTML = Fiado.emAberto(this.state.sales, nome).map(v => {
+            const data = new Date(v.date).toLocaleDateString('pt-BR');
+            return `<div class="fiado-linha"><span>${data} · venda #${this.esc(String(v.id || v.ID).slice(-6))}</span><strong>${this.formatCurrency(Fiado.saldoAberto(v))}</strong></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhuma venda em aberto.</span></div>';
+
+        const admin = this.state.currentUser?.role === 'admin';
+        const operacoes = Fiado.operacoes(this.state.sales, nome);
+        document.getElementById('fiado-recebidos').innerHTML = operacoes.map(o => {
+            const data = new Date(o.date).toLocaleDateString('pt-BR');
+            const forma = Fiado.NOMES_FORMA[o.forma] || o.forma;
+            const estornar = admin
+                ? `<button type="button" class="btn-fiado-estornar" onclick="app.estornarRecebimentoFiado('${this.esc(o.operacao)}')">Estornar</button>`
+                : '';
+            return `<div class="fiado-linha"><span>${data} · ${this.esc(forma)}</span><span><strong>${this.formatCurrency(o.valor)}</strong>${estornar}</span></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhum recebimento ainda.</span></div>';
+    },
+
+    /** Estorna uma operação de recebimento inteira (administrador). Pede confirmação antes. */
+    estornarRecebimentoFiado(operacao) {
+        if (this.requirePasswordChange()) return;
+        if (!this.requireAdmin('estornar recebimento de fiado')) return;
+        const nome = this.state.fiadoCliente;
+        this.confirmAction(
+            'Estornar recebimento',
+            'O valor volta para o saldo em aberto das vendas em que foi recebido. Deseja continuar?',
+            async () => {
+                const resultado = Fiado.estornarRecebimento(this.state.sales, operacao);
+                if (!resultado.ok) {
+                    this.showNotification('error', resultado.motivo);
+                    return;
+                }
+                this.logAudit('FIADO_ESTORNO', { cliente: nome, operacao: operacao, valor: resultado.valor, vendas: resultado.vendas });
+                await this.salvarDados();
+                this.showNotification('success', `Recebimento de ${this.formatCurrency(resultado.valor)} estornado.`);
+                this.atualizarModalFiado();
+                this.renderCustomers();
+                this.renderHistory();
+                this.updateDashboardStats();
+                // O confirm fecha os demais modais; reabre o recebimento depois da gravação.
+                this.openModal('fiado');
+            },
+            'trash-2'
+        );
     },
 
     async confirmarRecebimentoFiado() {

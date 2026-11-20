@@ -71,7 +71,7 @@ function criarAmbiente({ customers, sales, cart, pagamento = 'fiado', cliente = 
   app.salvos = 0;
   app.salvarDados = async () => { app.salvos++; return true; };
   app.confirmacoes = 0;
-  app.confirmAction = () => { app.confirmacoes++; };
+  app.confirmAction = (titulo, msg, cb) => { app.confirmacoes++; app.ultimaConfirmacao = cb; };
   ctx.document.getElementById('pos-payment').value = pagamento;
   ctx.document.getElementById('pos-customer').value = cliente;
   return { app, ctx, elementos };
@@ -188,6 +188,37 @@ teste('edição: venda fiado sem recebimento oferece as formas e Fiado', () => {
   const pag = elementos['sale-edit-pagamento'].innerHTML;
   assert.ok(pag.includes('value="dinheiro"') && pag.includes('value="fiado"'));
   assert.strictEqual(elementos['sale-edit-pagamento'].value, 'fiado');
+});
+
+teste('estorno (admin): desfaz o recebimento, grava auditoria e reabre o modal', async () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00')];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  app.abrirRecebimentoFiado('C1');
+  elementos['fiado-valor'].value = '60';
+  await app.confirmarRecebimentoFiado();
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 40);
+  app.abrirRecebimentoFiado('C1');
+  assert.ok(elementos['fiado-recebidos'].innerHTML.includes('Estornar'), 'botão Estornar para admin');
+  const op = F.operacoes(app.state.sales, 'Ana')[0].operacao;
+  app.estornarRecebimentoFiado(op);
+  assert.strictEqual(app.confirmacoes, 1, 'pediu confirmação');
+  await app.ultimaConfirmacao();
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 100, 'saldo volta ao total');
+  assert.ok(app.auditoria.some((a) => a.acao === 'FIADO_ESTORNO' && a.detalhes.valor === 60));
+  assert.strictEqual(elementos['fiado-modal'].classList.contains('hidden'), false, 'modal reaberto após a confirmação');
+  assert.ok(elementos['fiado-recebidos'].innerHTML.includes('Nenhum recebimento ainda'));
+});
+
+teste('estorno (operador): não mostra o botão e não pede confirmação', async () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00', { recebimentos: [{ id: 'R500-1', date: '2026-11-10T11:00:00Z', valor: 30, forma: 'pix' }] })];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  app.state.currentUser = { role: 'operador', username: 'caixa' };
+  app.abrirRecebimentoFiado('C1');
+  assert.ok(!elementos['fiado-recebidos'].innerHTML.includes('Estornar'), 'sem botão Estornar');
+  app.estornarRecebimentoFiado('R500');
+  assert.strictEqual(app.confirmacoes, 0);
+  assert.ok(app.notificacoes.some((n) => n.tipo === 'error'));
+  assert.strictEqual(F.saldoCliente(app.state.sales, 'Ana'), 70, 'nada mudou');
 });
 
 (async () => {

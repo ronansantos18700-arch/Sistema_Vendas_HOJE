@@ -121,6 +121,47 @@ teste('edição: trocar para fiado exige cliente cadastrado', () => {
   assert.strictEqual(F.validarEdicao(v, 100, 'pix', 'Consumidor Final').ok, true, 'outra forma não depende de cliente');
 });
 
+teste('operações: recebimentos do mesmo clique são agrupados (mais recente primeiro)', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'Ana', 120, 'dinheiro', '2026-11-10T12:00:00Z', 'R100');
+  F.registrarRecebimento(vendas, 'Ana', 10, 'pix', '2026-11-11T12:00:00Z', 'R200');
+  const ops = F.operacoes(vendas, 'Ana');
+  assert.deepStrictEqual(ops.map((o) => o.operacao), ['R200', 'R100']);
+  assert.strictEqual(ops[1].valor, 120);
+  assert.deepStrictEqual(ops[1].vendas, ['V1', 'V2']);
+  assert.strictEqual(ops[0].forma, 'pix');
+});
+
+teste('estorno: desfaz a operação inteira, em todas as vendas em que foi distribuída', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'Ana', 120, 'dinheiro', '2026-11-10T12:00:00Z', 'R100');
+  F.registrarRecebimento(vendas, 'Ana', 10, 'pix', '2026-11-11T12:00:00Z', 'R200');
+  const r = F.estornarRecebimento(vendas, 'R100');
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.valor, 120);
+  assert.strictEqual(F.saldoCliente(vendas, 'Ana'), 140, 'saldo volta (150 - 10 do R200)');
+  // R200 tinha ido para V2 (V1 já estava quitada pelo R100). Depois do estorno, V1 volta a 100 e V2 fica com 40.
+  assert.strictEqual(F.saldoAberto(vendas[0]), 100, 'V1 volta ao saldo cheio');
+  assert.strictEqual(F.saldoAberto(vendas[1]), 40, 'V2 mantém só o R200 de 10');
+  assert.ok(vendas[1].recebimentos.every((x) => x.id.startsWith('R200')));
+});
+
+teste('estorno: operação inexistente não altera nada', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'Ana', 10, 'pix', '2026-11-10', 'R300');
+  const antes = JSON.stringify(vendas);
+  const r = F.estornarRecebimento(vendas, 'R999');
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(JSON.stringify(vendas), antes);
+});
+
+teste('estorno: depois de estornar, a venda pode ser excluída (sem recebimentos)', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'Ana', 10, 'pix', '2026-11-10', 'R400');
+  F.estornarRecebimento(vendas, 'R400');
+  assert.strictEqual(F.recebido(vendas[0]), 0);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

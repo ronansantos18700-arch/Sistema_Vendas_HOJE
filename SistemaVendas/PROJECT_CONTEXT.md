@@ -285,7 +285,8 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Histórico de vendas mostra "Fiado · em aberto R$ x" ou "Fiado · quitado".
 - Venda com recebimento não pode ser excluída, continua fiado na edição e não pode trocar de cliente.
 - Relatórios: em "Recebimentos por forma", fiado conta só o que foi recebido, pela forma da baixa. O saldo em aberto aparece em linha à parte, fora do total.
-- Limitação: o recebimento é contado nas vendas do período (pela data da venda), não pela data da baixa. Não há estorno de recebimento na tela.
+- Estorno de recebimento (somente administrador): no modal de Receber, cada operação aparece em "Recebimentos registrados" e pode ser estornada inteira, em todas as vendas em que foi distribuída. Pede confirmação. Auditoria `FIADO_ESTORNO`. Depois de estornar, a venda pode ser excluída.
+- Limitação: o recebimento é contado nas vendas do período (pela data da venda), não pela data da baixa.
 - Lógica pura em `frontend/fiado.js` (`Fiado`). Testes: `tests/js/test_fiado.js`, `tests/js/test_fiado_app.js` e casos novos em `tests/js/test_relatorios.js`.
 - Não verificado visualmente: o sandbox não tem navegador. Conferir no Windows.
 
