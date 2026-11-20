@@ -311,6 +311,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Lógica em `Fiado.resumoCliente`, `Fiado.resumosPorCliente` e `Fiado.restanteAposRecebimento`.
 - Não verificado visualmente: o sandbox não tem navegador.
 
+### 2026-11-20 (fiado: extrato do cliente e situação no histórico)
+
+- Histórico de vendas: abaixo do valor final, venda fiado mostra "Falta R$ x" (em vermelho) ou "Quitado" (em verde). TOTAL, FINAL e LUCRO continuam sendo o valor da venda na data da venda (regra já aceita). A coluna PAGAMENTO também mostra a situação.
+- Lista de clientes: botão **Extrato** para qualquer cliente com fiado, inclusive quitado. **Receber** só aparece com saldo.
+- Modal Extrato: total a prazo, já pago e falta, e todos os movimentos em ordem de data: compra a prazo (+) e pagamento (-), com o saldo depois de cada um. O saldo final é igual ao que falta.
+- Pagamento parcial cai primeiro na venda mais antiga (regra do `registrarRecebimento`).
+- Lógica em `Fiado.extratoCliente`. Não verificado visualmente: o sandbox não tem navegador.
+
 ### 2026-11-20 (histórico de movimentações em Estoque)
 
 - Nova aba **Movimentações** dentro da tela Estoque (`#estoque-abas`). Só administrador vê a aba; para os demais ela some e a tela fica em Produtos (`sincronizarAbaEstoque`). É só leitura.

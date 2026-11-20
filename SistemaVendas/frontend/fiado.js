@@ -221,6 +221,34 @@
         return mapa;
     }
 
+    /**
+     * Extrato do cliente: compras a prazo e pagamentos em ordem de data, com o saldo depois de cada movimento.
+     * Pagamento = uma operação de recebimento (um clique em Receber), mesmo que tenha caído em mais de uma venda.
+     * O saldo final é igual ao que falta pagar.
+     */
+    function extratoCliente(vendas, clienteId) {
+        const resumo = resumoCliente(vendas, clienteId);
+        const porId = new Map((vendas || []).map((v) => [String(v.id || v.ID), v]));
+        const movimentos = [];
+        resumo.vendas.forEach((x) => {
+            const venda = porId.get(String(x.vendaId));
+            movimentos.push({
+                tipo: 'venda', date: x.date, vendaId: x.vendaId, valor: x.total,
+                itens: venda && Array.isArray(venda.items) ? venda.items.length : 0, ordem: 0
+            });
+        });
+        operacoes(vendas, clienteId).forEach((o) => {
+            movimentos.push({ tipo: 'pagamento', date: o.date, operacao: o.operacao, valor: o.valor, forma: o.forma, ordem: 1 });
+        });
+        movimentos.sort((a, b) => ((Date.parse(a.date) || 0) - (Date.parse(b.date) || 0)) || (a.ordem - b.ordem));
+        let saldo = 0;
+        movimentos.forEach((m) => {
+            saldo = r2(saldo + (m.tipo === 'venda' ? m.valor : -m.valor));
+            m.saldoApos = saldo;
+        });
+        return { totalPrazo: resumo.totalPrazo, pago: resumo.pago, falta: resumo.falta, movimentos: movimentos };
+    }
+
     /** Prévia do recebimento: quanto fica em aberto depois do valor digitado. Não grava nada. */
     function restanteAposRecebimento(saldo, valor) {
         const v = r2(valor);
@@ -294,7 +322,7 @@
         validarVendaFiado, distribuir, registrarRecebimento, validarEdicao,
         operacaoDe, operacoes, estornarRecebimento,
         clienteIdDe, camposFiado, vincularLegado, pendentesSemCliente, vincular, renomearCliente,
-        resumoCliente, resumosPorCliente, restanteAposRecebimento
+        resumoCliente, resumosPorCliente, restanteAposRecebimento, extratoCliente
     };
 
     raiz.Fiado = API;

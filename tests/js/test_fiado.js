@@ -277,6 +277,37 @@ teste('prévia do recebimento: quanto fica em aberto e recusa de valor inválido
   assert.strictEqual(F.restanteAposRecebimento(150, -1).ok, false);
 });
 
+teste('extrato: compras e pagamentos em ordem, com saldo depois de cada movimento', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'C1', 30, 'pix', '2026-11-03T12:00:00Z', 'R900');
+  const e = F.extratoCliente(vendas, 'C1');
+  assert.deepStrictEqual(e.movimentos.map((m) => m.tipo), ['venda', 'pagamento', 'venda']);
+  assert.deepStrictEqual(e.movimentos.map((m) => m.saldoApos), [100, 70, 120]);
+  assert.strictEqual(e.movimentos[1].forma, 'pix');
+  assert.strictEqual(e.movimentos[0].vendaId, 'V1');
+  assert.strictEqual(e.falta, 120);
+  assert.strictEqual(e.movimentos[e.movimentos.length - 1].saldoApos, e.falta, 'saldo final = falta');
+});
+
+teste('extrato: um pagamento que caiu em duas vendas aparece uma vez, com o valor total', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'C1', 120, 'dinheiro', '2026-11-10T12:00:00Z', 'R950');
+  const e = F.extratoCliente(vendas, 'C1');
+  const pagamentos = e.movimentos.filter((m) => m.tipo === 'pagamento');
+  assert.strictEqual(pagamentos.length, 1);
+  assert.strictEqual(pagamentos[0].valor, 120);
+  assert.strictEqual(e.movimentos[e.movimentos.length - 1].saldoApos, 30);
+});
+
+teste('extrato: cliente quitado continua com o histórico completo', () => {
+  const vendas = ana();
+  F.registrarRecebimento(vendas, 'C1', 150, 'cartao', '2026-11-10T12:00:00Z', 'R960');
+  const e = F.extratoCliente(vendas, 'C1');
+  assert.strictEqual(e.movimentos.length, 3, 'duas compras e um pagamento');
+  assert.strictEqual(e.falta, 0);
+  assert.strictEqual(e.movimentos[2].saldoApos, 0);
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

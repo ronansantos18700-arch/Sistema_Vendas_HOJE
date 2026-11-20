@@ -4245,6 +4245,17 @@ const app = {
     },
 
     // Texto da forma de pagamento para histórico e recibo
+    /** Situação do fiado logo abaixo do valor final da venda: falta pagar ou quitado. Venda à vista não mostra nada. */
+    statusFiadoVendaHtml(sale) {
+        if (!Fiado.ehFiado(sale)) return '';
+        const falta = Fiado.saldoAberto(sale);
+        const total = Number(sale.valor_final) || 0;
+        const titulo = `Pago ${this.formatCurrency(Fiado.recebido(sale))} de ${this.formatCurrency(total)}`;
+        return falta > 0
+            ? `<small class="fiado-status-aberto" style="display:block" title="${titulo}">Falta ${this.formatCurrency(falta)}</small>`
+            : `<small class="fiado-status-quitado" style="display:block" title="${titulo}">Quitado</small>`;
+    },
+
     rotuloPagamento(sale) {
         if (Array.isArray(sale.pagamentos) && sale.pagamentos.length) {
             const nomes = { dinheiro: 'Dinheiro', cartao: 'Cartão', pix: 'PIX' };
@@ -4767,6 +4778,9 @@ const app = {
             const receber = r && r.falta > 0
                 ? `<button type="button" class="btn-fiado-receber-lista" onclick="app.abrirRecebimentoFiado('${c.id}')">Receber</button>`
                 : '';
+            const extrato = r && r.totalPrazo > 0
+                ? `<button type="button" class="btn-fiado-extrato" onclick="app.abrirExtratoFiado('${c.id}')">Extrato</button>`
+                : '';
             return `
                 <div class="nested-item-labs-row">
                     <span class="col-id" data-label="ID">#${c.id.toString().slice(-4)}</span>
@@ -4777,6 +4791,7 @@ const app = {
                     <span class="col-obs" data-label="OBS/ENDEREÇO">${this.esc(c.obs) || 'Sem observação'}</span>
                     <div class="col-actions" data-label="AÇÕES">
                         ${receber}
+                        ${extrato}
                         <button class="btn-action-edit" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-3"></i></button>
                         <button class="btn-action-delete" onclick="app.deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
                     </div>
@@ -4837,6 +4852,36 @@ const app = {
         }).join('') || '<div class="fiado-linha"><span>Nenhum pagamento recebido ainda.</span></div>';
 
         this.atualizarPreviaFiado();
+    },
+
+    /** Abre o extrato do cliente: todas as compras a prazo e pagamentos, mesmo depois de quitado. */
+    abrirExtratoFiado(customerId) {
+        const c = this.clientePorId(customerId);
+        if (!c) return;
+        this.state.extratoClienteId = String(c.id);
+        this.atualizarExtratoFiado();
+        this.openModal('extrato');
+    },
+
+    atualizarExtratoFiado() {
+        const c = this.clientePorId(this.state.extratoClienteId);
+        if (!c) return;
+        const e = Fiado.extratoCliente(this.state.sales, c.id);
+        const m = (v) => this.formatCurrency(v);
+        document.getElementById('extrato-titulo').textContent = `Extrato · ${c.name}`;
+        document.getElementById('extrato-total').textContent = m(e.totalPrazo);
+        document.getElementById('extrato-pago').textContent = m(e.pago);
+        document.getElementById('extrato-falta').textContent = m(e.falta);
+        document.getElementById('extrato-lista').innerHTML = e.movimentos.map(x => {
+            const data = new Date(x.date).toLocaleDateString('pt-BR');
+            if (x.tipo === 'venda') {
+                const itens = x.itens ? ` · ${x.itens} ${x.itens === 1 ? 'produto' : 'produtos'}` : '';
+                return `<div class="extrato-linha extrato-venda"><span class="extrato-data">${data}</span><span class="extrato-desc">Compra a prazo · venda #${this.esc(String(x.vendaId).slice(-6))}${itens}</span><span class="extrato-valor">+ ${m(x.valor)}</span><span class="extrato-saldo">Saldo ${m(x.saldoApos)}</span></div>`;
+            }
+            const forma = Fiado.NOMES_FORMA[x.forma] || x.forma;
+            return `<div class="extrato-linha extrato-pagamento"><span class="extrato-data">${data}</span><span class="extrato-desc">Pagamento · ${this.esc(forma)}</span><span class="extrato-valor">- ${m(x.valor)}</span><span class="extrato-saldo">Saldo ${m(x.saldoApos)}</span></div>`;
+        }).join('') || '<div class="fiado-linha"><span>Nenhuma compra a prazo ainda.</span></div>';
+        document.getElementById('extrato-receber').classList.toggle('hidden', e.falta <= 0);
     },
 
     /** Enquanto digita o valor, mostra quanto fica em aberto depois do recebimento. Não grava nada. */
@@ -5044,7 +5089,7 @@ const app = {
                     <span class="col-name" data-label="CLIENTE">${this.esc(cliente)}</span>
                     <span class="col-subtotal" data-label="TOTAL">${this.formatCurrency(subtotal)}</span>
                     <span class="col-discount" data-label="DESC.">${this.formatCurrency(desconto)}</span>
-                    <span class="col-total-final" data-label="FINAL">${this.formatCurrency(totalFinal)}</span>
+                    <span class="col-total-final" data-label="FINAL">${this.formatCurrency(totalFinal)}${this.statusFiadoVendaHtml(s)}</span>
                     <span class="col-cost" data-label="CUSTO">${this.formatCurrency(custo)}</span>
                     <span class="col-profit" data-label="LUCRO">${this.formatCurrency(lucro)}</span>
                     <div class="col-items-action" data-label="ITENS">
@@ -5618,6 +5663,9 @@ const app = {
 
         const fiadoModal = document.getElementById('fiado-modal');
         if (fiadoModal) fiadoModal.classList.toggle('hidden', type !== 'fiado');
+
+        const extratoModal = document.getElementById('extrato-modal');
+        if (extratoModal) extratoModal.classList.toggle('hidden', type !== 'extrato');
 
         this.initLucide();
 

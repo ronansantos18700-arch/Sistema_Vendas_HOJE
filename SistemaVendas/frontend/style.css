@@ -6106,8 +6106,21 @@ i.bx {
 @media (min-width: 1024px) {
     #customers-list-labs .list-header-labs,
     #customers-list-labs .nested-item-labs-row {
-        grid-template-columns: 70px minmax(150px, 1.3fr) minmax(130px, 1.1fr) 1fr 1fr 1.2fr 160px !important;
+        grid-template-columns: 70px minmax(150px, 1.3fr) minmax(130px, 1.1fr) 1fr 1fr 1.2fr 250px !important;
         gap: 0.75rem !important;
     }
 }
+
+/* Extrato do cliente e situação do fiado no histórico de vendas */
+.btn-fiado-extrato { border: 1px solid var(--glass-border); background: #ffffff; color: #2f56c9; border-radius: 8px; padding: 0.35rem 0.7rem; font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-fiado-extrato:hover { border-color: var(--accent); }
+.extrato-lista { margin-top: 0.6rem; display: flex; flex-direction: column; max-height: 320px; overflow: auto; }
+.extrato-linha { display: grid; grid-template-columns: 90px 1fr 110px 130px; gap: 0.6rem; align-items: center; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--glass-border); font-size: 0.8rem; color: var(--text-dim); }
+.extrato-desc { color: var(--text-white); }
+.extrato-valor { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.extrato-saldo { text-align: right; font-variant-numeric: tabular-nums; }
+.extrato-venda .extrato-valor { color: #a2473c; }
+.extrato-pagamento .extrato-valor { color: #2b7a5b; }
+.fiado-status-aberto { color: #a2473c; font-weight: 600; font-size: 0.72rem; }
+.fiado-status-quitado { color: #2b7a5b; font-weight: 600; font-size: 0.72rem; }
 

@@ -356,6 +356,48 @@ teste('prévia: mostra o que fica em aberto enquanto digita, e recusa valor acim
   assert.strictEqual(app.salvos, 0, 'a prévia não grava nada');
 });
 
+teste('clientes: cliente quitado continua com botão Extrato (sem Receber)', () => {
+  const sales = [venda('V1', 'Beto', 50, '2026-11-11T10:00:00', { recebimentos: [{ id: 'R1-1', date: '2026-11-12T10:00:00Z', valor: 50, forma: 'pix' }] })];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  app.renderCustomers();
+  const html = elementos['customers-items-container'].innerHTML;
+  assert.ok(html.includes("app.abrirExtratoFiado('C2')"), 'botão Extrato para quitado');
+  assert.ok(!html.includes("app.abrirRecebimentoFiado('C2')"), 'sem Receber quando não deve');
+});
+
+teste('extrato: mostra compras, pagamentos e saldo corrente', () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00'), venda('V2', 'Ana', 50, '2026-11-11T10:00:00')];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  F.registrarRecebimento(app.state.sales, 'C1', 30, 'pix', '2026-11-10T12:00:00Z', 'R810');
+  app.abrirExtratoFiado('C1');
+  const lista = txt(elementos['extrato-lista'].innerHTML);
+  assert.ok(lista.includes('Compra a prazo · venda #V1'));
+  assert.ok(lista.includes('Pagamento · PIX'));
+  assert.ok(lista.includes('Saldo R$ 70,00'), 'saldo depois do pagamento');
+  assert.ok(lista.includes('Saldo R$ 120,00'), 'saldo depois da segunda compra');
+  assert.strictEqual(txt(elementos['extrato-falta'].textContent), 'R$ 120,00');
+  assert.strictEqual(elementos['extrato-modal'].classList.contains('hidden'), false, 'modal aberto');
+  assert.strictEqual(elementos['extrato-receber'].classList.contains('hidden'), false, 'Receber visível com saldo');
+});
+
+teste('extrato: cliente quitado esconde Receber e mostra o histórico', () => {
+  const sales = [venda('V1', 'Ana', 100, '2026-11-10T10:00:00')];
+  const { app, elementos } = criarAmbiente({ customers: clientes(), sales });
+  F.registrarRecebimento(app.state.sales, 'C1', 100, 'dinheiro', '2026-11-10T12:00:00Z', 'R820');
+  app.abrirExtratoFiado('C1');
+  assert.strictEqual(elementos['extrato-receber'].classList.contains('hidden'), true);
+  assert.ok(txt(elementos['extrato-lista'].innerHTML).includes('Pagamento · Dinheiro'));
+});
+
+teste('histórico de vendas: fiado mostra falta ou quitado abaixo do valor final', () => {
+  const { app } = criarAmbiente({ customers: clientes(), sales: [] });
+  const aberto = venda('V1', 'Ana', 100, '2026-11-10', { recebimentos: [{ valor: 30 }] });
+  assert.ok(txt(app.statusFiadoVendaHtml(aberto)).includes('Falta R$ 70,00'));
+  const quitado = venda('V2', 'Ana', 100, '2026-11-10', { recebimentos: [{ valor: 100 }] });
+  assert.ok(app.statusFiadoVendaHtml(quitado).includes('Quitado'));
+  assert.strictEqual(app.statusFiadoVendaHtml({ id: 'V3', pagamento: 'pix', valor_final: 10 }), '', 'venda à vista não mostra nada');
+});
+
 (async () => {
   let falhas = 0;
   for (const [nome, fn] of testes) {

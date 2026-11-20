@@ -1292,6 +1292,27 @@
                 </div>
             </div>
 
+            <!-- Modal Extrato do cliente (fiado) -->
+            <div id="extrato-modal" class="modal hidden" style="max-width: 720px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 id="extrato-titulo" style="margin: 0;">Extrato</h3>
+                    <button class="btn-action-delete" onclick="app.closeModal()" title="Fechar">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="fiado-totais">
+                    <div class="fiado-total-card"><span>Total a prazo</span><strong id="extrato-total">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-pago"><span>Já pago</span><strong id="extrato-pago">R$ 0,00</strong></div>
+                    <div class="fiado-total-card fiado-card-falta"><span>Falta pagar</span><strong id="extrato-falta">R$ 0,00</strong></div>
+                </div>
+                <div class="fiado-subtitulo">Movimentos (do mais antigo ao mais recente)</div>
+                <div id="extrato-lista" class="extrato-lista"></div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button class="btn-cancel-labs" onclick="app.closeModal()" style="flex: 1;">Fechar</button>
+                    <button class="btn-save-labs" id="extrato-receber" onclick="app.abrirRecebimentoFiado(app.state.extratoClienteId)" style="flex: 1;">Receber</button>
+                </div>
+            </div>
+
             <!-- Modal Nova Entrada -->
             <div id="entrada-modal" class="modal glass hidden" style="max-width: 800px; height: 90vh; max-height: 90vh; display: flex; flex-direction: column;">
                 <h3 style="margin-bottom: 1rem; flex-shrink: 0;">Registrar Entrada de Estoque</h3>
