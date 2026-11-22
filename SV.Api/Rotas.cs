@@ -264,11 +264,6 @@ namespace SV.Api
                     Console.Error.WriteLine("[TESTE] Falha ao apagar todos os dados: " + ex);
                     return Erro(500, "Não foi possível apagar os dados: " + ex.Message);
                 }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine("Erro ao apagar os dados: " + ex);
-                    return Erro(500, "Erro ao apagar os dados.");
-                }
             });
 
             // --- Imagens: upload exige login; leitura é pública, mas os nomes são aleatórios (GUID) ---
