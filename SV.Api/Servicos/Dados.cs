@@ -315,6 +315,36 @@ namespace SV.Api.Servicos
         }
 
         /// <summary>Grava a imagem (base64) com nome aleatório. Retorna o nome do arquivo.</summary>
+        /// <summary>
+        /// Apaga todos os dados (produtos, vendas, clientes etc.), os usuários e as fotos.
+        /// Só é usado pela rota de teste (Ferramentas:ModoTeste). Depois recria o administrador
+        /// padrão, como a inicialização já faz quando não há usuários.
+        /// </summary>
+        public static void ExcluirTudo()
+        {
+            lock (_trava)
+            {
+                var vazio = new JObject();
+                foreach (string tipo in TiposPublicos)
+                {
+                    vazio[tipo] = new JArray();
+                }
+                vazio["users"] = new JArray();
+
+                if (!SistemaVendas.Database.ReplaceAll(vazio.ToString(Formatting.None)))
+                {
+                    throw new RegraNegocioException("Não foi possível apagar os dados.");
+                }
+
+                foreach (string arquivo in Directory.GetFiles(PastaImagens()))
+                {
+                    File.Delete(arquivo);
+                }
+
+                GarantirAdministrador();
+            }
+        }
+
         public static string SalvarImagem(string nomeOriginal, string base64)
         {
             string ext = Path.GetExtension(nomeOriginal ?? "").ToLowerInvariant();

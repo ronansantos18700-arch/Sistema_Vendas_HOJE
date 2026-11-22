@@ -13,6 +13,9 @@ const app = {
         // Tema escuro: desativado por enquanto. Com false, o sistema usa só o tema claro e os controles de tema ficam ocultos.
         // Para voltar, troque para true.
         temaEscuroAtivo: false,
+        // Ferramentas de teste (apagar todos os dados). Padrão false: o botão não aparece para o usuário final.
+        // Só ligue em versões de teste, junto com Ferramentas:ModoTeste no servidor.
+        ferramentasTeste: false,
         usuarioLocal: { id: 'local', fullname: 'Administrador', username: 'local', role: 'admin' },
         loginMaxAttempts: 5,
         loginLockoutMs: 30000,
@@ -437,6 +440,7 @@ const app = {
             document.body.classList.add('sem-login');
         }
         this.loadTheme();
+        this.configurarFerramentasTeste();
         this.loadLoginSecurityState();
         this.setupGlobalHandlers();
         this.setupBridge();
@@ -1693,6 +1697,71 @@ const app = {
             },
             'trash-2'
         );
+    },
+
+    // Ferramentas de teste: o bloco só aparece com config.ferramentasTeste = true.
+    configurarFerramentasTeste() {
+        const bloco = document.getElementById('ferramentas-teste');
+        if (bloco) bloco.classList.toggle('hidden', !this.config.ferramentasTeste);
+    },
+
+    // Apaga TODOS os dados (produtos, vendas, clientes, caixa, configurações, usuários e fotos).
+    // Duas confirmações. Só funciona com config.ferramentasTeste = true.
+    excluirTodosDadosTeste() {
+        if (!this.config.ferramentasTeste) return;
+        if (!this.requireAdmin('apagar todos os dados')) return;
+        this.confirmAction(
+            'Apagar TODOS os dados?',
+            'Produtos, clientes, vendas, entradas, caixa, configurações, usuários e fotos serão apagados. Não é possível desfazer.',
+            // O modal fecha depois do callback; a segunda confirmação precisa abrir depois disso.
+            () => setTimeout(() => this.confirmarExclusaoTotalTeste(), 0),
+            'alert-triangle'
+        );
+    },
+
+    confirmarExclusaoTotalTeste() {
+        this.confirmAction(
+            'Confirmar exclusão definitiva',
+            'Última confirmação. Depois disso o sistema volta ao usuário padrão admin / 1234.',
+            () => this.executarExclusaoTotalTeste(),
+            'alert-triangle'
+        );
+    },
+
+    async executarExclusaoTotalTeste() {
+        this.logAudit('EXCLUIR_TUDO_TESTE', {});
+        this.setLoading(true);
+        try {
+            if (this.emModoServidor()) {
+                await this.servidor.excluirTudo();
+            } else {
+                const bridge = window.chrome?.webview?.hostObjects?.bridge;
+                if (!bridge) throw new Error('Ponte do desktop indisponível.');
+                // Mesmo admin padrão do reset de usuários: admin / 1234.
+                const admin = {
+                    id: 'U' + Date.now(),
+                    fullname: 'Administrador Padrão',
+                    username: 'admin',
+                    password: await this.hashPassword('1234', 'admin'),
+                    role: 'admin',
+                    isDefaultCredential: true
+                };
+                const payload = {};
+                ['products', 'customers', 'sales', 'settings', 'reversals', 'entradas',
+                 'fechamentos', 'categories', 'movimentacoes', 'caixa'].forEach(t => { payload[t] = []; });
+                payload.users = [admin];
+                const ok = await bridge.SaveAll(JSON.stringify(payload));
+                if (!ok) throw new Error('O banco recusou a gravação.');
+            }
+            // Impede que a memória antiga seja gravada de volta antes de recarregar.
+            this.state.dataLoaded = false;
+            this.showNotification('success', 'Todos os dados foram apagados. Entre com admin / 1234.');
+            setTimeout(() => location.reload(), 1200);
+        } catch (e) {
+            this.showNotification('error', 'Não foi possível apagar os dados: ' + (e.message || e));
+        } finally {
+            this.setLoading(false);
+        }
     },
 
     async resetSystemUsers() {

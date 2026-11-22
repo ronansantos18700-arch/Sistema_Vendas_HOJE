@@ -435,3 +435,14 @@ Quando o `bridge` não está disponível (ou quando o tipo não é suportado por
 - Ao voltar o servidor, `servidorVoltou` só tenta gravar se a leitura já tiver dado certo; caso contrário, recarrega (sem isso, o app ficaria preso).
 - Teste: `tests/js/test_carregamento.js` (leitura que falha).
 
+
+### 2026-11-22 (ferramenta de teste: excluir todos os dados)
+- Local: Configurações > Ferramentas, bloco `#ferramentas-teste` (oculto por padrão).
+- Só aparece com `config.ferramentasTeste = true` em `app.js` (padrão `false`).
+- No servidor, a rota `POST /api/dados/excluir-tudo` só é mapeada com `Ferramentas:ModoTeste = true` (padrão `false` em `appsettings.json`). Sem a flag, a rota não existe (404).
+- Para ligar só numa versão de teste: `Ferramentas__ModoTeste=true` no ambiente do servidor (PowerShell: `$env:Ferramentas__ModoTeste="true"`), e `ferramentasTeste: true` no app de teste.
+- Exige administrador e a confirmação `APAGAR TUDO`. No app, são duas confirmações.
+- Apaga todas as tabelas (inclusive `users`) e as fotos da pasta `imagens` do servidor, encerra todas as sessões e recria o administrador padrão (`admin` / `1234`, mesma regra da inicialização do servidor).
+- Modo local (desktop sem servidor): grava todas as tabelas vazias, com o admin padrão, por `bridge.SaveAll`. As fotos da pasta `frontend\images` do desktop não são apagadas por esta ferramenta.
+- Depois de apagar, a página recarrega. O envio de dados fica bloqueado até a recarga (`state.dataLoaded = false`), para que a memória antiga não seja gravada de volta.
+- Testes: `tests/js/test_ferramentas_teste.js`. Sintaxe C# verificada com tree-sitter (o sandbox não tem `dotnet`); a compilação e o teste manual precisam ser feitos no Windows.

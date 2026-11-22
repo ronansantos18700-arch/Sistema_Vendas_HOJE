@@ -56,6 +56,15 @@ namespace SV.Api.Seguranca
             }
         }
 
+        /// <summary>Encerra todas as sessões (usado ao apagar os usuários).</summary>
+        public static void EncerrarTodas()
+        {
+            lock (_trava)
+            {
+                _sessoes.Clear();
+            }
+        }
+
         public static void Encerrar(string token)
         {
             if (string.IsNullOrEmpty(token)) return;

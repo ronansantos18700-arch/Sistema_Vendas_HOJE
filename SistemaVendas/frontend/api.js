@@ -201,6 +201,12 @@
             return true;
         }
 
+        // Ferramenta de teste: apaga todos os dados do servidor. A rota só existe com Ferramentas:ModoTeste ligado.
+        async excluirTudo() {
+            await this.requisitar('POST', '/api/dados/excluir-tudo', { corpo: { confirmacao: 'APAGAR TUDO' } });
+            return true;
+        }
+
         // Envia a imagem (base64 puro, sem "data:...,") e devolve a URL completa para usar em <img src>.
         async enviarImagem(nomeArquivo, conteudoBase64) {
             const texto = await this.requisitar('POST', '/api/imagens', {

@@ -235,6 +235,40 @@ namespace SV.Api
                 }
             });
 
+            // --- Ferramentas de teste: apagar todos os dados. Só existe com Ferramentas:ModoTeste = true ---
+            if (app.Configuration.GetValue<bool>("Ferramentas:ModoTeste"))
+            {
+                app.MapPost("/api/dados/excluir-tudo", async Task<IResult> (HttpRequest req) =>
+                {
+                    Sessao sessao = Autenticar(req);
+                    if (sessao == null) return Erro(401, "Sessão expirada. Entre novamente.");
+                    if (sessao.Papel != "admin") return Erro(403, "Somente administradores.");
+
+                    JObject corpo = await LerCorpo(req);
+                    if (corpo == null || (string)corpo["confirmacao"] != "APAGAR TUDO")
+                    {
+                        return Erro(400, "Confirmação inválida.");
+                    }
+
+                    try
+                    {
+                        Dados.ExcluirTudo();
+                        Sessoes.EncerrarTodas();
+                        Console.WriteLine("[TESTE] Todos os dados foram apagados por " + sessao.Usuario);
+                        return Results.Json(new { ok = true });
+                    }
+                    catch (RegraNegocioException ex)
+                    {
+                        return Erro(400, ex.Message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine("Erro ao apagar os dados: " + ex);
+                        return Erro(500, "Erro ao apagar os dados.");
+                    }
+                });
+            }
+
             // --- Imagens: upload exige login; leitura é pública, mas os nomes são aleatórios (GUID) ---
 
             app.MapPost("/api/imagens", async Task<IResult> (HttpRequest req) =>
