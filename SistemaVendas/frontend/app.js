@@ -984,9 +984,7 @@ const app = {
         // PDV: botão para sair do modo foco e mostrar o menu
         const btnPosFoco = document.getElementById('btn-pos-foco');
         if (btnPosFoco) {
-            btnPosFoco.addEventListener('click', () => {
-                document.querySelector('.app-container')?.classList.remove('pos-focus');
-            });
+            btnPosFoco.addEventListener('click', () => this.aplicarFocoPdv(null));
         }
 
         // Sidebar Toggle
@@ -1316,10 +1314,19 @@ const app = {
     },
 
     // PDV em modo foco: esconde menu lateral e barra superior ao entrar no PDV
+    // PDV em modo foco: esconde menu lateral e barra superior. Além da classe (CSS),
+    // define o display direto nos elementos, para o efeito não depender de cache do CSS.
     aplicarFocoPdv(viewId) {
         const container = document.querySelector('.app-container');
         if (!container) return;
-        container.classList.toggle('pos-focus', viewId === 'pos');
+        const foco = viewId === 'pos';
+        container.classList.toggle('pos-focus', foco);
+        const sidebar = container.querySelector('.sidebar');
+        const topo = container.querySelector('.top-header');
+        const botao = document.getElementById('btn-pos-foco');
+        if (sidebar) sidebar.style.display = foco ? 'none' : '';
+        if (topo) topo.style.display = foco ? 'none' : '';
+        if (botao) botao.style.display = foco ? 'inline-flex' : 'none';
     },
 
     initLucide() {
