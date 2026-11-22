@@ -4253,8 +4253,7 @@ textarea:focus-visible {
 
 #pos-view .pos-layout {
     display: grid;
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: minmax(0, 1fr) clamp(360px, 30vw, 440px);
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 26vw, 420px);
     gap: 1.25rem;
     flex: 1;
     min-height: 0;
@@ -4272,14 +4271,14 @@ textarea:focus-visible {
 #pos-view .pos-search {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    height: 42px;
-    padding: 0 0.9rem;
+    gap: 0.75rem;
+    height: 56px;
+    padding: 0 1.1rem;
     background: var(--input-bg);
     border: 1px solid var(--accent);
     border-radius: var(--radius-md);
 }
-#pos-view .pos-search i { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
+#pos-view .pos-search i { width: 22px; height: 22px; color: var(--accent); flex-shrink: 0; }
 #pos-view .pos-search input {
     flex: 1;
     min-width: 0;
@@ -4296,31 +4295,7 @@ textarea:focus-visible {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    flex: 1;
-    min-width: 0;
 }
-#pos-view .pos-chips-row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-#pos-view .pos-view-toggle { display: inline-flex; gap: 0.35rem; flex-shrink: 0; }
-#pos-view .pos-view-btn {
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: var(--glass-inner);
-    color: var(--text-dim);
-    cursor: pointer;
-    transition: border-color var(--dur-fast), color var(--dur-fast);
-}
-#pos-view .pos-view-btn i { width: 18px; height: 18px; }
-#pos-view .pos-view-btn:hover { border-color: var(--accent); color: var(--accent); }
-#pos-view .pos-view-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 #pos-view .pos-chip {
     height: 38px;
     padding: 0 1.1rem;
@@ -4345,14 +4320,10 @@ textarea:focus-visible {
     min-height: 0;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
     align-content: start;
     gap: 0.9rem;
     padding: 0.15rem 0.3rem 0.5rem 0.15rem;
-}
-/* PDV em telas estreitas: cards não ficam menores que 150px */
-@media (max-width: 900px) {
-    #pos-view .pos-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 #pos-view .pos-empty {
     grid-column: 1 / -1;
@@ -4385,7 +4356,7 @@ textarea:focus-visible {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: clamp(72px, 12vh, 104px); /* altura fixa: cards compactos */
+    aspect-ratio: 1 / 1; /* fotos são 1024x1024: quadro quadrado mostra o produto inteiro */
     width: 100%;
     overflow: hidden;
     border-radius: var(--radius-md);
@@ -4470,18 +4441,20 @@ textarea:focus-visible {
 }
 #pos-view .pos-cart-item {
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) auto auto auto;
-    grid-template-areas: "thumb info qty total remove";
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+        "thumb info total"
+        "thumb qty  remove";
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 0.55rem;
+    gap: 0.25rem 0.7rem;
+    padding: 0.6rem;
     background: var(--glass-inner);
     border-radius: var(--radius-md);
 }
 #pos-view .pos-ci-thumb {
     grid-area: thumb;
-    width: 40px;
-    height: 40px;
+    width: 52px;
+    height: 52px;
     border-radius: var(--radius-sm);
     overflow: hidden;
     display: flex;
@@ -4507,7 +4480,6 @@ textarea:focus-visible {
     font-size: var(--fs-base);
     font-weight: 600;
     text-align: right;
-    white-space: nowrap;
 }
 #pos-view .pos-ci-qty {
     grid-area: qty;
@@ -4595,14 +4567,7 @@ textarea:focus-visible {
     letter-spacing: -0.01em;
 }
 
-#pos-view .pos-pay {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.6rem 0.5rem;
-    align-items: start;
-}
-/* Valor pago e troco dividem a mesma linha; o resto ocupa a largura toda */
-#pos-view .pos-pay > *:not(#pos-paid-group):not(#pos-change-row) { grid-column: 1 / -1; }
+#pos-view .pos-pay { display: flex; flex-direction: column; gap: 0.6rem; }
 #pos-view .pos-pay-buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -4672,7 +4637,7 @@ textarea:focus-visible {
 /* Telas menores: cards e carrinho se ajustam sem cortar */
 @media (max-height: 820px) {
     #pos-view .pos-total-row strong { font-size: 1.75rem; }
-    #pos-view .pos-finish-btn { height: 42px; }
+    #pos-view .pos-finish-btn { height: 52px; }
 }
 
 /* PDV: campo de valor pago com o tema escuro (sem fundo branco do navegador) */
@@ -4689,23 +4654,17 @@ textarea:focus-visible {
 
 /* PDV em telas com pouca altura (1366x768): o carrinho continua visível */
 @media (max-height: 820px) {
-    #pos-view .pos-cart { gap: 0.45rem; padding: 0.7rem; }
-    #pos-view .pos-customer { gap: 0.25rem; }
-    #pos-view .pos-customer select { height: 32px; }
-    #pos-view .pos-items { min-height: 110px; gap: 0.3rem; }
-    #pos-view .pos-cart-item { padding: 0.3rem 0.4rem; gap: 0.4rem; }
-    #pos-view .pos-ci-thumb { width: 32px; height: 32px; font-size: var(--fs-base); }
-    #pos-view .pos-ci-qty button { width: 24px; height: 24px; }
-    #pos-view .pos-ci-remove { width: 24px; height: 24px; }
-    #pos-view .pos-totals { gap: 0.25rem; padding-top: 0.45rem; }
-    #pos-view .pos-total-divider { margin: 0.15rem 0 0.05rem; }
-    #pos-view .pos-total-row strong { font-size: 1.5rem; }
-    #pos-view .pos-line input { height: 28px; }
-    #pos-view .pos-pay { gap: 0.35rem 0.5rem; }
-    #pos-view .pos-pay-btn { height: 36px; }
-    #pos-view .pos-split-toggle { padding: 0; }
-    #pos-view .pos-paid-group input { height: 36px; }
-    #pos-view .pos-change-row { padding: 0.35rem 0.6rem; }
+    #pos-view .pos-cart { gap: 0.6rem; padding: 0.85rem; }
+    #pos-view .pos-customer select { height: 38px; }
+    #pos-view .pos-items { min-height: 110px; }
+    #pos-view .pos-cart-item { padding: 0.45rem; grid-template-columns: 44px minmax(0, 1fr) auto; }
+    #pos-view .pos-ci-thumb { width: 44px; height: 44px; }
+    #pos-view .pos-totals { gap: 0.35rem; padding-top: 0.6rem; }
+    #pos-view .pos-line input { height: 32px; }
+    #pos-view .pos-pay { gap: 0.4rem; }
+    #pos-view .pos-pay-btn { height: 40px; }
+    #pos-view .pos-paid-group input { height: 38px; }
+    #pos-view .pos-change-row { padding: 0.45rem 0.75rem; }
 }
 
 /* PDV: a foto preenche o quadro inteiro, centralizada (object-fit: cover).
@@ -4865,7 +4824,6 @@ textarea:focus-visible {
 /* PDV: pagamento dividido */
 #pos-view .pos-split-toggle {
     align-self: flex-start;
-    justify-self: start;
     background: transparent;
     border: none;
     padding: 0.2rem 0;
@@ -6170,108 +6128,3 @@ i.bx {
 /* Fiado: atraso e prazo */
 .fiado-atraso { color: #a2473c; font-weight: 600; }
 #customers-list-labs .col-fiado .fiado-atraso { display: block; font-size: 0.72rem; }
-
-/* PDV em modo foco: sem menu lateral e sem barra superior, para dar espaço ao carrinho */
-.btn-pos-foco {
-    display: none;
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 1100;
-    width: 38px;
-    height: 38px;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: var(--glass-card);
-    color: var(--text-white);
-    cursor: pointer;
-    transition: border-color var(--dur-fast), color var(--dur-fast);
-}
-.btn-pos-foco:hover { border-color: var(--accent); color: var(--accent); }
-.btn-pos-foco i { width: 18px; height: 18px; }
-
-.app-container.pos-focus .btn-pos-foco { display: inline-flex; }
-.app-container.pos-focus .sidebar { display: none; }
-.app-container.pos-focus .top-header { display: none; }
-.app-container.pos-focus .pos-view.active {
-    height: 100vh !important;
-    max-height: 100vh !important;
-    padding: 0.75rem 0.75rem 0.75rem 3.4rem; /* folga para o botão de menu */
-}
-.app-container.pos-focus .main-content { padding: 0; }
-.app-container.pos-focus .view-container { padding: 0; }
-.app-container.pos-focus #pos-view .pos-layout {
-    grid-template-columns: minmax(0, 1fr) clamp(380px, 32vw, 480px);
-    gap: 0.9rem;
-}
-
-/* PDV: modo lista (imagem, nome, código, estoque, preço) */
-#pos-view .pos-grid.pos-grid-lista {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.4rem;
-    padding: 0.1rem 0.3rem 0.5rem 0.1rem;
-}
-#pos-view .pos-row {
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto auto 30px;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    min-height: 60px;
-    padding: 0.4rem 0.7rem;
-    background: var(--glass-card);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    color: var(--text-white);
-    text-align: left;
-    cursor: pointer;
-    transition: border-color var(--dur-fast), background var(--dur-fast);
-}
-#pos-view .pos-row:hover:not(:disabled) { border-color: var(--accent); }
-#pos-view .pos-row:disabled { opacity: 0.45; cursor: not-allowed; }
-#pos-view .pos-row-img {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    background: var(--glass-inner);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-#pos-view .pos-row-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-#pos-view .pos-row-letter { color: var(--accent); font-size: var(--fs-lg); font-weight: 600; }
-#pos-view .pos-row-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-#pos-view .pos-row-name {
-    font-size: var(--fs-base);
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-#pos-view .pos-row-meta { font-size: var(--fs-xs); color: var(--text-dim); }
-#pos-view .pos-row-stock { font-size: var(--fs-sm); color: var(--text-dim); white-space: nowrap; min-width: 72px; text-align: right; }
-#pos-view .pos-row.is-out .pos-row-stock { color: var(--color-danger); }
-#pos-view .pos-row-price {
-    font-size: var(--fs-base);
-    font-weight: 600;
-    color: var(--accent);
-    white-space: nowrap;
-    min-width: 96px;
-    text-align: right;
-}
-#pos-view .pos-row-add {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(var(--accent-rgb), 0.15);
-    color: var(--accent);
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-#pos-view .pos-row:hover:not(:disabled) .pos-row-add { background: var(--accent); color: var(--on-accent); }
