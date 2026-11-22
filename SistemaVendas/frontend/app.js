@@ -13,9 +13,6 @@ const app = {
         // Tema escuro: desativado por enquanto. Com false, o sistema usa só o tema claro e os controles de tema ficam ocultos.
         // Para voltar, troque para true.
         temaEscuroAtivo: false,
-        // Ferramentas de teste (apagar todos os dados). Padrão false: o botão não aparece para o usuário final.
-        // Só ligue em versões de teste, junto com Ferramentas:ModoTeste no servidor.
-        ferramentasTeste: false,
         usuarioLocal: { id: 'local', fullname: 'Administrador', username: 'local', role: 'admin' },
         loginMaxAttempts: 5,
         loginLockoutMs: 30000,
@@ -440,7 +437,6 @@ const app = {
             document.body.classList.add('sem-login');
         }
         this.loadTheme();
-        this.configurarFerramentasTeste();
         this.loadLoginSecurityState();
         this.setupGlobalHandlers();
         this.setupBridge();
@@ -1699,16 +1695,9 @@ const app = {
         );
     },
 
-    // Ferramentas de teste: o bloco só aparece com config.ferramentasTeste = true.
-    configurarFerramentasTeste() {
-        const bloco = document.getElementById('ferramentas-teste');
-        if (bloco) bloco.classList.toggle('hidden', !this.config.ferramentasTeste);
-    },
-
     // Apaga TODOS os dados (produtos, vendas, clientes, caixa, configurações, usuários e fotos).
-    // Duas confirmações. Só funciona com config.ferramentasTeste = true.
+    // Duas confirmações. A ação exige administrador (verificado também no servidor).
     excluirTodosDadosTeste() {
-        if (!this.config.ferramentasTeste) return;
         if (!this.requireAdmin('apagar todos os dados')) return;
         this.confirmAction(
             'Apagar TODOS os dados?',
