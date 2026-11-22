@@ -2458,6 +2458,28 @@ const app = {
         const st = backupData.state;
         const media = backupData.media || {};
 
+        // Modo servidor: as fotos do backup sobem para o servidor e os produtos/clientes passam a
+        // guardar a URL devolvida. Feito ANTES de qualquer alteração: se uma foto falhar, nada muda.
+        let fotosNoServidor = null;
+        if (this.emModoServidor() && Object.keys(media).length > 0) {
+            this.setLoading(true);
+            try {
+                fotosNoServidor = {};
+                for (const [caminho, base64] of Object.entries(media)) {
+                    fotosNoServidor[caminho] = await this.servidor.enviarImagem(caminho.split('/').pop(), base64);
+                }
+            } catch (err) {
+                this.showNotification('error', 'Restauração cancelada: não foi possível enviar as fotos (' + err.message + '). Nada foi alterado.');
+                return;
+            } finally {
+                this.setLoading(false);
+            }
+        }
+        const comFotoDoServidor = (item) => {
+            if (fotosNoServidor && item && fotosNoServidor[item.image]) item.image = fotosNoServidor[item.image];
+            return item;
+        };
+
         // Referências atuais: se a gravação falhar, o estado volta exatamente como estava.
         const anterior = {
             products: this.state.products,
@@ -2472,8 +2494,8 @@ const app = {
 
         this.setLoading(true);
         try {
-            this.state.products = st.products;
-            this.state.customers = st.customers;
+            this.state.products = st.products.map(p => comFotoDoServidor({ ...p }));
+            this.state.customers = st.customers.map(c => comFotoDoServidor({ ...c }));
             this.state.sales = st.sales;
             this.state.reversals = st.reversals || [];
             this.state.entradas = st.entradas || [];
