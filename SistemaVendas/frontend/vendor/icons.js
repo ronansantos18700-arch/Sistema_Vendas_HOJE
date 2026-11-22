@@ -63,7 +63,10 @@
     'bar-chart': 'bx-bar-chart-alt-2',
     'pie-chart': 'bx-pie-chart-alt-2',
     'calendar': 'bx-calendar',
-    'check-square': 'bx-check-square'
+    'check-square': 'bx-check-square',
+    'list': 'bx-list-ul',
+    'maximize-2': 'bx-fullscreen',
+    'minimize-2': 'bx-exit-fullscreen'
     };
     var FALLBACK = 'bx-square-rounded';
 

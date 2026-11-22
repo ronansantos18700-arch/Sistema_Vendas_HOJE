@@ -1041,6 +1041,23 @@ const app = {
             barcodeInput.addEventListener('input', () => this.renderPosCatalog());
         }
 
+        const btnFoco = document.getElementById('btn-pos-foco');
+        if (btnFoco) btnFoco.addEventListener('click', () => this.setFocoTotal(!this.state.posFocoTotal));
+        document.querySelectorAll('.pos-view-toggle [data-modo]').forEach(btn => {
+            btn.addEventListener('click', () => this.setPosVisual(btn.dataset.modo));
+        });
+        const gradeProdutos = document.getElementById('pos-product-grid');
+        if (gradeProdutos) {
+            gradeProdutos.addEventListener('click', (e) => {
+                const botao = e.target.closest('.pos-row-btn');
+                if (!botao || botao.disabled) return;
+                const id = botao.dataset.id;
+                if (Number(botao.dataset.act) > 0) this.addToCart(id, 1);
+                else this.changeCartQty(id, -1);
+                this.renderPosCatalog();
+            });
+        }
+
         const chips = document.getElementById('pos-chips');
         if (chips) {
             chips.onclick = (e) => {
@@ -1307,6 +1324,34 @@ const app = {
         // Data e vendas do dia foram removidas do topbar
     },
 
+    // PDV: modo de foco total (oculta menu lateral e barra superior; a área do PDV expande)
+    setFocoTotal(ativo) {
+        this.state.posFocoTotal = !!ativo;
+        document.querySelector('.app-container')?.classList.toggle('pos-focus-total', this.state.posFocoTotal);
+        const sidebar = document.querySelector('.sidebar');
+        const topo = document.querySelector('.top-header');
+        if (sidebar) sidebar.style.display = ativo ? 'none' : '';
+        if (topo) topo.style.display = ativo ? 'none' : '';
+        const botao = document.getElementById('btn-pos-foco');
+        if (botao) {
+            botao.classList.toggle('active', this.state.posFocoTotal);
+            botao.setAttribute('aria-pressed', this.state.posFocoTotal ? 'true' : 'false');
+            botao.title = this.state.posFocoTotal ? 'Sair do modo de foco total' : 'Modo de foco total';
+            botao.innerHTML = `<i data-lucide="${this.state.posFocoTotal ? 'minimize-2' : 'maximize-2'}"></i>`;
+            this.initLucide();
+        }
+    },
+
+    // PDV: lista ou cards (preferência salva no navegador; padrão: cards)
+    getPosVisual() {
+        return localStorage.getItem('sv_pos_visual') === 'lista' ? 'lista' : 'cards';
+    },
+
+    setPosVisual(modo) {
+        localStorage.setItem('sv_pos_visual', modo === 'lista' ? 'lista' : 'cards');
+        this.renderPosCatalog();
+    },
+
     initLucide() {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({
@@ -1329,6 +1374,7 @@ const app = {
         }
 
         this.state.currentView = viewId;
+        if (viewId !== 'pos' && this.state.posFocoTotal) this.setFocoTotal(false);
 
         // Toggle classe para dashboard no main-content
         const mainContent = document.querySelector('.main-content');
@@ -3999,7 +4045,7 @@ const app = {
         const busca = (document.getElementById('pos-barcode')?.value || '').trim().toLowerCase();
 
         chips.innerHTML = [{ id: '', name: 'Todos' }, ...this.state.categories].map(c =>
-            `<button type="button" class="pos-chip${categoria === c.id ? ' active' : ''}" data-cat="${this.esc(c.id)}">${this.esc(c.name)}</button>`
+            `<button type="button" class="pos-chip${categoria === c.id ? ' active' : ''}" data-cat="${this.esc(c.id)}">${this.esc(c.name)}<span class="pos-chip-count">${this.state.products.filter(p => !c.id || p.category === c.id).length}</span></button>`
         ).join('');
 
         const lista = this.state.products
@@ -4009,6 +4055,42 @@ const app = {
 
         if (lista.length === 0) {
             grid.innerHTML = '<div class="pos-empty">Nenhum produto encontrado.</div>';
+            return;
+        }
+
+        const visual = this.getPosVisual();
+        grid.classList.toggle('pos-grid-lista', visual === 'lista');
+        document.querySelectorAll('.pos-view-toggle [data-modo]').forEach(btn => {
+            const ativo = btn.dataset.modo === visual;
+            btn.classList.toggle('active', ativo);
+            btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+
+        if (visual === 'lista') {
+            grid.innerHTML = lista.map(p => {
+                const semEstoque = !(p.stock > 0);
+                const noCarrinho = (this.state.cart.find(i => i.id === p.id) || {}).qty || 0;
+                const esgotado = semEstoque || noCarrinho >= p.stock;
+                const foto = p.image
+                    ? `<img class="pos-foto" src="${p.image}" alt="">`
+                    : `<span class="pos-row-letter">${this.esc((p.name || '?').charAt(0).toUpperCase())}</span>`;
+                return `
+                <div class="pos-row${semEstoque ? ' is-out' : ''}${noCarrinho ? ' in-cart' : ''}">
+                    <span class="pos-row-img">${foto}</span>
+                    <span class="pos-row-info">
+                        <span class="pos-row-name">${this.esc(p.name)}</span>
+                        <span class="pos-row-meta">Código ${this.esc(String(p.code || '—'))}</span>
+                    </span>
+                    <span class="pos-row-stock">${semEstoque ? 'Sem estoque' : p.stock + ' un'}</span>
+                    <strong class="pos-row-price">${this.formatCurrency(p.price)}</strong>
+                    <span class="pos-row-actions">
+                        <button type="button" class="pos-row-btn remove" data-id="${this.esc(String(p.id))}" data-act="-1" title="Remover uma unidade" aria-label="Remover uma unidade" ${noCarrinho ? '' : 'disabled'}>−</button>
+                        <span class="pos-row-qty">${noCarrinho}</span>
+                        <button type="button" class="pos-row-btn add" data-id="${this.esc(String(p.id))}" data-act="1" title="Adicionar ao carrinho" aria-label="Adicionar ao carrinho" ${esgotado ? 'disabled' : ''}>+</button>
+                    </span>
+                </div>`;
+            }).join('');
+            this.ajustarFotosPdv(grid);
             return;
         }
 

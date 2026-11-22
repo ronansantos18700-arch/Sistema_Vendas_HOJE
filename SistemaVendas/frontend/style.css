@@ -6128,3 +6128,169 @@ i.bx {
 /* Fiado: atraso e prazo */
 .fiado-atraso { color: #a2473c; font-weight: 600; }
 #customers-list-labs .col-fiado .fiado-atraso { display: block; font-size: 0.72rem; }
+
+/* ===== PDV: busca com botão de foco total ===== */
+#pos-view .pos-search-row { display: flex; align-items: center; gap: 0.6rem; }
+#pos-view .pos-search-row .pos-search { flex: 1; min-width: 0; }
+#pos-view .pos-tool-btn {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-card);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+}
+#pos-view .pos-tool-btn i { width: 19px; height: 19px; }
+#pos-view .pos-tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Foco total ativo: ícone azul */
+#pos-view .pos-tool-btn#btn-pos-foco.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.12);
+}
+
+/* ===== PDV: categorias com contagem + alternância lista/cards ===== */
+#pos-view .pos-chips-row { display: flex; align-items: center; gap: 0.6rem; }
+#pos-view .pos-chips-row .pos-chips { flex: 1; min-width: 0; }
+#pos-view .pos-view-toggle { display: inline-flex; gap: 0.35rem; flex-shrink: 0; }
+#pos-view .pos-view-toggle .pos-tool-btn { width: 38px; height: 38px; }
+#pos-view .pos-view-toggle .pos-tool-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+}
+#pos-view .pos-chip { display: inline-flex; align-items: center; gap: 0.45rem; }
+#pos-view .pos-chip-count {
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+}
+#pos-view .pos-chip.active .pos-chip-count { background: rgba(255, 255, 255, 0.25); color: var(--on-accent); }
+
+/* ===== PDV: lista de produtos ===== */
+#pos-view .pos-grid.pos-grid-lista {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+    padding: 0.1rem 0.3rem 0.5rem 0.1rem;
+}
+#pos-view .pos-row {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 0.8rem;
+    min-height: 66px;
+    padding: 0.45rem 0.75rem;
+    background: var(--glass-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
+    transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+#pos-view .pos-row:hover { border-color: rgba(var(--accent-rgb), 0.5); }
+#pos-view .pos-row.in-cart { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.05); }
+#pos-view .pos-row.is-out { opacity: 0.5; }
+#pos-view .pos-row-img {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--glass-inner);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#pos-view .pos-row-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#pos-view .pos-row-letter { color: var(--accent); font-size: var(--fs-lg); font-weight: 600; }
+#pos-view .pos-row-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+#pos-view .pos-row-name {
+    font-size: var(--fs-base);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#pos-view .pos-row-meta { font-size: var(--fs-xs); color: var(--text-dim); }
+#pos-view .pos-row-stock { font-size: var(--fs-sm); color: var(--text-dim); white-space: nowrap; min-width: 70px; text-align: right; }
+#pos-view .pos-row.is-out .pos-row-stock { color: var(--color-danger); }
+#pos-view .pos-row-price {
+    font-size: var(--fs-base);
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    min-width: 96px;
+    text-align: right;
+}
+#pos-view .pos-row-actions { display: inline-flex; align-items: center; gap: 0.4rem; }
+#pos-view .pos-row-qty { min-width: 26px; text-align: center; font-weight: 600; font-size: var(--fs-base); }
+#pos-view .pos-row-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-inner);
+    color: var(--text-white);
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+#pos-view .pos-row-btn.add { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+#pos-view .pos-row-btn.add:hover:not(:disabled) { filter: brightness(1.08); }
+#pos-view .pos-row-btn.remove:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger); }
+#pos-view .pos-row-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ===== PDV: total em destaque ===== */
+#pos-view .pos-total-row {
+    padding: 0.55rem 0.8rem;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.16), rgba(var(--accent-rgb), 0.04));
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+}
+#pos-view .pos-total-row span { color: var(--accent); }
+
+/* ===== PDV: formas de pagamento com cor própria ===== */
+#pos-view .pos-pay-btn[data-pay="dinheiro"] { --pay-cor: var(--color-success); }
+#pos-view .pos-pay-btn[data-pay="cartao"] { --pay-cor: #4070f4; }
+#pos-view .pos-pay-btn[data-pay="pix"] { --pay-cor: #13a3a0; }
+#pos-view .pos-pay-btn[data-pay="fiado"] { --pay-cor: var(--color-warning); }
+#pos-view .pos-pay-btn::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 0.45rem;
+    border-radius: 50%;
+    background: var(--pay-cor, var(--accent));
+    vertical-align: middle;
+}
+#pos-view .pos-pay-btn:hover { border-color: var(--pay-cor, var(--accent)); }
+#pos-view .pos-pay-btn.active {
+    background: var(--pay-cor, var(--accent));
+    border-color: var(--pay-cor, var(--accent));
+    color: #ffffff;
+}
+#pos-view .pos-pay-btn.active::before { background: #ffffff; }
+
+/* ===== PDV: modo de foco total ===== */
+.app-container.pos-focus-total .view-container { padding: 0; }
+.app-container.pos-focus-total .pos-view.active {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    padding: 0.9rem;
+}
+

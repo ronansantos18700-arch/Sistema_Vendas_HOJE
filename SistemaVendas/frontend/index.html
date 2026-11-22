@@ -475,11 +475,20 @@
                 <section id="pos-view" class="view pos-view">
                     <div class="pos-layout">
                         <div class="pos-catalog">
-                            <div class="pos-search">
-                                <i data-lucide="search"></i>
-                                <input type="text" id="pos-barcode" placeholder="Código de barras ou nome do produto (F2)" autocomplete="off">
+                            <div class="pos-search-row">
+                                <div class="pos-search">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" id="pos-barcode" placeholder="Código de barras ou nome do produto (F2)" autocomplete="off">
+                                </div>
+                                <button type="button" id="btn-pos-foco" class="pos-tool-btn" title="Modo de foco total" aria-label="Modo de foco total" aria-pressed="false"><i data-lucide="maximize-2"></i></button>
                             </div>
-                            <div id="pos-chips" class="pos-chips"></div>
+                            <div class="pos-chips-row">
+                                <div id="pos-chips" class="pos-chips"></div>
+                                <div class="pos-view-toggle" role="group" aria-label="Modo de exibição dos produtos">
+                                    <button type="button" class="pos-tool-btn" data-modo="lista" title="Lista" aria-label="Lista"><i data-lucide="list"></i></button>
+                                    <button type="button" class="pos-tool-btn" data-modo="cards" title="Cards" aria-label="Cards"><i data-lucide="layout-grid"></i></button>
+                                </div>
+                            </div>
                             <div id="pos-product-grid" class="pos-grid"></div>
                         </div>
 
