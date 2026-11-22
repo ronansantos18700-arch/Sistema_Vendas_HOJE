@@ -124,6 +124,9 @@
 
                 <div class="header-right">
                     <div class="header-actions">
+                        <button id="btn-pos-modo-foco" class="btn-notification" type="button" title="Modo foco (tela cheia do PDV)" aria-label="Modo foco" style="display:none;">
+                            <i data-lucide="maximize-2"></i>
+                        </button>
                         <button id="btn-add-user-shortcut" class="btn-notification requer-login" title="Novo Usuário">
                             <i data-lucide="plus"></i>
                         </button>
@@ -484,7 +487,13 @@
                                 <i data-lucide="search"></i>
                                 <input type="text" id="pos-barcode" placeholder="Código de barras ou nome do produto (F2)" autocomplete="off">
                             </div>
-                            <div id="pos-chips" class="pos-chips"></div>
+                            <div class="pos-chips-row">
+                                <div id="pos-chips" class="pos-chips"></div>
+                                <div class="pos-view-toggle" role="group" aria-label="Modo de exibição dos produtos">
+                                    <button type="button" id="btn-pos-lista" class="pos-view-btn" data-modo="lista" title="Lista" aria-label="Lista"><i data-lucide="list"></i></button>
+                                    <button type="button" id="btn-pos-cards" class="pos-view-btn" data-modo="cards" title="Cards" aria-label="Cards"><i data-lucide="layout-grid"></i></button>
+                                </div>
+                            </div>
                             <div id="pos-product-grid" class="pos-grid"></div>
                         </div>
 

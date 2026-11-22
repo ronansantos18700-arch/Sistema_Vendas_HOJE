@@ -984,8 +984,15 @@ const app = {
         // PDV: botão para sair do modo foco e mostrar o menu
         const btnPosFoco = document.getElementById('btn-pos-foco');
         if (btnPosFoco) {
-            btnPosFoco.addEventListener('click', () => this.aplicarFocoPdv(null));
+            btnPosFoco.addEventListener('click', () => this.setFocoPdv(false));
         }
+        const btnPosModoFoco = document.getElementById('btn-pos-modo-foco');
+        if (btnPosModoFoco) {
+            btnPosModoFoco.addEventListener('click', () => this.setFocoPdv(true));
+        }
+        document.querySelectorAll('.pos-view-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.setPosVisual(btn.dataset.modo));
+        });
 
         // Sidebar Toggle
         const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
@@ -1314,19 +1321,38 @@ const app = {
     },
 
     // PDV em modo foco: esconde menu lateral e barra superior ao entrar no PDV
-    // PDV em modo foco: esconde menu lateral e barra superior. Além da classe (CSS),
-    // define o display direto nos elementos, para o efeito não depender de cache do CSS.
+    // PDV: entrar na tela liga o modo foco; sair para outra tela desliga.
     aplicarFocoPdv(viewId) {
+        if (viewId === 'pos') this.setFocoPdv(true);
+        else this.setFocoPdv(false, false);
+    },
+
+    // Liga/desliga o modo foco (sem menu lateral e sem barra superior).
+    // Também define o display direto nos elementos, para não depender de cache do CSS.
+    // Com o modo foco desligado, o botão de entrar no foco aparece na barra superior.
+    setFocoPdv(ativo, mostrarEntrar = true) {
         const container = document.querySelector('.app-container');
         if (!container) return;
-        const foco = viewId === 'pos';
-        container.classList.toggle('pos-focus', foco);
+        const naTelaPdv = this.state.currentView === 'pos';
+        container.classList.toggle('pos-focus', ativo);
         const sidebar = container.querySelector('.sidebar');
         const topo = container.querySelector('.top-header');
-        const botao = document.getElementById('btn-pos-foco');
-        if (sidebar) sidebar.style.display = foco ? 'none' : '';
-        if (topo) topo.style.display = foco ? 'none' : '';
-        if (botao) botao.style.display = foco ? 'inline-flex' : 'none';
+        const botaoSair = document.getElementById('btn-pos-foco');
+        const botaoEntrar = document.getElementById('btn-pos-modo-foco');
+        if (sidebar) sidebar.style.display = ativo ? 'none' : '';
+        if (topo) topo.style.display = ativo ? 'none' : '';
+        if (botaoSair) botaoSair.style.display = ativo ? 'inline-flex' : 'none';
+        if (botaoEntrar) botaoEntrar.style.display = (!ativo && naTelaPdv && mostrarEntrar) ? 'inline-flex' : 'none';
+    },
+
+    // Lista ou cards para os produtos do PDV (preferência salva no navegador)
+    getPosVisual() {
+        return localStorage.getItem('sv_pos_visual') === 'cards' ? 'cards' : 'lista';
+    },
+
+    setPosVisual(modo) {
+        localStorage.setItem('sv_pos_visual', modo === 'cards' ? 'cards' : 'lista');
+        this.renderPosCatalog();
     },
 
     initLucide() {
@@ -4032,6 +4058,36 @@ const app = {
 
         if (lista.length === 0) {
             grid.innerHTML = '<div class="pos-empty">Nenhum produto encontrado.</div>';
+            return;
+        }
+
+        const visual = this.getPosVisual();
+        grid.classList.toggle('pos-grid-lista', visual === 'lista');
+        document.querySelectorAll('.pos-view-btn').forEach(btn => {
+            const ativo = btn.dataset.modo === visual;
+            btn.classList.toggle('active', ativo);
+            btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+
+        if (visual === 'lista') {
+            grid.innerHTML = lista.map(p => {
+                const semEstoque = !(p.stock > 0);
+                const foto = p.image
+                    ? `<img class="pos-foto" src="${p.image}" alt="">`
+                    : `<span class="pos-row-letter">${this.esc((p.name || '?').charAt(0).toUpperCase())}</span>`;
+                return `
+                <button type="button" class="pos-row${semEstoque ? ' is-out' : ''}" ${semEstoque ? 'disabled' : ''} onclick="app.addToCart('${p.id}', 1)">
+                    <span class="pos-row-img">${foto}</span>
+                    <span class="pos-row-info">
+                        <span class="pos-row-name">${this.esc(p.name)}</span>
+                        <span class="pos-row-meta">Código ${this.esc(String(p.code || '—'))}</span>
+                    </span>
+                    <span class="pos-row-stock">${semEstoque ? 'Sem estoque' : p.stock + ' un'}</span>
+                    <strong class="pos-row-price">${this.formatCurrency(p.price)}</strong>
+                    <span class="pos-row-add" aria-hidden="true">+</span>
+                </button>`;
+            }).join('');
+            this.ajustarFotosPdv(grid);
             return;
         }
 
