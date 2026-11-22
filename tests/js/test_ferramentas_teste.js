@@ -88,5 +88,12 @@ teste('tela fica bloqueada para gravação durante a exclusão e em caso de falh
   assert.ok(corpo.includes('Recarregue a página (F5)'), 'falta orientação de recarregar em caso de falha');
 });
 
+teste('carregarDados não cria produtos/clientes de exemplo (eles voltavam ao servidor)', () => {
+  assert.ok(!app.includes('MacBook Pro M3'), 'produto de exemplo ainda existe');
+  assert.ok(!app.includes('João Silva'), 'cliente de exemplo ainda existe');
+  const corpo = app.slice(app.indexOf('async carregarDados() {'), app.indexOf('chaveDiaLocal(d) {'));
+  assert.ok(!/products\.length === 0 && !window\.chrome/.test(corpo), 'bloco de exemplo voltou');
+});
+
 console.log(falhas === 0 ? '\nTodos os testes de ferramenta de teste passaram.' : `\n${falhas} teste(s) falharam.`);
 process.exitCode = falhas === 0 ? 0 : 1;

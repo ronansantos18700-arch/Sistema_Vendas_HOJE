@@ -2937,17 +2937,6 @@ const app = {
 
         this.iniciarHistoricoEstoque();
 
-        if (this.state.products.length === 0 && !window.chrome?.webview) {
-            this.state.products = [
-                { id: '1', name: 'MacBook Pro M3', code: '1001', cost: 8000, price: 14500, stock: 5, image: '' },
-                { id: '2', name: 'iPhone 15 Pro', code: '1002', cost: 4500, price: 8900, stock: 12, image: '' }
-            ];
-            this.state.customers = [
-                { id: 'c1', name: 'João Silva', whatsapp: '(11) 98888-7777', date: new Date().toISOString(), image: '' }
-            ];
-            this.iniciarHistoricoEstoque();
-            this.salvarDados();
-        }
     },
 
     // --- Dashboard Helpers ---
