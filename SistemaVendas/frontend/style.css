@@ -6141,3 +6141,38 @@ i.bx {
 /* Fiado: atraso e prazo */
 .fiado-atraso { color: #a2473c; font-weight: 600; }
 #customers-list-labs .col-fiado .fiado-atraso { display: block; font-size: 0.72rem; }
+
+/* PDV em modo foco: sem menu lateral e sem barra superior, para dar espaço ao carrinho */
+.btn-pos-foco {
+    display: none;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1100;
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-card);
+    color: var(--text-white);
+    cursor: pointer;
+    transition: border-color var(--dur-fast), color var(--dur-fast);
+}
+.btn-pos-foco:hover { border-color: var(--accent); color: var(--accent); }
+.btn-pos-foco i { width: 18px; height: 18px; }
+
+.app-container.pos-focus .btn-pos-foco { display: inline-flex; }
+.app-container.pos-focus .sidebar { display: none; }
+.app-container.pos-focus .top-header { display: none; }
+.app-container.pos-focus .pos-view.active {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    padding: 0.75rem 0.75rem 0.75rem 3.4rem; /* folga para o botão de menu */
+}
+.app-container.pos-focus .main-content { padding: 0; }
+.app-container.pos-focus #pos-view .pos-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(380px, 32vw, 480px);
+    gap: 0.9rem;
+}

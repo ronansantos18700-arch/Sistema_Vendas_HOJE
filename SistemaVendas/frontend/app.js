@@ -981,6 +981,14 @@ const app = {
             });
         });
 
+        // PDV: botão para sair do modo foco e mostrar o menu
+        const btnPosFoco = document.getElementById('btn-pos-foco');
+        if (btnPosFoco) {
+            btnPosFoco.addEventListener('click', () => {
+                document.querySelector('.app-container')?.classList.remove('pos-focus');
+            });
+        }
+
         // Sidebar Toggle
         const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
         if (btnToggleSidebar) {
@@ -1307,6 +1315,13 @@ const app = {
         // Data e vendas do dia foram removidas do topbar
     },
 
+    // PDV em modo foco: esconde menu lateral e barra superior ao entrar no PDV
+    aplicarFocoPdv(viewId) {
+        const container = document.querySelector('.app-container');
+        if (!container) return;
+        container.classList.toggle('pos-focus', viewId === 'pos');
+    },
+
     initLucide() {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({
@@ -1329,6 +1344,7 @@ const app = {
         }
 
         this.state.currentView = viewId;
+        this.aplicarFocoPdv(viewId);
 
         // Toggle classe para dashboard no main-content
         const mainContent = document.querySelector('.main-content');
