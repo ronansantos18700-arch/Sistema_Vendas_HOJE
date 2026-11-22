@@ -314,11 +314,12 @@ namespace SV.Api.Servicos
             return pasta;
         }
 
-        /// <summary>Grava a imagem (base64) com nome aleatório. Retorna o nome do arquivo.</summary>
         /// <summary>
         /// Apaga todos os dados (produtos, vendas, clientes etc.), os usuários e as fotos.
-        /// Só é usado pela rota de teste (Ferramentas:ModoTeste). Depois recria o administrador
+        /// Usado pela rota de exclusão (administrador, com confirmação). Depois recria o administrador
         /// padrão, como a inicialização já faz quando não há usuários.
+        /// Se as fotos não puderem ser apagadas (arquivo em uso), o banco continua apagado;
+        /// os arquivos que sobraram são listados no console.
         /// </summary>
         public static void ExcluirTudo()
         {
@@ -336,12 +337,25 @@ namespace SV.Api.Servicos
                     throw new RegraNegocioException("Não foi possível apagar os dados.");
                 }
 
+                // Fotos: best-effort. O banco já foi apagado; uma foto presa não deve impedir o resto.
                 foreach (string arquivo in Directory.GetFiles(PastaImagens()))
                 {
-                    File.Delete(arquivo);
+                    try
+                    {
+                        File.Delete(arquivo);
+                    }
+                    catch (IOException ex)
+                    {
+                        Console.Error.WriteLine("[TESTE] Foto não apagada: " + arquivo + " (" + ex.Message + ")");
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        Console.Error.WriteLine("[TESTE] Foto não apagada: " + arquivo + " (" + ex.Message + ")");
+                    }
                 }
 
                 GarantirAdministrador();
+                Console.WriteLine("[TESTE] Banco apagado em: " + SistemaVendas.Database.Caminho);
             }
         }
 

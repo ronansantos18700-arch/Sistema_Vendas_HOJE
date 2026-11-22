@@ -68,5 +68,25 @@ teste('sessões são encerradas após apagar', () => {
   assert.ok(rotas.includes('Sessoes.EncerrarTodas();'));
 });
 
+teste('erro inesperado no servidor vira 500 com mensagem (não fica sem resposta)', () => {
+  const j = rotas.indexOf('MapPost("/api/dados/excluir-tudo"');
+  const bloco = rotas.slice(j, rotas.indexOf('// --- Imagens:', j));
+  assert.ok(bloco.includes('catch (Exception ex)'), 'falta catch geral');
+  assert.ok(bloco.includes('Erro(500,'), 'catch geral não devolve 500');
+});
+
+teste('fotos presas não impedem a exclusão do banco nem o admin padrão', () => {
+  const corpo = dados.slice(dados.indexOf('public static void ExcluirTudo()'), dados.indexOf('public static string SalvarImagem'));
+  assert.ok(corpo.includes('File.Delete(arquivo);') && corpo.includes('catch (IOException ex)'));
+  assert.ok(corpo.indexOf('GarantirAdministrador();') > corpo.indexOf('Directory.GetFiles'));
+});
+
+teste('tela fica bloqueada para gravação durante a exclusão e em caso de falha', () => {
+  const corpo = app.slice(app.indexOf('async executarExclusaoTotalTeste() {'), app.indexOf('async resetSystemUsers() {'));
+  const antesDoTry = corpo.slice(0, corpo.indexOf('try {'));
+  assert.ok(antesDoTry.includes('this.state.dataLoaded = false;'), 'flag não é zerada antes da chamada');
+  assert.ok(corpo.includes('Recarregue a página (F5)'), 'falta orientação de recarregar em caso de falha');
+});
+
 console.log(falhas === 0 ? '\nTodos os testes de ferramenta de teste passaram.' : `\n${falhas} teste(s) falharam.`);
 process.exitCode = falhas === 0 ? 0 : 1;

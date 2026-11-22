@@ -1720,6 +1720,8 @@ const app = {
     async executarExclusaoTotalTeste() {
         this.logAudit('EXCLUIR_TUDO_TESTE', {});
         this.setLoading(true);
+        // Antes de tudo: nada da memória pode ser gravado de volta enquanto a exclusão acontece.
+        this.state.dataLoaded = false;
         try {
             if (this.emModoServidor()) {
                 await this.servidor.excluirTudo();
@@ -1742,12 +1744,13 @@ const app = {
                 const ok = await bridge.SaveAll(JSON.stringify(payload));
                 if (!ok) throw new Error('O banco recusou a gravação.');
             }
-            // Impede que a memória antiga seja gravada de volta antes de recarregar.
-            this.state.dataLoaded = false;
             this.showNotification('success', 'Todos os dados foram apagados. Entre com admin / 1234.');
             setTimeout(() => location.reload(), 1200);
         } catch (e) {
-            this.showNotification('error', 'Não foi possível apagar os dados: ' + (e.message || e));
+            // A tela pode estar diferente do banco (a exclusão pode ter ocorrido mesmo com erro).
+            // Fica bloqueada para gravação; recarregar mostra o que realmente está gravado.
+            this.showNotification('error', 'Não foi possível confirmar a exclusão: ' + (e.message || e) +
+                ' Recarregue a página (F5) para ver o que está gravado no banco. Nada da tela foi gravado.');
         } finally {
             this.setLoading(false);
         }
